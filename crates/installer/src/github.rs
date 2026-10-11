@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::fs::File;
@@ -33,7 +33,10 @@ pub fn fetch_release_info(target: &str, beta_mode: bool) -> Result<ReleaseInfo> 
 
     if beta_mode {
         let url = format!("https://api.github.com/repos/{}/releases?per_page=50", REPO);
-        let resp = client.get(&url).send().context("Failed to query GitHub API for releases")?;
+        let resp = client
+            .get(&url)
+            .send()
+            .context("Failed to query GitHub API for releases")?;
         let releases: Vec<GhRelease> = resp.json().context("Failed to parse releases JSON")?;
 
         for r in releases {
@@ -89,10 +92,7 @@ pub fn fetch_release_info(target: &str, beta_mode: bool) -> Result<ReleaseInfo> 
     }
 }
 
-pub fn download_and_extract_binary<F>(
-    download_url: &str,
-    progress_callback: F,
-) -> Result<PathBuf>
+pub fn download_and_extract_binary<F>(download_url: &str, progress_callback: F) -> Result<PathBuf>
 where
     F: Fn(f64, &str),
 {
@@ -137,7 +137,10 @@ where
             let frac = 0.15 + 0.60 * (downloaded as f64 / total_size as f64);
             let mb = downloaded as f64 / (1024.0 * 1024.0);
             let total_mb = total_size as f64 / (1024.0 * 1024.0);
-            progress_callback(frac, &format!("Downloading archive ({:.1} MB / {:.1} MB)...", mb, total_mb));
+            progress_callback(
+                frac,
+                &format!("Downloading archive ({:.1} MB / {:.1} MB)...", mb, total_mb),
+            );
         } else {
             let mb = downloaded as f64 / (1024.0 * 1024.0);
             progress_callback(0.40, &format!("Downloading archive ({:.1} MB)...", mb));
@@ -149,7 +152,9 @@ where
     let decompressor = GzDecoder::new(tar_file);
     let mut archive = Archive::new(decompressor);
 
-    archive.unpack(&temp_dir).context("Failed to unpack archive")?;
+    archive
+        .unpack(&temp_dir)
+        .context("Failed to unpack archive")?;
 
     let extracted_capsule = temp_dir.join("capsule");
     if extracted_capsule.exists() {
@@ -161,7 +166,9 @@ where
             progress_callback(0.90, "Archive extracted successfully.");
             Ok(extracted_capital)
         } else {
-            Err(anyhow!("No 'capsule' binary found inside downloaded archive"))
+            Err(anyhow!(
+                "No 'capsule' binary found inside downloaded archive"
+            ))
         }
     }
 }

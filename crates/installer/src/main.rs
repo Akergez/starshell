@@ -9,9 +9,9 @@ use app::{App, Step};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io::stdout;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -79,7 +79,11 @@ fn main() -> Result<()> {
 
     running.store(false, Ordering::Relaxed);
     disable_raw_mode()?;
-    execute!(std::io::stdout(), LeaveAlternateScreen, crossterm::cursor::Show)?;
+    execute!(
+        std::io::stdout(),
+        LeaveAlternateScreen,
+        crossterm::cursor::Show
+    )?;
     terminal.show_cursor()?;
 
     if let Err(e) = res {
@@ -270,7 +274,11 @@ fn run_deps_installation<B: ratatui::backend::Backend>(
     }
 
     disable_raw_mode()?;
-    execute!(std::io::stdout(), LeaveAlternateScreen, crossterm::cursor::Show)?;
+    execute!(
+        std::io::stdout(),
+        LeaveAlternateScreen,
+        crossterm::cursor::Show
+    )?;
 
     println!("\n==> Installing missing packages: {}", missing.join(" "));
 
@@ -308,7 +316,11 @@ fn run_deps_installation<B: ratatui::backend::Backend>(
     let _ = std::io::stdin().read_line(&mut dummy);
 
     enable_raw_mode()?;
-    execute!(std::io::stdout(), EnterAlternateScreen, crossterm::cursor::Hide)?;
+    execute!(
+        std::io::stdout(),
+        EnterAlternateScreen,
+        crossterm::cursor::Hide
+    )?;
     terminal.clear()?;
 
     app.scan_dependencies();

@@ -1,7 +1,7 @@
 use crate::github::{self, ReleaseInfo};
 use crate::install;
 use crate::system::{self, AurHelper};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{Receiver, channel};
 use std::thread;
 
 pub const ARCH_DEPENDENCIES: &[&str] = &[
@@ -189,7 +189,8 @@ impl App {
         self.progress = 0.05;
         self.status_message = "Preparing installation...".to_string();
         self.logs.clear();
-        self.logs.push("Starting installation process...".to_string());
+        self.logs
+            .push("Starting installation process...".to_string());
 
         let (tx, rx) = channel::<WorkerMsg>();
         self.worker_rx = Some(rx);
@@ -202,25 +203,40 @@ impl App {
         thread::spawn(move || {
             let run = || -> Result<(), String> {
                 if was_running {
-                    let _ = tx.send(WorkerMsg::Progress(0.10, "Stopping existing Capsule process...".to_string()));
-                    let _ = tx.send(WorkerMsg::Log("Stopping existing Capsule process...".to_string()));
+                    let _ = tx.send(WorkerMsg::Progress(
+                        0.10,
+                        "Stopping existing Capsule process...".to_string(),
+                    ));
+                    let _ = tx.send(WorkerMsg::Log(
+                        "Stopping existing Capsule process...".to_string(),
+                    ));
                     system::stop_capsule_process();
                 }
 
                 let binary_path = if let Some(local_bin) = system::find_local_release_binary() {
-                    let _ = tx.send(WorkerMsg::Progress(0.50, "Found local release binary in workspace.".to_string()));
-                    let _ = tx.send(WorkerMsg::Log(format!("Using local binary: {}", local_bin.display())));
+                    let _ = tx.send(WorkerMsg::Progress(
+                        0.50,
+                        "Found local release binary in workspace.".to_string(),
+                    ));
+                    let _ = tx.send(WorkerMsg::Log(format!(
+                        "Using local binary: {}",
+                        local_bin.display()
+                    )));
                     local_bin
                 } else {
                     let download_url = match &release_info {
                         Some(info) => info.download_url.clone(),
                         None => format!(
                             "https://github.com/{}/releases/latest/download/capsule-{}.tar.gz",
-                            github::REPO, target
+                            github::REPO,
+                            target
                         ),
                     };
 
-                    let _ = tx.send(WorkerMsg::Log(format!("Fetching asset from: {}", download_url)));
+                    let _ = tx.send(WorkerMsg::Log(format!(
+                        "Fetching asset from: {}",
+                        download_url
+                    )));
                     let tx_prog = tx.clone();
                     match github::download_and_extract_binary(&download_url, move |pct, msg| {
                         let _ = tx_prog.send(WorkerMsg::Progress(pct, msg.to_string()));
@@ -230,19 +246,32 @@ impl App {
                     }
                 };
 
-                let _ = tx.send(WorkerMsg::Progress(0.92, "Installing binary to /usr/local/bin...".to_string()));
-                let _ = tx.send(WorkerMsg::Log("Copying capsule binary to /usr/local/bin/capsule...".to_string()));
+                let _ = tx.send(WorkerMsg::Progress(
+                    0.92,
+                    "Installing binary to /usr/local/bin...".to_string(),
+                ));
+                let _ = tx.send(WorkerMsg::Log(
+                    "Copying capsule binary to /usr/local/bin/capsule...".to_string(),
+                ));
                 if let Err(e) = install::copy_binary_to_system(&binary_path, sudo_pass.as_deref()) {
                     return Err(format!("Failed to copy binary: {}", e));
                 }
 
-                let _ = tx.send(WorkerMsg::Progress(0.96, "Creating desktop launcher entry...".to_string()));
-                let _ = tx.send(WorkerMsg::Log("Writing /usr/share/applications/capsule.desktop...".to_string()));
+                let _ = tx.send(WorkerMsg::Progress(
+                    0.96,
+                    "Creating desktop launcher entry...".to_string(),
+                ));
+                let _ = tx.send(WorkerMsg::Log(
+                    "Writing /usr/share/applications/capsule.desktop...".to_string(),
+                ));
                 if let Err(e) = install::create_desktop_entry(sudo_pass.as_deref()) {
                     return Err(format!("Failed to create desktop entry: {}", e));
                 }
 
-                let _ = tx.send(WorkerMsg::Progress(1.0, "Installation finished successfully!".to_string()));
+                let _ = tx.send(WorkerMsg::Progress(
+                    1.0,
+                    "Installation finished successfully!".to_string(),
+                ));
                 let _ = tx.send(WorkerMsg::Log("Installation complete.".to_string()));
 
                 Ok(())
@@ -264,18 +293,16 @@ impl App {
                     WorkerMsg::Log(line) => {
                         self.logs.push(line);
                     }
-                    WorkerMsg::Done(res) => {
-                        match res {
-                            Ok(()) => {
-                                self.installed_version = system::get_installed_capsule_version();
-                                self.step = Step::Finished;
-                            }
-                            Err(e) => {
-                                self.error_message = Some(e);
-                                self.step = Step::Welcome;
-                            }
+                    WorkerMsg::Done(res) => match res {
+                        Ok(()) => {
+                            self.installed_version = system::get_installed_capsule_version();
+                            self.step = Step::Finished;
                         }
-                    }
+                        Err(e) => {
+                            self.error_message = Some(e);
+                            self.step = Step::Welcome;
+                        }
+                    },
                 }
             }
         }

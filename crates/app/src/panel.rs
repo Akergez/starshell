@@ -60,7 +60,7 @@ impl CapsulePanel {
             cx.displays().first().map(|display| display.bounds().size),
             cx,
         );
-        
+
         let mut options = Self::window_options(cx);
         options.inactive_frame_interval = None;
         options.window_bounds = Some(WindowBounds::Windowed(gpui::Bounds {

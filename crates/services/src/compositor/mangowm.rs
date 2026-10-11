@@ -253,12 +253,16 @@ async fn monitor_outputs(rates: Arc<ArcSwap<HashMap<String, f64>>>) -> anyhow::R
                 Poll::Pending => Poll::Pending,
                 Poll::Ready(Err(error)) => Poll::Ready(Err(error.into())),
                 Poll::Ready(Ok(mut readiness)) => match read.read() {
+                    Ok(0) => {
+                        readiness.clear_ready();
+                        Poll::Ready(Ok(()))
+                    }
                     Ok(_) => Poll::Ready(Ok(())),
                     Err(wayland_client::backend::WaylandError::Io(error))
                         if error.kind() == ErrorKind::WouldBlock =>
                     {
                         readiness.clear_ready();
-                        Poll::Pending
+                        Poll::Ready(Ok(()))
                     }
                     Err(error) => Poll::Ready(Err(error.into())),
                 },
@@ -386,6 +390,47 @@ mod tests {
             rates
                 .iter()
                 .all(|(name, rate)| !name.is_empty() && (30.0..=360.0).contains(rate))
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a running Wayland compositor"]
+    async fn output_listener_waits_without_consuming_idle_cpu() {
+        fn thread_cpu_time() -> Duration {
+            let mut time = libc::timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            };
+            assert_eq!(
+                unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut time) },
+                0
+            );
+            Duration::new(time.tv_sec as u64, time.tv_nsec as u32)
+        }
+
+        let backend = Mango::default();
+        let listener = tokio::spawn(monitor_outputs(backend.output_rates.clone()));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while backend.output_rates.load().is_empty() {
+                assert!(!listener.is_finished());
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("initial output events");
+        let started = thread_cpu_time();
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let elapsed = thread_cpu_time() - started;
+        listener.abort();
+        assert!(
+            listener
+                .await
+                .expect_err("listener cancelled")
+                .is_cancelled()
+        );
+        assert!(
+            elapsed < Duration::from_millis(50),
+            "idle CPU time: {elapsed:?}"
         );
     }
 

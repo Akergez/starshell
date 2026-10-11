@@ -1,12 +1,10 @@
 use crate::app::{App, Step};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{
-        Block, BorderType, Borders, Clear, Gauge, List, ListItem, Paragraph, Wrap,
-    },
-    Frame,
+    widgets::{Block, BorderType, Borders, Clear, Gauge, List, ListItem, Paragraph, Wrap},
 };
 
 pub fn render(f: &mut Frame, app: &App) {
@@ -36,15 +34,23 @@ pub fn render(f: &mut Frame, app: &App) {
 
 fn render_header(f: &mut Frame, area: Rect) {
     let title = Line::from(vec![
-        Span::styled("◆ CAPSULE ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-        Span::styled("INSTALLER ◆", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-    ]);
-    let subtitle = Line::from(vec![
         Span::styled(
-            "Next-Gen Dynamic Island Shell for Linux",
-            Style::default().fg(Color::DarkGray),
+            "◆ CAPSULE ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            "INSTALLER ◆",
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
         ),
     ]);
+    let subtitle = Line::from(vec![Span::styled(
+        "Next-Gen Dynamic Island Shell for Linux",
+        Style::default().fg(Color::DarkGray),
+    )]);
 
     let p = Paragraph::new(vec![title, subtitle])
         .alignment(Alignment::Center)
@@ -89,7 +95,9 @@ fn render_stepper(f: &mut Frame, area: Rect, current: Step) {
         } else if is_done {
             spans.push(Span::styled(
                 format!(" ✔ {} ", name),
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
             ));
         } else {
             spans.push(Span::styled(
@@ -123,7 +131,11 @@ fn render_welcome(f: &mut Frame, area: Rect, app: &App) {
 
     let cur_ver = app.installed_version.as_deref().unwrap_or("Not installed");
     let target_ver = app.target_version.as_deref().unwrap_or("Detecting...");
-    let channel_str = if app.beta_mode { "Beta (Pre-release)" } else { "Stable (Latest)" };
+    let channel_str = if app.beta_mode {
+        "Beta (Pre-release)"
+    } else {
+        "Stable (Latest)"
+    };
     let running_str = if app.capsule_was_running {
         "Running (will restart on update)"
     } else {
@@ -133,7 +145,12 @@ fn render_welcome(f: &mut Frame, area: Rect, app: &App) {
     let info_lines = vec![
         Line::from(vec![
             Span::styled("System Target:       ", Style::default().fg(Color::Gray)),
-            Span::styled(app.target, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                app.target,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Package Manager:     ", Style::default().fg(Color::Gray)),
@@ -145,8 +162,16 @@ fn render_welcome(f: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(vec![
             Span::styled("Target Version:      ", Style::default().fg(Color::Gray)),
-            Span::styled(target_ver, Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-            Span::styled(format!(" [{}]", channel_str), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                target_ver,
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!(" [{}]", channel_str),
+                Style::default().fg(Color::DarkGray),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Capsule Status:      ", Style::default().fg(Color::Gray)),
@@ -155,7 +180,9 @@ fn render_welcome(f: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![
             Span::styled("Wallpaper Daemon:    ", Style::default().fg(Color::Gray)),
             Span::styled(
-                app.wallpaper_daemon.as_deref().unwrap_or("None (awww / swww)"),
+                app.wallpaper_daemon
+                    .as_deref()
+                    .unwrap_or("None (awww / swww)"),
                 if app.wallpaper_daemon.is_some() {
                     Style::default().fg(Color::Green)
                 } else {
@@ -230,14 +257,29 @@ fn render_dependencies(f: &mut Frame, area: Rect, app: &App) {
                 let pkg_name = pkg.clone();
                 if *inst {
                     ListItem::new(Line::from(vec![
-                        Span::styled(" ✔ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            " ✔ ",
+                            Style::default()
+                                .fg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(pkg_name, Style::default().fg(Color::White)),
                         Span::styled(" (installed)", Style::default().fg(Color::DarkGray)),
                     ]))
                 } else {
                     ListItem::new(Line::from(vec![
-                        Span::styled(" ➜ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                        Span::styled(pkg_name, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            " ➜ ",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            pkg_name,
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(" (missing)", Style::default().fg(Color::Red)),
                     ]))
                 }
@@ -260,13 +302,21 @@ fn render_dependencies(f: &mut Frame, area: Rect, app: &App) {
             .title(title)
             .borders(Borders::TOP | Borders::LEFT | Borders::BOTTOM)
             .border_type(BorderType::Rounded)
-            .border_style(if missing > 0 { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::Green) }),
+            .border_style(if missing > 0 {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::Green)
+            }),
     );
     let list2 = List::new(col2_items).block(
         Block::default()
             .borders(Borders::TOP | Borders::RIGHT | Borders::BOTTOM)
             .border_type(BorderType::Rounded)
-            .border_style(if missing > 0 { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::Green) }),
+            .border_style(if missing > 0 {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::Green)
+            }),
     );
 
     f.render_widget(list1, cols[0]);
@@ -373,40 +423,68 @@ fn render_finished(f: &mut Frame, area: Rect, app: &App) {
 
     let text = vec![
         Line::from(vec![
-            Span::styled("✔ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
             Span::styled(
-                format!("Capsule {} successfully installed to /usr/local/bin/capsule!", ver),
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                "✔ ",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!(
+                    "Capsule {} successfully installed to /usr/local/bin/capsule!",
+                    ver
+                ),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Desktop entry created at: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("/usr/share/applications/capsule.desktop", Style::default().fg(Color::Cyan)),
+            Span::styled(
+                "Desktop entry created at: ",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                "/usr/share/applications/capsule.desktop",
+                Style::default().fg(Color::Cyan),
+            ),
         ]),
         Line::from(""),
-        Line::from(Span::styled("Autostart Setup:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(
+            "Autostart Setup:",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )),
         Line::from(vec![
             Span::styled("  • Hyprland: ", Style::default().fg(Color::Gray)),
             Span::styled("exec-once = capsule", Style::default().fg(Color::Cyan)),
-            Span::styled(" in ~/.config/hypr/hyprland.conf", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                " in ~/.config/hypr/hyprland.conf",
+                Style::default().fg(Color::DarkGray),
+            ),
         ]),
         Line::from(vec![
             Span::styled("  • Niri:     ", Style::default().fg(Color::Gray)),
-            Span::styled("spawn-at-startup \"capsule\"", Style::default().fg(Color::Cyan)),
-            Span::styled(" in ~/.config/niri/config.kdl", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                "spawn-at-startup \"capsule\"",
+                Style::default().fg(Color::Cyan),
+            ),
+            Span::styled(
+                " in ~/.config/niri/config.kdl",
+                Style::default().fg(Color::DarkGray),
+            ),
         ]),
     ];
 
-    let p = Paragraph::new(text)
-        .wrap(Wrap { trim: true })
-        .block(
-            Block::default()
-                .title(" Installation Succeeded ")
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(Color::Green)),
-        );
+    let p = Paragraph::new(text).wrap(Wrap { trim: true }).block(
+        Block::default()
+            .title(" Installation Succeeded ")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Green)),
+    );
     f.render_widget(p, sub[0]);
 
     let options = [
@@ -465,9 +543,10 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("[Esc] ", Style::default().fg(Color::Cyan)),
             Span::styled("Back", Style::default().fg(Color::Gray)),
         ],
-        Step::Installing => vec![
-            Span::styled("Installing Capsule... Please wait.", Style::default().fg(Color::Cyan)),
-        ],
+        Step::Installing => vec![Span::styled(
+            "Installing Capsule... Please wait.",
+            Style::default().fg(Color::Cyan),
+        )],
         Step::Finished => vec![
             Span::styled("[↑/↓] ", Style::default().fg(Color::Cyan)),
             Span::styled("Navigate  ", Style::default().fg(Color::Gray)),
@@ -500,7 +579,11 @@ fn render_password_modal(f: &mut Frame, app: &App) {
         .title(" Sudo Authentication Required ")
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+        .border_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        );
     f.render_widget(block, area);
 
     let chunks = Layout::default()
@@ -514,8 +597,9 @@ fn render_password_modal(f: &mut Frame, app: &App) {
         .margin(2)
         .split(area);
 
-    let prompt = Paragraph::new("Enter user password to authorize system installation (/usr/local/bin):")
-        .style(Style::default().fg(Color::White));
+    let prompt =
+        Paragraph::new("Enter user password to authorize system installation (/usr/local/bin):")
+            .style(Style::default().fg(Color::White));
     f.render_widget(prompt, chunks[0]);
 
     let masked: String = "•".repeat(app.password_input.len());
@@ -526,7 +610,11 @@ fn render_password_modal(f: &mut Frame, app: &App) {
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+        .style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        );
     f.render_widget(input, chunks[1]);
 
     if let Some(err) = &app.password_error {

@@ -10,13 +10,11 @@ All notable changes to Capsule are documented in this file.
 - Added Power actions for shutting down, rebooting, logging out, and locking the screen.
 - Added an Orbits section in Settings Appearance with persistent switches for Power, Usage, Record, and Shelf.
 - Integrated orb expansion and contraction into the existing Capsule animation preview.
-
+o
 ### Improvements
 - Added a shared color transition for theme, dark/light mode, and dynamic wallpaper palette changes across Capsule, Orbits, and Settings.
-- Kept Power and Usage visible when enabled, while Record and Shelf retain their contextual visibility.
 - Limited usage sampling to the expanded panel and stopped requesting animation frames after transitions finish.
 - Replaced the clipboard header title with the search bar beside Clear and Close.
-- Replaced expanded orb titles with circular controls that transition to a Close icon.
 - Added English and Spanish labels for orb controls and Power actions.
 
 ### Bug Fixes
@@ -25,6 +23,7 @@ All notable changes to Capsule are documented in this file.
 - Prevented duplicate image entries from repeated clipboard writes, equivalent image encodings, and existing general clipboard watchers.
 - Fixed Power and Usage orb clicks failing to start or close animations while GPUI was processing a window event.
 - Fixed the MangoWM output listener failing to compile because a Wayland read guard was held across an asynchronous wait.
+- Fixed excessive idle CPU usage on MangoWM by clearing stale Wayland socket readiness after empty reads and waiting for new output events.
 - Kept expanded orbs inside the available viewport and preserved their corner anchors during interrupted transitions.
 - Reported failed shutdown, reboot, and logout commands instead of treating unsuccessful exit statuses as successful actions.
 - Fixed Settings window clipping on smaller displays and incorrect sizing after screen resolution changes.

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -53,7 +53,11 @@ pub fn copy_binary_to_system(source_bin: &Path, password: Option<&str>) -> Resul
     }
 
     run_sudo_cmd(
-        &["cp", source_bin.to_string_lossy().as_ref(), dest_file.to_string_lossy().as_ref()],
+        &[
+            "cp",
+            source_bin.to_string_lossy().as_ref(),
+            dest_file.to_string_lossy().as_ref(),
+        ],
         password,
     )
     .context("Failed to copy binary to /usr/local/bin/capsule")?;
@@ -75,11 +79,16 @@ pub fn create_desktop_entry(password: Option<&str>) -> Result<()> {
         let _ = run_sudo_cmd(&["mkdir", "-p", "/usr/share/applications"], password);
     }
 
-    let temp_desktop = std::env::temp_dir().join(format!("capsule-desktop-{}.desktop", std::process::id()));
+    let temp_desktop =
+        std::env::temp_dir().join(format!("capsule-desktop-{}.desktop", std::process::id()));
     fs::write(&temp_desktop, DESKTOP_ENTRY_CONTENT)?;
 
     run_sudo_cmd(
-        &["cp", temp_desktop.to_string_lossy().as_ref(), desktop_file.to_string_lossy().as_ref()],
+        &[
+            "cp",
+            temp_desktop.to_string_lossy().as_ref(),
+            desktop_file.to_string_lossy().as_ref(),
+        ],
         password,
     )?;
 
