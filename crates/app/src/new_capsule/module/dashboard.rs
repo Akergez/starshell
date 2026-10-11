@@ -1,11 +1,9 @@
 mod actions;
-mod catalog;
 mod input;
 mod navigation;
 
 use super::{CapsuleModule, CapsuleModuleEvent};
-use crate::new_capsule::widgets::dashboard::{self as widgets, DashboardView};
-use catalog::{Catalog, WallpaperEntry};
+use crate::new_capsule::widgets::dashboard::{self as widgets};
 use chrono::Local;
 use gpui::{
     Context, EventEmitter, FocusHandle, Pixels, Render, Size, Subscription, Task, Window, div,
@@ -16,11 +14,11 @@ use services::{
     AppState, BatteryStatus, MediaTrack, NetworkStatus, NotificationItem, NotificationStore,
     SniItem, SystemStatus,
 };
-use std::{path::PathBuf, time::Duration};
-use ui::{
-    theme::{Theme, theme_manager::ThemeItem},
-    tracker::DimensionTracker,
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
 };
+use ui::{theme::Theme, tracker::DimensionTracker};
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Snapshot {
@@ -58,121 +56,183 @@ impl Snapshot {
 
 pub(crate) struct DashboardModule {
     pub navigation: Navigation,
+    pub satellites: Vec<crate::new_capsule::satellite::SatelliteVisual>,
+    pub wave_phase: f32,
+    pub satellite_heights: Vec<(crate::new_capsule::satellite::SatelliteId, Pixels)>,
+    pub snapshot_at: Instant,
+    active: bool,
+    container_size: Size<Pixels>,
+    _media_animation: Option<Task<()>>,
     pub snapshot: Snapshot,
     pub player_bus: Option<String>,
     pub pending: bool,
-    pub themes: Vec<ThemeItem>,
-    pub wallpapers: Vec<WallpaperEntry>,
-    pub catalog_ready: bool,
     pub volume_bounds: DimensionTracker,
+    pub brightness_bounds: DimensionTracker,
+    pub brightness_preview: Option<u32>,
     pub seek_bounds: DimensionTracker,
     dragging_volume: bool,
+    dragging_brightness: bool,
     dragging_seek: bool,
     focus: FocusHandle,
-    _refresh: Task<()>,
-    _catalog: Task<()>,
+    _refresh: Option<Task<()>>,
     _theme: Subscription,
-    catalog_worker: tokio::task::JoinHandle<()>,
     action_task: Option<Task<()>>,
 }
 
 impl DashboardModule {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::read(cx);
-        let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
-        let catalog_worker = services::spawn_tokio(async move {
-            loop {
-                let Ok(catalog) = tokio::task::spawn_blocking(Catalog::load).await else {
-                    break;
-                };
-                if sender.send(catalog).await.is_err() {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_secs(60)).await;
-            }
-        });
-        let catalog_task = cx.spawn(async move |this, cx| {
-            while let Some(catalog) = receiver.recv().await {
-                if this
-                    .update(cx, |module: &mut Self, cx| {
-                        let changed = !module.catalog_ready
-                            || module.wallpapers != catalog.wallpapers
-                            || module.themes.len() != catalog.themes.len()
-                            || module
-                                .themes
-                                .iter()
-                                .zip(&catalog.themes)
-                                .any(|(a, b)| a.path != b.path || a.theme != b.theme);
-                        module.catalog_ready = true;
-                        module.themes = catalog.themes;
-                        module.wallpapers = catalog.wallpapers;
-                        if changed {
-                            cx.notify();
-                        }
-                    })
-                    .is_err()
-                {
-                    break;
-                }
-            }
-        });
-        let refresh = cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(250))
-                    .await;
-                if this
-                    .update(cx, |module: &mut Self, cx| {
-                        let next = Snapshot::read(cx);
-                        if next != module.snapshot {
-                            module.player_bus =
-                                retain_player(module.player_bus.as_deref(), &next.players);
-                            if module
-                                .navigation
-                                .selected_ssid
-                                .as_ref()
-                                .is_some_and(|ssid| *ssid == next.network.wifi_ssid)
-                            {
-                                module.navigation.selected_ssid = None;
-                                module.navigation.password.clear();
-                            }
-                            module.snapshot = next;
-                            cx.notify();
-                        }
-                    })
-                    .is_err()
-                {
-                    break;
-                }
-            }
-        });
         Self {
+            satellites: Vec::new(),
+            satellite_heights: Vec::new(),
+            wave_phase: 0.0,
+            snapshot_at: Instant::now(),
+            active: false,
+            container_size: widgets::module_size(!snapshot.tray.is_empty()),
+            _media_animation: None,
             player_bus: retain_player(None, &snapshot.players),
             snapshot,
             navigation: Navigation::default(),
             pending: false,
-            themes: Vec::new(),
-            wallpapers: Vec::new(),
-            catalog_ready: false,
             volume_bounds: DimensionTracker::new(),
+            brightness_bounds: DimensionTracker::new(),
+            brightness_preview: None,
             seek_bounds: DimensionTracker::new(),
             dragging_volume: false,
+            dragging_brightness: false,
             dragging_seek: false,
             focus: cx.focus_handle(),
-            _refresh: refresh,
-            _catalog: catalog_task,
+            _refresh: None,
             _theme: cx.observe_global::<Theme>(|_, cx| cx.notify()),
-            catalog_worker,
             action_task: None,
         }
+    }
+
+    pub(crate) fn set_active(&mut self, active: bool, size: Size<Pixels>, cx: &mut Context<Self>) {
+        if self.active != active {
+            self.active = active;
+            if active {
+                self.refresh_snapshot(cx);
+                self._refresh = Some(cx.spawn(async move |this, cx| {
+                    loop {
+                        cx.background_executor()
+                            .timer(Duration::from_millis(250))
+                            .await;
+                        if this
+                            .update(cx, |module: &mut Self, cx| module.refresh_snapshot(cx))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                }));
+            } else {
+                self._refresh = None;
+                self._media_animation = None;
+            }
+        }
+        if self.container_size != size {
+            self.container_size = size;
+            cx.notify();
+        }
+    }
+
+    fn refresh_snapshot(&mut self, cx: &mut Context<Self>) {
+        let next = Snapshot::read(cx);
+        if next != self.snapshot {
+            let size_changed = next.tray.is_empty() != self.snapshot.tray.is_empty();
+            self.player_bus = retain_player(self.player_bus.as_deref(), &next.players);
+            if self
+                .navigation
+                .selected_ssid
+                .as_ref()
+                .is_some_and(|ssid| *ssid == next.network.wifi_ssid)
+            {
+                self.navigation.selected_ssid = None;
+                self.navigation.password.clear();
+            }
+            self.snapshot = next;
+            self.snapshot_at = Instant::now();
+            if size_changed {
+                cx.emit(CapsuleModuleEvent::SizeChanged(
+                    super::CapsuleModuleId::Dashboard,
+                ));
+            }
+            cx.notify();
+        }
+        if !self.player().is_some_and(|player| player.is_playing) {
+            self._media_animation = None;
+        } else if self.active && self._media_animation.is_none() {
+            let epoch = Instant::now();
+            let compositor = cx.global::<AppState>().compositor.clone();
+            self._media_animation = Some(cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor()
+                        .timer(
+                            compositor
+                                .get_frame_duration()
+                                .max(Duration::from_millis(16)),
+                        )
+                        .await;
+                    let running = this.update(cx, |module: &mut Self, cx| {
+                        if !module.active
+                            || !module.player().is_some_and(|player| player.is_playing)
+                        {
+                            return false;
+                        }
+                        module.wave_phase = epoch.elapsed().as_secs_f32() * 3.0;
+                        cx.notify();
+                        true
+                    });
+                    if !matches!(running, Ok(true)) {
+                        break;
+                    }
+                }
+            }));
+        }
+    }
+
+    pub(crate) fn set_satellites(
+        &mut self,
+        visuals: Vec<crate::new_capsule::satellite::SatelliteVisual>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.satellites == visuals {
+            return;
+        }
+        self.satellite_heights
+            .retain(|(id, _)| visuals.iter().any(|visual| &visual.id == id));
+        self.satellites = visuals;
+        cx.notify();
+    }
+
+    pub(crate) fn measure_satellite(
+        &mut self,
+        id: &crate::new_capsule::satellite::SatelliteId,
+        height: Pixels,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.satellites.iter().any(|visual| &visual.id == id) {
+            return;
+        }
+        let height = px(f32::from(height).ceil());
+        match self.satellite_heights.iter_mut().find(|(key, _)| key == id) {
+            Some((_, previous)) if *previous == height => return,
+            Some((_, previous)) => *previous = height,
+            None => self.satellite_heights.push((id.clone(), height)),
+        }
+        cx.notify();
     }
 
     pub fn focus_handle(&self) -> FocusHandle {
         self.focus.clone()
     }
     pub fn reset(&mut self, cx: &mut Context<Self>) {
-        self.navigation.open(DashboardView::Home);
+        self.navigation.reset();
+        self.refresh_snapshot(cx);
         self.dragging_volume = false;
+        self.dragging_brightness = false;
+        self.brightness_preview = None;
         self.dragging_seek = false;
         cx.notify();
     }
@@ -194,7 +254,21 @@ fn format_date(state: &AppState) -> String {
         .get(now.month0() as usize)
         .cloned()
         .unwrap_or_else(|| now.month().to_string());
-    format!("{} {} · {}", now.day(), month, now.format("%H:%M"))
+    let days = state.language.get_list("datetime.days");
+    let weekday = days
+        .get(now.weekday().num_days_from_monday() as usize)
+        .cloned()
+        .unwrap_or_else(|| now.weekday().to_string());
+    let date = state
+        .language
+        .get("datetime.header_date_format")
+        .replace("{weekday}", &weekday)
+        .replace("{day}", &now.day().to_string())
+        .replace("{month}", &month);
+    format!(
+        "{date} · {}",
+        now.format(state.config.get().ui.clock_format())
+    )
 }
 
 pub(crate) fn retain_player(current: Option<&str>, players: &[MediaTrack]) -> Option<String> {
@@ -208,21 +282,16 @@ pub(crate) fn retain_player(current: Option<&str>, players: &[MediaTrack]) -> Op
 pub(crate) fn slider_fraction(x: f32, left: f32, width: f32) -> Option<f32> {
     (width > 0.0).then(|| ((x - left) / width).clamp(0.0, 1.0))
 }
-impl Drop for DashboardModule {
-    fn drop(&mut self) {
-        self.catalog_worker.abort();
-    }
-}
 impl EventEmitter<CapsuleModuleEvent> for DashboardModule {}
 impl CapsuleModule for DashboardModule {
     fn size(&self) -> Size<Pixels> {
-        widgets::module_size()
+        widgets::module_size(!self.snapshot.tray.is_empty())
     }
 }
 impl Render for DashboardModule {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>().clone();
-        div()
+        let dashboard = div()
             .id("dashboard")
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key_down))
@@ -230,11 +299,15 @@ impl Render for DashboardModule {
                 if this.dragging_volume {
                     this.volume_at(event.position.x.into(), cx);
                 }
+                if this.dragging_brightness {
+                    this.brightness_at(event.position.x.into(), cx);
+                }
             }))
             .on_mouse_up(
                 gpui::MouseButton::Left,
                 cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
                     this.dragging_volume = false;
+                    this.finish_brightness(cx);
                     if this.dragging_seek {
                         this.dragging_seek = false;
                         this.seek_at(event.position.x.into(), cx);
@@ -245,6 +318,7 @@ impl Render for DashboardModule {
                 gpui::MouseButton::Left,
                 cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
                     this.dragging_volume = false;
+                    this.finish_brightness(cx);
                     if this.dragging_seek {
                         this.dragging_seek = false;
                         this.seek_at(event.position.x.into(), cx);
@@ -252,20 +326,33 @@ impl Render for DashboardModule {
                 }),
             )
             .flex()
-            .flex_col()
             .w(self.size().width)
             .h(self.size().height)
-            .p(px(widgets::PADDING))
-            .gap(px(widgets::GAP))
+            .rounded(px(cx.global::<AppState>().config.get().ui.capsule_round))
             .overflow_hidden()
+            .bg(crate::new_capsule::widgets::style::background(&theme))
+            .font_family(theme.font_family())
             .text_size(px(14.0))
             .text_color(theme.foreground())
-            .child(widgets::header::render(self, &theme, cx))
-            .child(if self.navigation.view == DashboardView::Home {
-                widgets::home::render(self, &theme, cx)
-            } else {
-                widgets::details::render(self, &theme, cx)
-            })
+            .child(widgets::home::render(self, &theme, cx));
+        let mut root = div()
+            .relative()
+            .w(self.container_size.width)
+            .h(self.container_size.height);
+        for visual in &self.satellites {
+            let radius = cx.global::<AppState>().config.get().ui.satellite_round;
+            root = root.child(div().id(format!("satellite-{:?}", visual.id)).child(
+                widgets::details::render_satellite(self, visual, radius, &theme, cx),
+            ));
+        }
+        root.child(
+            div()
+                .absolute()
+                .inset_0()
+                .rounded(px(cx.global::<AppState>().config.get().ui.capsule_round))
+                .overflow_hidden()
+                .child(dashboard),
+        )
     }
 }
 

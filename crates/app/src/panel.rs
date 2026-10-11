@@ -51,27 +51,42 @@ impl CapsulePanel {
         }
     }
 
-    pub fn open_new(
-        cx: &mut gpui::App,
-        ipc_subscriber: IpcSubscriber,
-    ) -> Option<WindowHandle<crate::new_capsule::Capsule>> {
-        let module_manager = crate::new_capsule::module::CapsuleModuleManager::new(cx);
-        let mut size = module_manager.maximum_size(cx);
-        size.height += px(cx
-            .global::<services::AppState>()
-            .config
-            .get()
-            .ui
-            .margin_top
-            .max(0.0));
+    pub(crate) fn new_window_options(
+        module_manager: &crate::new_capsule::module::CapsuleModuleManager,
+        cx: &gpui::App,
+    ) -> WindowOptions {
+        let size = crate::new_capsule::Capsule::maximum_window_size(
+            module_manager,
+            cx.displays().first().map(|display| display.bounds().size),
+            cx,
+        );
         let mut options = Self::window_options(cx);
+        options.inactive_frame_interval = None;
         options.window_bounds = Some(WindowBounds::Windowed(gpui::Bounds {
             origin: gpui::point(px(0.0), px(0.0)),
             size,
         }));
         if let WindowKind::LayerShell(layer) = &mut options.kind {
-            layer.anchor = Anchor::TOP;
+            layer.anchor = match cx
+                .global::<services::AppState>()
+                .config
+                .get()
+                .ui
+                .capsule_location
+            {
+                services::CapsuleLocation::Top => Anchor::TOP,
+                services::CapsuleLocation::Bottom => Anchor::BOTTOM,
+            };
         }
+        options
+    }
+
+    pub fn open_new(
+        cx: &mut gpui::App,
+        ipc_subscriber: IpcSubscriber,
+    ) -> Option<WindowHandle<crate::new_capsule::Capsule>> {
+        let module_manager = crate::new_capsule::module::CapsuleModuleManager::new(cx);
+        let options = Self::new_window_options(&module_manager, cx);
         let window = match cx.open_window(options, |window, cx| {
             cx.new(|cx| {
                 crate::new_capsule::Capsule::with_module_manager(module_manager, window, cx)
@@ -251,6 +266,7 @@ impl SettingsPanel {
             titlebar: None,
             window_bounds: display_bounds.map(WindowBounds::Windowed),
             app_id: Some("capsule-settings".to_string()),
+            inactive_frame_interval: None,
             linux_window_background: LinuxWindowBackground::Transparent,
             kind: WindowKind::LayerShell(LayerShellOptions {
                 namespace: "capsule-settings".to_string(),

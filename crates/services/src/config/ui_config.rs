@@ -8,14 +8,34 @@ pub enum CapsuleStyle {
     Concave,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum CapsuleLocation {
+    #[default]
+    Top,
+    Bottom,
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UIConfig {
-    #[serde(default)]
+    #[serde(default = "default_enabled")]
     pub use_new_capsule: bool,
 
     #[serde(default)]
+    pub dynamic_colors: bool,
+
+    #[serde(default = "default_enabled")]
+    pub dark_mode: bool,
+
+    #[serde(default = "default_enabled")]
+    pub clock_24_hour: bool,
+
+    #[serde(default)]
     pub capsule_style: CapsuleStyle,
+
+    #[serde(default, alias = "location")]
+    pub capsule_location: CapsuleLocation,
 
     #[serde(default = "default_capsule_round", alias = "capsule_radius")]
     pub capsule_round: f32,
@@ -58,8 +78,12 @@ pub type UiConfig = UIConfig;
 impl Default for UIConfig {
     fn default() -> Self {
         Self {
-            use_new_capsule: false,
+            use_new_capsule: true,
+            dynamic_colors: false,
+            dark_mode: true,
+            clock_24_hour: true,
             capsule_style: CapsuleStyle::Normal,
+            capsule_location: CapsuleLocation::Top,
             capsule_round: default_capsule_round(),
             satellite_round: default_satellite_round(),
             cards_round: default_cards_round(),
@@ -74,6 +98,14 @@ impl Default for UIConfig {
 }
 
 impl UIConfig {
+    pub fn clock_format(&self) -> &'static str {
+        if self.clock_24_hour {
+            "%H:%M"
+        } else {
+            "%I:%M %p"
+        }
+    }
+
     pub fn exclusive_zone(&self) -> f32 {
         if self.capsule_style == CapsuleStyle::Concave {
             self.idle_height
@@ -117,4 +149,47 @@ fn default_animation_duration_ms() -> u32 {
 
 fn default_language() -> String {
     "es.toml".to_string()
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn existing_config_preserves_legacy_capsule_and_gets_appearance_defaults() {
+        let config: UIConfig = toml::from_str("use_new_capsule = false").expect("legacy config");
+        assert!(!config.use_new_capsule);
+        assert!(!config.dynamic_colors);
+        assert!(config.dark_mode);
+        assert_eq!(config.clock_format(), "%H:%M");
+        let fresh: UIConfig = toml::from_str("").expect("new config");
+        assert!(fresh.use_new_capsule);
+        assert_eq!(fresh.capsule_location, CapsuleLocation::Top);
+    }
+
+    #[test]
+    fn appearance_preferences_survive_serialization() {
+        let config = UIConfig {
+            dynamic_colors: true,
+            dark_mode: false,
+            clock_24_hour: false,
+            capsule_location: CapsuleLocation::Bottom,
+            ..UIConfig::default()
+        };
+        let encoded = toml::to_string(&config).expect("serialize config");
+        let decoded: UIConfig = toml::from_str(&encoded).expect("deserialize config");
+        assert_eq!(decoded, config);
+        assert_eq!(decoded.clock_format(), "%I:%M %p");
+    }
+
+    #[test]
+    fn location_accepts_bottom_and_rejects_unknown_edges() {
+        let config: UIConfig = toml::from_str("location = 'bottom'").expect("bottom config");
+        assert_eq!(config.capsule_location, CapsuleLocation::Bottom);
+        assert!(toml::from_str::<UIConfig>("capsule_location = 'left'").is_err());
+    }
 }

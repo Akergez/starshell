@@ -1,7 +1,5 @@
 mod launch_apps;
 
-use std::time::Duration;
-
 use gpui::{Context, Task};
 use services::IpcCommand;
 
@@ -14,9 +12,7 @@ impl Capsule {
     pub(super) fn start_ipc(cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(32))
-                    .await;
+                services::wait_for_ipc_command().await;
                 if this
                     .update(cx, |capsule, cx| {
                         let mut received = false;
@@ -44,7 +40,7 @@ impl Capsule {
             | IpcCommand::FileManager) => {
                 launch_apps::launch(command, cx);
             }
-            
+
             IpcCommand::ShowDashboard => {
                 self.handle_module_event(&CapsuleModuleEvent::Open(CapsuleModuleId::Dashboard), cx)
             }
@@ -71,21 +67,104 @@ impl Capsule {
                 self.handle_module_event(&event, cx);
             }
 
+            command @ (IpcCommand::ShowNotification | IpcCommand::ToggleNotification) => {
+                if command == IpcCommand::ToggleNotification
+                    && self.module_manager.current_id() == CapsuleModuleId::Notification
+                {
+                    self.handle_module_event(&CapsuleModuleEvent::Close, cx);
+                } else {
+                    self.module_manager
+                        .notification
+                        .update(cx, |module, cx| module.open(true, cx));
+                    self.handle_module_event(
+                        &CapsuleModuleEvent::Open(CapsuleModuleId::Notification),
+                        cx,
+                    );
+                }
+            }
+            IpcCommand::ShowClipboard => {
+                self.handle_module_event(&CapsuleModuleEvent::Open(CapsuleModuleId::Clipboard), cx)
+            }
+            IpcCommand::ToggleClipboard => {
+                let event = if self.module_manager.current_id() == CapsuleModuleId::Clipboard {
+                    CapsuleModuleEvent::Close
+                } else {
+                    CapsuleModuleEvent::Open(CapsuleModuleId::Clipboard)
+                };
+                self.handle_module_event(&event, cx);
+            }
+            command @ (IpcCommand::ShowEmoji | IpcCommand::ToggleEmoji) => {
+                let event = if command == IpcCommand::ToggleEmoji
+                    && self.module_manager.current_id() == CapsuleModuleId::Emoji
+                {
+                    CapsuleModuleEvent::Close
+                } else {
+                    CapsuleModuleEvent::Open(CapsuleModuleId::Emoji)
+                };
+                self.handle_module_event(&event, cx);
+            }
+            IpcCommand::ShowShelf => {
+                self.handle_module_event(&CapsuleModuleEvent::Open(CapsuleModuleId::Shelf), cx)
+            }
+            IpcCommand::ShowRecord => {
+                self.handle_module_event(&CapsuleModuleEvent::Open(CapsuleModuleId::Record), cx)
+            }
+            command @ (IpcCommand::ToggleShelf | IpcCommand::ToggleRecord) => {
+                let id = if command == IpcCommand::ToggleShelf {
+                    CapsuleModuleId::Shelf
+                } else {
+                    CapsuleModuleId::Record
+                };
+                let event = if self.module_manager.current_id() == id {
+                    CapsuleModuleEvent::Close
+                } else {
+                    CapsuleModuleEvent::Open(id)
+                };
+                self.handle_module_event(&event, cx);
+            }
+            command @ (IpcCommand::ToggleSelectTheme
+            | IpcCommand::ToggleSelectWallpaper
+            | IpcCommand::ShowThemes
+            | IpcCommand::ShowWallpapers) => {
+                let id = if matches!(
+                    command,
+                    IpcCommand::ToggleSelectTheme | IpcCommand::ShowThemes
+                ) {
+                    CapsuleModuleId::Themes
+                } else {
+                    CapsuleModuleId::Wallpapers
+                };
+                let show = matches!(command, IpcCommand::ShowThemes | IpcCommand::ShowWallpapers);
+                let event = if !show && self.module_manager.current_id() == id {
+                    CapsuleModuleEvent::Close
+                } else {
+                    CapsuleModuleEvent::Open(id)
+                };
+                self.handle_module_event(&event, cx);
+            }
             IpcCommand::Hide | IpcCommand::Default => {
                 self.handle_module_event(&CapsuleModuleEvent::Close, cx);
             }
-            IpcCommand::ShowSettings => {
-                crate::panel::SettingsPanel::open(cx);
+            command @ (IpcCommand::ShowSettings | IpcCommand::ToggleSettings) => {
+                if matches!(
+                    self.module_manager.current_id(),
+                    CapsuleModuleId::Themes | CapsuleModuleId::Wallpapers
+                ) && (command == IpcCommand::ShowSettings
+                    || !crate::panel::SettingsPanel::is_open())
+                {
+                    self.handle_module_event(&CapsuleModuleEvent::Close, cx);
+                }
+                if command == IpcCommand::ShowSettings {
+                    crate::panel::SettingsPanel::open(cx);
+                } else {
+                    crate::panel::SettingsPanel::toggle(cx);
+                }
             }
-            IpcCommand::ToggleSettings => crate::panel::SettingsPanel::toggle(cx),
             IpcCommand::Lock => {
                 crate::panel::LockScreenPanel::open_all(cx);
             }
             IpcCommand::Quit => cx.quit(),
             IpcCommand::Ping => {}
-            other => {
-                services::log_warn!("IPC", "Command not implemented in new Capsule: {:?}", other)
-            }
         }
     }
 }

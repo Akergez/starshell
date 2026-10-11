@@ -10,6 +10,8 @@ pub struct Animator {
     target: Size<Pixels>,
     started_at: Option<Instant>,
     duration: Duration,
+    content_started_at: Option<Instant>,
+    content_progress: f32,
 }
 
 impl Animator {
@@ -20,6 +22,8 @@ impl Animator {
             target: size,
             started_at: None,
             duration,
+            content_started_at: None,
+            content_progress: 1.0,
         }
     }
 
@@ -41,7 +45,41 @@ impl Animator {
         self.advance(now);
     }
 
+    pub fn content_progress(&self) -> f32 {
+        self.content_progress
+    }
+
+    pub fn content_scale(&self) -> f32 {
+        0.98 + self.content_progress * 0.02
+    }
+
+    pub fn reveal_content(&mut self, now: Instant) {
+        self.content_started_at = Some(now);
+        self.content_progress = 0.0;
+        self.advance(now);
+    }
+
     pub fn advance(&mut self, now: Instant) -> bool {
+        let size_running = self.advance_size(now);
+        let content_running = if let Some(started_at) = self.content_started_at {
+            let elapsed = now.saturating_duration_since(started_at);
+            let duration = self.duration.min(Duration::from_millis(160));
+            if elapsed >= duration {
+                self.content_progress = 1.0;
+                self.content_started_at = None;
+                false
+            } else {
+                let progress = elapsed.as_secs_f32() / duration.as_secs_f32();
+                self.content_progress = 1.0 - (1.0 - progress).powi(3);
+                true
+            }
+        } else {
+            false
+        };
+        size_running || content_running
+    }
+
+    fn advance_size(&mut self, now: Instant) -> bool {
         let Some(started_at) = self.started_at else {
             return false;
         };
@@ -54,7 +92,9 @@ impl Animator {
         let progress = elapsed.as_secs_f32() / self.duration.as_secs_f32();
         let expanding =
             self.target.width > self.start.width || self.target.height > self.start.height;
+
         let (width_eased, height_eased) = apple_island_morph(progress, expanding);
+
         self.current = Size {
             width: (self.start.width + (self.target.width - self.start.width) * width_eased)
                 .max(px(1.0)),
@@ -111,9 +151,61 @@ mod tests {
     }
 
     #[test]
+    fn content_reveals_even_when_dimensions_do_not_change() {
+        let now = Instant::now();
+        let mut animator = Animator::new(size(100.0), Duration::from_millis(200));
+        animator.transition_to(size(100.0), now);
+        animator.reveal_content(now);
+        assert_eq!(animator.content_scale(), 0.98);
+        assert!(animator.advance(now + Duration::from_millis(80)));
+        assert!((animator.content_scale() - 0.9975).abs() < f32::EPSILON);
+        assert_eq!(animator.size(), size(100.0));
+        assert!(!animator.advance(now + Duration::from_millis(160)));
+        assert_eq!(animator.content_scale(), 1.0);
+        assert!(!animator.advance(now + Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn replacing_content_during_a_resize_preserves_the_current_dimensions() {
+        let now = Instant::now();
+        let mut animator = Animator::new(size(100.0), Duration::from_millis(200));
+        animator.transition_to(size(300.0), now);
+        animator.reveal_content(now);
+        animator.advance(now + Duration::from_millis(100));
+        let displayed = animator.size();
+        animator.reveal_content(now + Duration::from_millis(100));
+        assert_eq!(animator.size(), displayed);
+        assert!(animator.advance(now + Duration::from_millis(200)));
+        assert_eq!(animator.size(), size(300.0));
+        assert!(!animator.advance(now + Duration::from_millis(300)));
+        assert_eq!(animator.content_scale(), 1.0);
+    }
+
+    #[test]
+    fn rapid_content_changes_restart_the_reveal_and_settle() {
+        let now = Instant::now();
+        let mut animator = Animator::new(size(100.0), Duration::from_millis(250));
+        animator.reveal_content(now);
+        for millis in [40, 80, 120, 160, 200] {
+            let switched_at = now + Duration::from_millis(millis);
+            assert!(animator.advance(switched_at));
+            assert!(animator.content_progress() > 0.0);
+            animator.reveal_content(switched_at);
+            assert_eq!(animator.content_progress(), 0.0);
+        }
+        assert!(animator.advance(now + Duration::from_millis(280)));
+        assert!(!animator.advance(now + Duration::from_millis(360)));
+        assert_eq!(animator.content_progress(), 1.0);
+        assert!(!animator.advance(now + Duration::from_secs(1)));
+    }
+
+    #[test]
     fn zero_duration_finishes_immediately() {
         let mut animator = Animator::new(size(100.0), Duration::ZERO);
         animator.transition_to(size(300.0), Instant::now());
         assert_eq!(animator.size(), size(300.0));
+        animator.reveal_content(Instant::now());
+        assert_eq!(animator.content_scale(), 1.0);
+        assert!(!animator.advance(Instant::now()));
     }
 }

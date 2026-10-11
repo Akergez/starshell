@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, ColorExt, Context, EventEmitter, FocusHandle, IntoElement, KeyDownEvent,
-    ParentElement, Render, ScrollHandle, Styled, Task, Window, canvas, div, prelude::*, px, svg,
+    AnyElement, Context, EventEmitter, FocusHandle, IntoElement, KeyDownEvent, ParentElement,
+    Render, ScrollHandle, Styled, Task, Window, canvas, div, prelude::*, px,
 };
 use services::{AppState, CapsuleStyle};
 use std::cell::Cell;
@@ -11,12 +11,18 @@ use ui::theme::Theme;
 use crate::capsule::widgets::settings::{
     render_apps_section, render_lockscreen_formats_subsection, render_lockscreen_section,
     render_media_section, render_music_players_subsection, render_record_section,
-    render_search_results, render_sidebar, render_system_section, render_ui_section,
+    render_search_results, render_system_section,
 };
+
+use crate::new_capsule::animator::Animator;
+use crate::new_capsule::widgets::settings::{
+    HEIGHT, render_header, render_tabs, render_ui_section,
+};
+use crate::new_capsule::widgets::style;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SettingsTab {
-    Capsule = 0,
+    Appearance = 0,
     Apps = 1,
     Media = 2,
     LockScreen = 3,
@@ -51,6 +57,12 @@ pub enum SettingsField {
     FileManager = 16,
     VolumeOutput = 17,
     VolumeInput = 18,
+    DynamicColors = 19,
+    DarkMode = 20,
+    ClockFormat = 21,
+    CapsuleStyle = 22,
+    LegacyCapsule = 23,
+    CapsuleLocation = 24,
 }
 
 pub enum SettingsEvent {
@@ -60,6 +72,9 @@ pub enum SettingsEvent {
 pub type SliderDragState = (SettingsField, f32, f32, f32, Rc<Cell<(f32, f32)>>);
 
 pub struct SettingsModule {
+    pub appearance_error: Option<String>,
+    pub motion_preview: Animator,
+    motion_preview_generation: u64,
     pub active_tab: SettingsTab,
     pub active_field: Option<SettingsField>,
     pub capsule_style: CapsuleStyle,
@@ -72,7 +87,6 @@ pub struct SettingsModule {
 
     pub music_players: Vec<String>,
     pub music_player_input: String,
-    pub show_lyrics: bool,
 
     pub capsule_round_input: String,
     pub satellite_round_input: String,
@@ -94,8 +108,9 @@ pub struct SettingsModule {
 
     pub search_query: String,
     pub active_subsection: Option<SettingsSubSection>,
-    pub section_anim_progress: f32,
-    pub section_anim_task: Option<Task<()>>,
+    section_animator: Animator,
+    section_anim_generation: u64,
+    window_handle: Option<gpui::AnyWindowHandle>,
     pub active_slider_drag: Option<SliderDragState>,
 
     pub settings_bounds: Rc<Cell<(f32, f32)>>,
@@ -130,7 +145,10 @@ impl SettingsModule {
         let scroll_handle = ScrollHandle::new();
 
         let mut module = Self {
-            active_tab: SettingsTab::Capsule,
+            appearance_error: None,
+            motion_preview: Animator::new(gpui::size(px(72.0), px(22.0)), Duration::ZERO),
+            motion_preview_generation: 0,
+            active_tab: SettingsTab::Appearance,
             active_field: None,
             capsule_style: CapsuleStyle::Normal,
             use_new_capsule: false,
@@ -140,7 +158,6 @@ impl SettingsModule {
             file_manager_input: String::new(),
             music_players: Vec::new(),
             music_player_input: String::new(),
-            show_lyrics: true,
             capsule_round_input: String::new(),
             satellite_round_input: String::new(),
             cards_round_input: String::new(),
@@ -159,8 +176,9 @@ impl SettingsModule {
             dropdown_anim_task: None,
             search_query: String::new(),
             active_subsection: None,
-            section_anim_progress: 1.0,
-            section_anim_task: None,
+            section_animator: Animator::new(gpui::size(px(1.0), px(1.0)), Duration::ZERO),
+            section_anim_generation: 0,
+            window_handle: None,
             active_slider_drag: None,
             settings_bounds: Rc::new(Cell::new((0.0, 560.0))),
             language_trigger_bounds: Rc::new(Cell::new((0.0, 0.0))),
@@ -215,7 +233,6 @@ impl SettingsModule {
 
         self.music_players = cfg.mpris.players.clone();
         self.music_player_input.clear();
-        self.show_lyrics = cfg.mpris.show_lyrics;
 
         self.capsule_round_input = format!("{:.0}", cfg.ui.capsule_round);
         self.satellite_round_input = format!("{:.0}", cfg.ui.satellite_round);
@@ -270,6 +287,8 @@ impl SettingsModule {
         let changed = self.active_tab != tab
             || self.active_subsection.is_some()
             || !self.search_query.is_empty();
+        self.motion_preview_generation += 1;
+        self.active_slider_drag = None;
         self.active_tab = tab;
         self.active_subsection = None;
         self.search_query.clear();
@@ -312,54 +331,110 @@ impl SettingsModule {
         self.close_subsection(cx);
     }
 
-    pub fn navigate_forward(&mut self, _cx: &mut Context<Self>) {}
-
     pub fn can_navigate_back(&self) -> bool {
         self.active_subsection.is_some()
     }
 
-    pub fn can_navigate_forward(&self) -> bool {
-        false
+    pub fn play_motion_preview(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.motion_preview_generation += 1;
+        let duration = self.anim_duration_input.parse::<u64>().unwrap_or(250);
+        self.motion_preview
+            .set_duration(Duration::from_millis(duration));
+        if duration == 0 {
+            self.motion_preview
+                .transition_to(gpui::size(px(72.0), px(22.0)), Instant::now());
+            self.motion_preview.advance(Instant::now());
+            cx.notify();
+            return;
+        }
+        self.motion_preview
+            .transition_to(gpui::size(px(152.0), px(42.0)), Instant::now());
+        Self::queue_preview_frame(
+            window,
+            cx.entity().downgrade(),
+            self.motion_preview_generation,
+            false,
+        );
+        cx.notify();
+    }
+
+    fn queue_preview_frame(
+        window: &Window,
+        entity: gpui::WeakEntity<Self>,
+        generation: u64,
+        returning: bool,
+    ) {
+        window.on_next_frame(move |window, cx| {
+            let _ = entity.update(cx, |this, cx| {
+                if this.motion_preview_generation != generation
+                    || this.active_tab != SettingsTab::Appearance
+                    || !this.search_query.is_empty()
+                    || this.active_subsection.is_some()
+                {
+                    return;
+                }
+                let running = this.motion_preview.advance(Instant::now());
+                if running {
+                    Self::queue_preview_frame(
+                        window,
+                        cx.entity().downgrade(),
+                        generation,
+                        returning,
+                    );
+                } else if !returning {
+                    this.motion_preview
+                        .transition_to(gpui::size(px(72.0), px(22.0)), Instant::now());
+                    Self::queue_preview_frame(window, cx.entity().downgrade(), generation, true);
+                }
+                cx.notify();
+            });
+        });
     }
 
     pub fn start_section_transition(&mut self, cx: &mut Context<Self>) {
-        let compositor = if cx.has_global::<AppState>() {
-            Some(cx.global::<AppState>().compositor.clone())
-        } else {
-            None
+        self.section_anim_generation += 1;
+        let Some(handle) = self.window_handle else {
+            self.section_animator.set_duration(Duration::ZERO);
+            self.section_animator.reveal_content(Instant::now());
+            return;
         };
-        self.section_anim_progress = 0.0;
-        let start = Instant::now();
+        let duration = if cx.has_global::<AppState>() {
+            Duration::from_millis(
+                cx.global::<AppState>()
+                    .config
+                    .get()
+                    .ui
+                    .animation_duration_ms as u64,
+            )
+        } else {
+            Duration::from_millis(250)
+        };
+        self.section_animator.set_duration(duration);
+        self.section_animator.reveal_content(Instant::now());
+        if !duration.is_zero() {
+            let entity = cx.entity().downgrade();
+            let generation = self.section_anim_generation;
+            cx.defer(move |cx| {
+                let _ = handle.update(cx, |_, window, _| {
+                    Self::queue_section_frame(window, entity, generation);
+                });
+            });
+        }
+    }
 
-        let anim_task = cx.spawn(async move |this, cx| {
-            let duration_ms = 160.0;
-            loop {
-                let frame_dur = if let Some(ref comp) = compositor {
-                    comp.get_frame_duration()
-                } else {
-                    Duration::from_millis(16)
-                };
-
-                cx.background_executor().timer(frame_dur).await;
-
-                let finished = this
-                    .update(cx, |module: &mut Self, cx| {
-                        let elapsed = start.elapsed().as_secs_f32() * 1000.0;
-                        let p = (elapsed / duration_ms).min(1.0);
-                        let ease = 1.0 - (1.0 - p) * (1.0 - p);
-                        module.section_anim_progress = ease;
-                        cx.notify();
-                        p >= 1.0
-                    })
-                    .unwrap_or(true);
-
-                if finished {
-                    break;
+    fn queue_section_frame(window: &Window, entity: gpui::WeakEntity<Self>, generation: u64) {
+        window.on_next_frame(move |window, cx| {
+            let _ = entity.update(cx, |this, cx| {
+                if this.section_anim_generation != generation {
+                    return;
                 }
-            }
+                let running = this.section_animator.advance(Instant::now());
+                cx.notify();
+                if running {
+                    Self::queue_section_frame(window, cx.entity().downgrade(), generation);
+                }
+            });
         });
-
-        self.section_anim_task = Some(anim_task);
     }
 
     pub fn toggle_dropdown(&mut self, field: SettingsField, cx: &mut Context<Self>) {
@@ -394,7 +469,9 @@ impl SettingsModule {
                     Duration::from_millis(16)
                 };
 
-                cx.background_executor().timer(frame_dur).await;
+                cx.background_executor()
+                    .timer(frame_dur.max(Duration::from_millis(2)))
+                    .await;
 
                 let finished = this
                     .update(cx, |module: &mut Self, cx| {
@@ -499,12 +576,6 @@ impl SettingsModule {
         cx.notify();
     }
 
-    pub fn toggle_show_lyrics(&mut self, cx: &mut Context<Self>) {
-        self.show_lyrics = !self.show_lyrics;
-        self.save_to_app_config(cx);
-        cx.notify();
-    }
-
     pub fn toggle_output_devices(&mut self, cx: &mut Context<Self>) {
         self.show_output_devices = !self.show_output_devices;
         cx.notify();
@@ -515,15 +586,36 @@ impl SettingsModule {
         cx.notify();
     }
 
-    pub fn toggle_new_capsule(&mut self, cx: &mut Context<Self>) {
-        self.use_new_capsule = !self.use_new_capsule;
-        self.save_to_app_config(cx);
-        cx.notify();
-    }
-
-    pub fn set_capsule_style(&mut self, style: CapsuleStyle, cx: &mut Context<Self>) {
-        self.capsule_style = style;
-        self.save_to_app_config(cx);
+    pub fn toggle_setting(&mut self, field: SettingsField, cx: &mut Context<Self>) {
+        let config = cx.global::<AppState>().config.clone();
+        let result = config.update(|cfg| match field {
+            SettingsField::DynamicColors => cfg.ui.dynamic_colors = !cfg.ui.dynamic_colors,
+            SettingsField::DarkMode => cfg.ui.dark_mode = !cfg.ui.dark_mode,
+            SettingsField::ClockFormat => cfg.ui.clock_24_hour = !cfg.ui.clock_24_hour,
+            SettingsField::LegacyCapsule => cfg.ui.use_new_capsule = !cfg.ui.use_new_capsule,
+            SettingsField::CapsuleLocation => {
+                cfg.ui.capsule_location = match cfg.ui.capsule_location {
+                    services::CapsuleLocation::Top => services::CapsuleLocation::Bottom,
+                    services::CapsuleLocation::Bottom => services::CapsuleLocation::Top,
+                };
+            }
+            SettingsField::CapsuleStyle => {
+                cfg.ui.capsule_style = if cfg.ui.capsule_style == CapsuleStyle::Normal {
+                    CapsuleStyle::Concave
+                } else {
+                    CapsuleStyle::Normal
+                }
+            }
+            _ => {}
+        });
+        self.appearance_error = result.err().map(|error| error.to_string());
+        let cfg = config.get();
+        self.use_new_capsule = cfg.ui.use_new_capsule;
+        self.capsule_style = cfg.ui.capsule_style;
+        self.open_dropdown = None;
+        self.dropdown_anim_field = None;
+        self.dropdown_anim_task = None;
+        self.active_field = Some(field);
         cx.notify();
     }
 
@@ -544,7 +636,6 @@ impl SettingsModule {
         let browser = self.browser_input.clone();
         let editor = self.editor_input.clone();
         let file_manager = self.file_manager_input.clone();
-        let show_lyrics = self.show_lyrics;
 
         let capsule_round = self.capsule_round_input.parse::<f32>().unwrap_or(24.0);
         let satellite_round = self.satellite_round_input.parse::<f32>().unwrap_or(20.0);
@@ -577,7 +668,6 @@ impl SettingsModule {
             cfg.defaults.editor = editor;
             cfg.defaults.file_manager = file_manager;
             cfg.mpris.players = music_players;
-            cfg.mpris.show_lyrics = show_lyrics;
 
             cfg.ui.capsule_round = capsule_round;
             cfg.ui.satellite_round = satellite_round;
@@ -604,15 +694,18 @@ impl SettingsModule {
     }
 
     pub fn close(&mut self, cx: &mut Context<Self>) {
+        self.motion_preview_generation += 1;
         self.active_field = None;
         self.open_dropdown = None;
         self.dropdown_anim_field = None;
         self.dropdown_anim_task = None;
-        self.section_anim_task = None;
+        self.section_anim_generation += 1;
+        self.section_animator.set_duration(Duration::ZERO);
+        self.section_animator.reveal_content(Instant::now());
         self.active_slider_drag = None;
         self.search_query.clear();
         self.active_subsection = None;
-        self.set_tab(SettingsTab::Capsule, cx);
+        self.set_tab(SettingsTab::Appearance, cx);
         cx.emit(SettingsEvent::Close);
     }
 
@@ -659,19 +752,51 @@ impl SettingsModule {
     }
 
     #[allow(dead_code)]
-    pub fn focus(&self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.window_handle = Some(window.window_handle());
         window.focus(&self.focus_handle, cx);
     }
 
     fn handle_key_down(
         &mut self,
         event: &KeyDownEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        cx.stop_propagation();
         let key = event.keystroke.key.as_str();
         let ctrl = event.keystroke.modifiers.control || event.keystroke.modifiers.platform;
 
+        if let Some(
+            field @ (SettingsField::DynamicColors
+            | SettingsField::DarkMode
+            | SettingsField::ClockFormat
+            | SettingsField::CapsuleStyle
+            | SettingsField::CapsuleLocation
+            | SettingsField::LegacyCapsule),
+        ) = self.active_field
+        {
+            if key == "space" || key == "enter" {
+                self.toggle_setting(field, cx);
+                return;
+            }
+            if key == "tab" {
+                self.active_field = None;
+            } else if key != "escape" && !(ctrl && key == "f") {
+                return;
+            }
+        }
+        if ctrl && key == "f" {
+            self.set_active_field(Some(SettingsField::Search), cx);
+            return;
+        }
+        if key == "space"
+            && self.active_field.is_none()
+            && self.active_tab == SettingsTab::Appearance
+        {
+            self.play_motion_preview(window, cx);
+            return;
+        }
         if key == "escape" {
             if self.open_dropdown.is_some() {
                 self.open_dropdown = None;
@@ -701,12 +826,12 @@ impl SettingsModule {
 
         if key == "tab" && self.active_field.is_none() {
             let next_tab = match self.active_tab {
-                SettingsTab::Capsule => SettingsTab::Apps,
+                SettingsTab::Appearance => SettingsTab::Apps,
                 SettingsTab::Apps => SettingsTab::Media,
                 SettingsTab::Media => SettingsTab::LockScreen,
                 SettingsTab::LockScreen => SettingsTab::System,
                 SettingsTab::System => SettingsTab::Record,
-                SettingsTab::Record => SettingsTab::Capsule,
+                SettingsTab::Record => SettingsTab::Appearance,
             };
             self.set_tab(next_tab, cx);
             return;
@@ -784,7 +909,15 @@ impl SettingsModule {
             SettingsField::TimeFormat => &mut self.time_format_input,
             SettingsField::DateFormat => &mut self.date_format_input,
             SettingsField::Search => &mut self.search_query,
-            SettingsField::Language | SettingsField::VolumeOutput | SettingsField::VolumeInput => {
+            SettingsField::Language
+            | SettingsField::VolumeOutput
+            | SettingsField::VolumeInput
+            | SettingsField::DynamicColors
+            | SettingsField::DarkMode
+            | SettingsField::ClockFormat
+            | SettingsField::CapsuleStyle
+            | SettingsField::CapsuleLocation
+            | SettingsField::LegacyCapsule => {
                 return;
             }
         };
@@ -809,7 +942,15 @@ impl SettingsModule {
             SettingsField::TimeFormat => &mut self.time_format_input,
             SettingsField::DateFormat => &mut self.date_format_input,
             SettingsField::Search => &mut self.search_query,
-            SettingsField::Language | SettingsField::VolumeOutput | SettingsField::VolumeInput => {
+            SettingsField::Language
+            | SettingsField::VolumeOutput
+            | SettingsField::VolumeInput
+            | SettingsField::DynamicColors
+            | SettingsField::DarkMode
+            | SettingsField::ClockFormat
+            | SettingsField::CapsuleStyle
+            | SettingsField::CapsuleLocation
+            | SettingsField::LegacyCapsule => {
                 return;
             }
         };
@@ -834,7 +975,7 @@ impl Render for SettingsModule {
             }
         } else {
             match self.active_tab {
-                SettingsTab::Capsule => render_ui_section(self, &theme, cx).into_any_element(),
+                SettingsTab::Appearance => render_ui_section(self, &theme, cx).into_any_element(),
                 SettingsTab::Apps => render_apps_section(self, &theme, cx).into_any_element(),
                 SettingsTab::Media => render_media_section(self, &theme, cx).into_any_element(),
                 SettingsTab::LockScreen => {
@@ -894,9 +1035,12 @@ impl Render for SettingsModule {
             )
             .on_mouse_up(
                 gpui::MouseButton::Left,
-                cx.listener(|this, _event, _window, cx| {
+                cx.listener(|this, _event, window, cx| {
                     if let Some((field, _, _, _, _)) = this.active_slider_drag {
                         this.active_slider_drag = None;
+                        if field == SettingsField::AnimDuration {
+                            this.play_motion_preview(window, cx);
+                        }
                         if (field == SettingsField::VolumeOutput
                             || field == SettingsField::VolumeInput)
                             && cx.has_global::<AppState>()
@@ -911,9 +1055,14 @@ impl Render for SettingsModule {
                 }),
             )
             .flex()
-            .flex_row()
-            .w(px(840.0))
-            .h(px(560.0))
+            .flex_col()
+            .gap(px(20.0))
+            .p(px(24.0))
+            .w_full()
+            .h_full()
+            .bg(style::background(&theme))
+            .font_family(theme.font_family())
+            .text_color(theme.foreground())
             .rounded(px(capsule_radius))
             .overflow_hidden()
             .child(
@@ -923,7 +1072,7 @@ impl Render for SettingsModule {
                         let height: f32 = if bounds.size.height > px(0.0) {
                             bounds.size.height.into()
                         } else {
-                            560.0
+                            HEIGHT
                         };
                         modal_bounds_cell.set((top, top + height));
                     },
@@ -932,15 +1081,15 @@ impl Render for SettingsModule {
                 .inset_0()
                 .absolute(),
             )
-            .child(render_sidebar(self, &theme, cx))
+            .child(render_header(self, &theme, cx))
             .child(
                 div()
                     .flex()
-                    .flex_col()
+                    .gap(px(28.0))
                     .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .child(render_top_navigation_bar(self, &theme, cx))
+                    .min_h_0()
+                    .w_full()
+                    .child(render_tabs(self, &theme, cx))
                     .child(
                         div()
                             .id("settings-content-scroll")
@@ -948,142 +1097,24 @@ impl Render for SettingsModule {
                             .flex()
                             .flex_col()
                             .flex_1()
+                            .min_h_0()
                             .min_w_0()
-                            .h_full()
-                            .px_6()
-                            .pb_6()
-                            .overflow_scroll()
+                            .overflow_y_scroll()
                             .child(
                                 div()
                                     .flex()
                                     .flex_col()
                                     .w_full()
                                     .min_w_0()
-                                    .opacity(self.section_anim_progress)
-                                    .mt(px((1.0 - self.section_anim_progress) * 8.0))
+                                    .flex_shrink_0()
+                                    .when(self.section_animator.content_progress() < 1.0, |s| {
+                                        s.blur(px(
+                                            (1.0 - self.section_animator.content_progress()) * 5.0
+                                        ))
+                                    })
                                     .child(content_view),
                             ),
                     ),
             )
     }
-}
-
-fn render_top_navigation_bar(
-    module: &SettingsModule,
-    theme: &Theme,
-    cx: &mut Context<SettingsModule>,
-) -> impl IntoElement {
-    let can_back = module.can_navigate_back();
-    let can_fwd = module.can_navigate_forward();
-
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .w_full()
-        .min_w_0()
-        .h(px(46.0))
-        .px_6()
-        .pt_2()
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(px(6.0))
-                .child(
-                    div()
-                        .id("settings-nav-back")
-                        .w(px(26.0))
-                        .h(px(26.0))
-                        .rounded_full()
-                        .bg(theme.surface().opacity(if can_back { 0.5 } else { 0.2 }))
-                        .hover(|s| {
-                            if can_back {
-                                s.bg(theme.surface().opacity(0.8))
-                            } else {
-                                s
-                            }
-                        })
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor(if can_back {
-                            gpui::CursorStyle::PointingHand
-                        } else {
-                            gpui::CursorStyle::Arrow
-                        })
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            if this.can_navigate_back() {
-                                this.navigate_back(cx);
-                            }
-                        }))
-                        .child(svg().path("chevron-left.svg").size(px(14.0)).text_color(
-                            if can_back {
-                                theme.foreground()
-                            } else {
-                                theme.foreground_muted().opacity(0.4)
-                            },
-                        )),
-                )
-                .child(
-                    div()
-                        .id("settings-nav-fwd")
-                        .w(px(26.0))
-                        .h(px(26.0))
-                        .rounded_full()
-                        .bg(theme.surface().opacity(if can_fwd { 0.5 } else { 0.2 }))
-                        .hover(|s| {
-                            if can_fwd {
-                                s.bg(theme.surface().opacity(0.8))
-                            } else {
-                                s
-                            }
-                        })
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor(if can_fwd {
-                            gpui::CursorStyle::PointingHand
-                        } else {
-                            gpui::CursorStyle::Arrow
-                        })
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            if this.can_navigate_forward() {
-                                this.navigate_forward(cx);
-                            }
-                        }))
-                        .child(svg().path("chevron-right.svg").size(px(14.0)).text_color(
-                            if can_fwd {
-                                theme.foreground()
-                            } else {
-                                theme.foreground_muted().opacity(0.4)
-                            },
-                        )),
-                ),
-        )
-        .child(
-            div()
-                .id("settings-close-btn")
-                .w(px(26.0))
-                .h(px(26.0))
-                .rounded_full()
-                .bg(theme.surface().opacity(0.45))
-                .hover(|s| s.bg(theme.surface().opacity(0.8)))
-                .active(|s| s.bg(theme.surface()))
-                .flex()
-                .items_center()
-                .justify_center()
-                .cursor_pointer()
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.close(cx);
-                }))
-                .child(
-                    svg()
-                        .path("close.svg")
-                        .size(px(12.0))
-                        .text_color(theme.foreground_muted()),
-                ),
-        )
 }

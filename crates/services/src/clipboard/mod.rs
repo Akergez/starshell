@@ -15,6 +15,80 @@ pub struct ClipboardItem {
     pub image_path: Option<PathBuf>,
 }
 
+pub enum ClipboardContent {
+    Text(String),
+    Image(Vec<u8>),
+}
+
+fn decode_content(bytes: Vec<u8>, is_image: bool) -> Result<ClipboardContent, String> {
+    if bytes.is_empty() {
+        return Err("clipboard.copy_error".into());
+    }
+    if is_image {
+        let image =
+            image::load_from_memory(&bytes).map_err(|_| "clipboard.copy_error".to_string())?;
+        let mut png = std::io::Cursor::new(Vec::new());
+        image
+            .write_to(&mut png, image::ImageFormat::Png)
+            .map_err(|_| "clipboard.copy_error".to_string())?;
+        Ok(ClipboardContent::Image(png.into_inner()))
+    } else {
+        String::from_utf8(bytes)
+            .map(ClipboardContent::Text)
+            .map_err(|_| "clipboard.copy_error".to_string())
+    }
+}
+
+fn has_history_watcher(processes: &str, mime: &str) -> bool {
+    processes.lines().any(|line| {
+        let arguments: Vec<_> = line.split_whitespace().collect();
+        arguments
+            .windows(2)
+            .any(|pair| matches!(pair[0], "--type" | "-t") && pair[1] == mime)
+            && arguments.contains(&"--watch")
+            && arguments.contains(&"cliphist")
+            && arguments.contains(&"store")
+    })
+}
+
+fn local_image_path(text: &str) -> Option<PathBuf> {
+    let text = text.trim();
+    if text.lines().count() != 1 {
+        return None;
+    }
+    let path = if text.starts_with("file://") {
+        reqwest::Url::parse(text).ok()?.to_file_path().ok()?
+    } else {
+        PathBuf::from(text)
+    };
+    if !path.is_absolute() {
+        return None;
+    }
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+    matches!(
+        extension.as_str(),
+        "png" | "jpeg" | "jpg" | "webp" | "gif" | "bmp" | "tiff" | "tif"
+    )
+    .then_some(path)
+}
+
+fn cache_local_image(id: &str, text: &str) -> Option<PathBuf> {
+    use std::hash::{Hash, Hasher};
+    let bytes = std::fs::read(local_image_path(text)?).ok()?;
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    bytes.hash(&mut hash);
+    let cache_dir = PathBuf::from("/tmp/capsule_clipboard");
+    std::fs::create_dir_all(&cache_dir).ok()?;
+    let path = cache_dir.join(format!("{id}-{:x}-preview.png", hash.finish()));
+    if !path.is_file() {
+        let ClipboardContent::Image(png) = decode_content(bytes, true).ok()? else {
+            return None;
+        };
+        std::fs::write(&path, png).ok()?;
+    }
+    Some(path)
+}
+
 fn parse_image_preview(raw: &str) -> String {
     let inner = raw
         .strip_prefix("[[ binary data")
@@ -103,7 +177,7 @@ impl ClipboardService {
         };
 
         let has_cliphist = Command::new("cliphist")
-            .arg("--version")
+            .arg("version")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -124,28 +198,21 @@ impl ClipboardService {
 
     fn ensure_watch_daemon(&self) {
         crate::spawn_tokio(async {
-            let is_running = Command::new("pgrep")
-                .args(["-f", "cliphist store"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false);
-
-            if !is_running {
-                let _ = Command::new("sh")
-                    .args([
-                        "-c",
-                        "wl-paste --type text --watch cliphist store >/dev/null 2>&1 &",
-                    ])
-                    .spawn();
-
-                let _ = Command::new("sh")
-                    .args([
-                        "-c",
-                        "wl-paste --type image --watch cliphist store >/dev/null 2>&1 &",
-                    ])
-                    .spawn();
+            let output = tokio::process::Command::new("pgrep")
+                .args(["-a", "-x", "wl-paste"])
+                .output()
+                .await;
+            let processes = output
+                .map(|output| String::from_utf8_lossy(&output.stdout).into_owned())
+                .unwrap_or_default();
+            for mime in ["text", "image"] {
+                if !has_history_watcher(&processes, mime) {
+                    let _ = tokio::process::Command::new("wl-paste")
+                        .args(["--type", mime, "--watch", "cliphist", "store"])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .spawn();
+                }
             }
         });
     }
@@ -195,31 +262,34 @@ impl ClipboardService {
                     if let Some((id, rest)) = line.split_once('\t') {
                         let id_trimmed = id.trim();
                         let rest_trimmed = rest.trim();
-                        let is_image = rest_trimmed.starts_with("[[ binary data")
+                        let mut is_image = rest_trimmed.starts_with("[[ binary data")
                             || rest_trimmed.contains("[[ binary data");
 
                         let (preview, image_path) = if is_image {
                             let clean_preview = parse_image_preview(rest_trimmed);
                             let cache_dir = PathBuf::from("/tmp/capsule_clipboard");
                             let _ = std::fs::create_dir_all(&cache_dir);
-                            let file_path = cache_dir.join(format!("{id_trimmed}.png"));
+                            let file_path = cache_dir.join(format!("{id_trimmed}-preview.png"));
 
-                            let is_cached = file_path.exists()
-                                && file_path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+                            let is_cached = std::fs::read(&file_path)
+                                .is_ok_and(|bytes| image::load_from_memory(&bytes).is_ok());
 
                             if !is_cached {
                                 if let Ok(out) = Command::new("cliphist")
                                     .args(["decode", id_trimmed])
                                     .output()
                                 {
-                                    if out.status.success() && !out.stdout.is_empty() {
-                                        let _ = std::fs::write(&file_path, &out.stdout);
+                                    if out.status.success()
+                                        && let Ok(ClipboardContent::Image(bytes)) =
+                                            decode_content(out.stdout, true)
+                                    {
+                                        let _ = std::fs::write(&file_path, bytes);
                                     }
                                 }
                             }
 
-                            let resolved_path = if file_path.exists()
-                                && file_path.metadata().map(|m| m.len() > 0).unwrap_or(false)
+                            let resolved_path = if std::fs::read(&file_path)
+                                .is_ok_and(|bytes| image::load_from_memory(&bytes).is_ok())
                             {
                                 Some(file_path)
                             } else {
@@ -228,7 +298,24 @@ impl ClipboardService {
 
                             (clean_preview, resolved_path)
                         } else {
-                            (rest_trimmed.to_string(), None)
+                            let path = (rest_trimmed.starts_with('/')
+                                || rest_trimmed.starts_with("file://"))
+                            .then_some(())
+                            .and_then(|_| {
+                                let output = Command::new("cliphist")
+                                    .args(["decode", id_trimmed])
+                                    .output()
+                                    .ok()?;
+                                if !output.status.success() {
+                                    return None;
+                                }
+                                cache_local_image(
+                                    id_trimmed,
+                                    std::str::from_utf8(&output.stdout).ok()?,
+                                )
+                            });
+                            is_image = path.is_some();
+                            (rest_trimmed.to_string(), path)
                         };
 
                         items.push(ClipboardItem {
@@ -249,17 +336,49 @@ impl ClipboardService {
         if let Ok(guard) = self.fallback_history.lock() {
             return guard
                 .iter()
-                .enumerate()
-                .map(|(idx, text)| ClipboardItem {
-                    id: idx.to_string(),
-                    preview: text.clone(),
-                    is_image: false,
-                    image_path: None,
+                .map(|text| {
+                    use std::hash::{Hash, Hasher};
+                    let mut hash = std::collections::hash_map::DefaultHasher::new();
+                    text.hash(&mut hash);
+                    let id = format!("fallback-{:x}", hash.finish());
+                    let image_path = cache_local_image(&id, text);
+                    ClipboardItem {
+                        id,
+                        preview: text.clone(),
+                        is_image: image_path.is_some(),
+                        image_path,
+                    }
                 })
                 .collect();
         }
 
         Vec::new()
+    }
+
+    pub fn read_item(&self, item: &ClipboardItem) -> Result<ClipboardContent, String> {
+        if !item.is_image
+            && self
+                .fallback_history
+                .lock()
+                .is_ok_and(|history| history.iter().any(|text| text == &item.preview))
+        {
+            return Ok(ClipboardContent::Text(item.preview.clone()));
+        }
+        if item.is_image
+            && let Some(path) = &item.image_path
+            && let Ok(bytes) = std::fs::read(path)
+            && let Ok(content) = decode_content(bytes, true)
+        {
+            return Ok(content);
+        }
+        let output = Command::new("cliphist")
+            .args(["decode", &item.id])
+            .output()
+            .map_err(|_| "clipboard.copy_error".to_string())?;
+        if !output.status.success() {
+            return Err("clipboard.copy_error".into());
+        }
+        decode_content(output.stdout, item.is_image)
     }
 
     pub fn get_item_text(&self, item: &ClipboardItem) -> String {
@@ -274,20 +393,19 @@ impl ClipboardService {
     }
 
     pub fn copy_binary(&self, bytes: &[u8], mime: &str) -> bool {
-        if let Ok(mut child) = Command::new("wl-copy")
+        let Ok(mut child) = Command::new("wl-copy")
             .args(["--type", mime])
             .stdin(Stdio::piped())
             .spawn()
-        {
-            if let Some(mut stdin) = child.stdin.take() {
-                use std::io::Write;
-                let _ = stdin.write_all(bytes);
-            }
-            if let Ok(st) = child.wait() {
-                return st.success();
-            }
-        }
-        false
+        else {
+            return false;
+        };
+        let written = child.stdin.take().is_some_and(|mut stdin| {
+            use std::io::Write;
+            stdin.write_all(bytes).is_ok()
+        });
+        let success = child.wait().is_ok_and(|status| status.success());
+        written && success
     }
 
     pub fn copy_item(&self, item: &ClipboardItem) -> bool {
@@ -383,22 +501,106 @@ impl ClipboardService {
     }
 
     pub fn copy_text(&self, text: &str) -> bool {
-        if let Ok(mut child) = Command::new("wl-copy").stdin(Stdio::piped()).spawn() {
-            if let Some(mut stdin) = child.stdin.take() {
-                use std::io::Write;
-                let _ = stdin.write_all(text.as_bytes());
-            }
-            let _ = child.wait();
-            return true;
-        }
-
-        false
+        let Ok(mut child) = Command::new("wl-copy")
+            .args(["--type", "text/plain;charset=utf-8"])
+            .stdin(Stdio::piped())
+            .spawn()
+        else {
+            return false;
+        };
+        let written = child.stdin.take().is_some_and(|mut stdin| {
+            use std::io::Write;
+            stdin.write_all(text.as_bytes()).is_ok()
+        });
+        let success = child.wait().is_ok_and(|status| status.success());
+        written && success
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_payloads_are_validated_and_normalized_to_png() {
+        let mut source = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(2, 1)
+            .write_to(&mut source, image::ImageFormat::Jpeg)
+            .expect("JPEG fixture");
+        let ClipboardContent::Image(bytes) =
+            decode_content(source.into_inner(), true).expect("image payload")
+        else {
+            panic!("image payload");
+        };
+        assert_eq!(
+            image::guess_format(&bytes).expect("image format"),
+            image::ImageFormat::Png
+        );
+        let decoded = image::load_from_memory(&bytes).expect("PNG payload");
+        assert_eq!((decoded.width(), decoded.height()), (2, 1));
+    }
+
+    #[test]
+    fn invalid_clipboard_data_never_becomes_a_copy_payload() {
+        assert!(decode_content(Vec::new(), false).is_err());
+        assert!(decode_content(vec![0xff], false).is_err());
+        assert!(decode_content(b"not an image".to_vec(), true).is_err());
+        let ClipboardContent::Text(text) =
+            decode_content("primera\nsegunda 🚀".as_bytes().to_vec(), false)
+                .expect("UTF-8 payload")
+        else {
+            panic!("text payload");
+        };
+        assert_eq!(text, "primera\nsegunda 🚀");
+    }
+
+    #[test]
+    fn text_watcher_does_not_mask_a_missing_image_watcher() {
+        let text = "10 wl-paste --type text --watch cliphist store";
+        assert!(has_history_watcher(text, "text"));
+        assert!(!has_history_watcher(text, "image"));
+        let both = format!("{text}\n11 wl-paste -t image --watch cliphist store");
+        assert!(has_history_watcher(&both, "image"));
+        assert!(!has_history_watcher(
+            "12 wl-paste --type image --watch another store",
+            "image"
+        ));
+    }
+
+    #[test]
+    fn local_images_and_file_uris_produce_png_payloads() {
+        let directory =
+            std::env::temp_dir().join(format!("capsule-image-test-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("fixture directory");
+        let source = directory.join("image with spaces.jpg");
+        image::DynamicImage::new_rgb8(3, 2)
+            .save(&source)
+            .expect("JPEG fixture");
+        let uri = reqwest::Url::from_file_path(&source).expect("file URI");
+        for text in [source.to_string_lossy().into_owned(), uri.to_string()] {
+            let path = cache_local_image("local-image-test", &text).expect("cached PNG");
+            let bytes = std::fs::read(&path).expect("cached image");
+            assert_eq!(
+                image::guess_format(&bytes).expect("format"),
+                image::ImageFormat::Png
+            );
+            let decoded = image::load_from_memory(&bytes).expect("PNG");
+            assert_eq!((decoded.width(), decoded.height()), (3, 2));
+        }
+        let first = cache_local_image("local-image-test", &uri.to_string()).expect("first image");
+        image::DynamicImage::new_rgb8(4, 2)
+            .save(&source)
+            .expect("changed fixture");
+        let second =
+            cache_local_image("local-image-test", &uri.to_string()).expect("changed image");
+        assert_ne!(first, second);
+        std::fs::write(&source, "invalid image").expect("invalid fixture");
+        assert!(cache_local_image("local-image-test", &uri.to_string()).is_none());
+        assert!(local_image_path("https://example.com/image.png").is_none());
+        assert!(local_image_path("relative.png").is_none());
+        assert!(local_image_path("/one.png\n/two.png").is_none());
+        std::fs::remove_dir_all(directory).expect("fixture cleanup");
+    }
 
     #[test]
     fn test_parse_image_preview() {

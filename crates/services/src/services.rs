@@ -32,13 +32,14 @@ pub use app_state::AppState;
 pub use clipboard::{ClipboardItem, ClipboardService, Snippet};
 pub use compositor::{CompositorService, WorkspaceInfo};
 pub use config::{
-    AppConfig, CapsuleStyle, ConfigService, Defaults, LockScreenConfig, LockscreenConfig,
-    MprisConfig, UIConfig, UiConfig,
+    AppConfig, CapsuleLocation, CapsuleStyle, ConfigService, Defaults, LockScreenConfig,
+    LockscreenConfig, MprisConfig, UIConfig, UiConfig,
 };
 pub use emoji::{EmojiItem, EmojiService};
 pub use idle::{IdleEvent, IdleService};
 pub use ipc::{
     IpcCommand, IpcMessage, IpcSubscriber, decode_command, pop_ipc_command, push_ipc_command,
+    wait_for_ipc_command,
 };
 pub use language::{LangService, LanguageInfo};
 pub use launcher::{Application, LauncherService};
@@ -78,7 +79,6 @@ pub fn tokio_handle() -> tokio::runtime::Handle {
     }
 
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        let _ = TOKIO_HANDLE.set(handle.clone());
         return handle;
     }
 

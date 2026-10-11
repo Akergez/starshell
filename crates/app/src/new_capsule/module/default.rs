@@ -17,6 +17,7 @@ use crate::new_capsule::widgets::default::{
 pub struct DefaultModule {
     time: String,
     keys: [WorkspaceKey; 6],
+    special: bool,
     status: StatusSnapshot,
     height: f32,
     animation_duration: Duration,
@@ -38,7 +39,7 @@ impl DefaultModule {
         let mut changes = compositor.on_change_workspace();
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
         let workspace_service_task = services::spawn_tokio(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(500));
+            let mut interval = tokio::time::interval(Duration::from_secs(5));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut last_current = compositor.get_workspace();
             let mut last_workspaces = compositor.get_workspaces();
@@ -79,7 +80,11 @@ impl DefaultModule {
                     }
                 }
 
-                if should_send && sender.send((last_current.clone(), last_workspaces.clone())).is_err() {
+                if should_send
+                    && sender
+                        .send((last_current.clone(), last_workspaces.clone()))
+                        .is_err()
+                {
                     break;
                 }
             }
@@ -90,8 +95,9 @@ impl DefaultModule {
                 let keys = workspace_keys(&current, &workspaces);
                 if this
                     .update(cx, |module: &mut Self, cx| {
-                        if module.keys != keys {
+                        if module.keys != keys || module.special != current.is_special {
                             module.keys = keys;
+                            module.special = current.is_special;
                             cx.notify();
                         }
                     })
@@ -104,12 +110,11 @@ impl DefaultModule {
 
         let refresh_task = cx.spawn(async move |this, cx| {
             loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(250))
-                    .await;
+                cx.background_executor().timer(Duration::from_secs(1)).await;
                 if this
                     .update(cx, |module: &mut Self, cx| {
                         let state = cx.global::<AppState>();
+                        let current_ws = state.compositor.get_workspace();
                         let status = StatusSnapshot::new(
                             &state.network.get_status(),
                             state.power.get_battery(),
@@ -118,12 +123,36 @@ impl DefaultModule {
                         let height = config.ui.idle_height;
                         let duration =
                             Duration::from_millis(config.ui.animation_duration_ms as u64);
-                        let time = Local::now().format("%H:%M").to_string();
+                        let time = Local::now().format(config.ui.clock_format()).to_string();
                         let resized = module.height != height;
-                        let changed = resized
+                        let mut changed = resized
                             || module.animation_duration != duration
                             || module.status != status
                             || module.time != time;
+                        let active_number = if current_ws.is_special {
+                            0
+                        } else {
+                            current_ws.num.max(1)
+                        };
+                        let active_matches = module.keys.iter().enumerate().any(|(i, k)| {
+                            k.active
+                                && (i as i32 + 1 == active_number || (i == 5 && active_number > 6))
+                        });
+                        if (!current_ws.is_special && !active_matches)
+                            || module.special != current_ws.is_special
+                        {
+                            for (index, key) in module.keys.iter_mut().enumerate() {
+                                let number = index as i32 + 1;
+                                key.active = !current_ws.is_special
+                                    && (current_ws.num.max(1) == number
+                                        || (index == 5 && current_ws.num > 6));
+                                if key.active {
+                                    key.id = Some(current_ws.id);
+                                }
+                            }
+                            module.special = current_ws.is_special;
+                            changed = true;
+                        }
                         module.height = height;
                         module.animation_duration = duration;
                         module.time = time;
@@ -142,11 +171,15 @@ impl DefaultModule {
             }
         });
 
+        let time = Local::now()
+            .format(state.config.get().ui.clock_format())
+            .to_string();
         let theme_subscription = cx.observe_global::<Theme>(|_, cx| cx.notify());
         Self {
             _theme_subscription: theme_subscription,
-            time: Local::now().format("%H:%M").to_string(),
+            time,
             keys: workspace_keys(&initial, &[]),
+            special: initial.is_special,
             status,
             height,
             animation_duration,
@@ -184,6 +217,7 @@ impl Render for DefaultModule {
             .gap(px(GAP))
             .child(render_workspaces(
                 &self.keys,
+                self.special,
                 self.animation_duration,
                 &theme,
                 cx,
