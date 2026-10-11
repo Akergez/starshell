@@ -60,12 +60,14 @@ impl CapsulePanel {
             cx.displays().first().map(|display| display.bounds().size),
             cx,
         );
+        
         let mut options = Self::window_options(cx);
         options.inactive_frame_interval = None;
         options.window_bounds = Some(WindowBounds::Windowed(gpui::Bounds {
             origin: gpui::point(px(0.0), px(0.0)),
             size,
         }));
+
         if let WindowKind::LayerShell(layer) = &mut options.kind {
             layer.anchor = match cx
                 .global::<services::AppState>()
@@ -259,12 +261,15 @@ impl SettingsPanel {
         let displays = cx.displays();
         let display = displays.first();
         let display_id = display.map(|d| d.id());
-        let display_bounds = display.map(|d| d.bounds());
 
+        Self::surface_options(display_id)
+    }
+
+    fn surface_options(display_id: Option<gpui::DisplayId>) -> WindowOptions {
         WindowOptions {
             display_id,
             titlebar: None,
-            window_bounds: display_bounds.map(WindowBounds::Windowed),
+            window_bounds: Some(WindowBounds::Windowed(gpui::Bounds::default())),
             app_id: Some("capsule-settings".to_string()),
             inactive_frame_interval: None,
             linux_window_background: LinuxWindowBackground::Transparent,
@@ -317,6 +322,35 @@ impl SettingsPanel {
             Self::close(cx);
         } else {
             Self::open(cx);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_surface_size_is_assigned_by_compositor() {
+        for display_id in [
+            None,
+            Some(gpui::DisplayId::new(1)),
+            Some(gpui::DisplayId::new(2)),
+        ] {
+            let options = SettingsPanel::surface_options(display_id);
+            assert_eq!(options.display_id, display_id);
+            assert_eq!(
+                options.window_bounds.unwrap().get_bounds().size,
+                gpui::Size::default()
+            );
+            let WindowKind::LayerShell(layer) = options.kind else {
+                panic!("Settings must use layer shell");
+            };
+            assert_eq!(
+                layer.anchor,
+                Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT
+            );
+            assert_eq!(layer.exclusive_zone, Some(px(-1.0)));
         }
     }
 }

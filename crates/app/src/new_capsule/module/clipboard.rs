@@ -60,15 +60,8 @@ impl ClipboardModule {
                         module.images = reply.images;
                         module.model.update(reply.items, reply.snippets);
                         if let Some((generation, content)) = reply.copied {
-                            match content {
-                                ClipboardContent::Text(text) => {
-                                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(text))
-                                }
-                                ClipboardContent::Image(bytes) => {
-                                    let image =
-                                        gpui::Image::from_bytes(gpui::ImageFormat::Png, bytes);
-                                    cx.write_to_clipboard(gpui::ClipboardItem::new_image(&image));
-                                }
+                            if let ClipboardContent::Text(text) = content {
+                                cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
                             }
                             if module.active && generation == module.generation {
                                 cx.emit(CapsuleModuleEvent::Close);

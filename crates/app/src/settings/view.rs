@@ -153,14 +153,19 @@ impl Render for SettingsWindow {
         };
 
         let viewport = window.viewport_size();
-        let width = (f32::from(viewport.width) - 48.0).clamp(320.0, WIDTH);
-        let height = (f32::from(viewport.height) - 48.0).clamp(240.0, HEIGHT);
+        let width = (f32::from(viewport.width) - 48.0).clamp(0.0, WIDTH);
+        let height = (f32::from(viewport.height) - 48.0).clamp(0.0, HEIGHT);
         let card = div()
             .id("settings-modal-card")
             .relative()
-            .top(px(self.offset_y))
+            .top(px(self
+                .offset_y
+                .min((f32::from(viewport.height) - height).max(0.0) / 2.0)))
             .w(px(width))
             .h(px(height))
+            .max_w_full()
+            .max_h_full()
+            .flex_shrink_0()
             .rounded(px(capsule_radius))
             .bg(style::background(&theme))
             .border_1()
@@ -171,21 +176,7 @@ impl Render for SettingsWindow {
             .on_click(cx.listener(|_this, _, _, cx| {
                 cx.stop_propagation();
             }))
-            .child(
-                div()
-                    .size_full()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .overflow_hidden()
-                    .child(
-                        div()
-                            .w(px(WIDTH))
-                            .h(px(HEIGHT))
-                            .flex_shrink_0()
-                            .child(self.settings_module.clone()),
-                    ),
-            );
+            .child(self.settings_module.clone());
 
         div()
             .id("settings-window-root")
@@ -200,6 +191,7 @@ impl Render for SettingsWindow {
             }))
             .relative()
             .size_full()
+            .overflow_hidden()
             .flex()
             .items_center()
             .justify_center()

@@ -1095,6 +1095,8 @@ impl Render for SettingsModule {
             .p(px(24.0))
             .w_full()
             .h_full()
+            .min_w_0()
+            .min_h_0()
             .bg(style::background(&theme))
             .font_family(theme.font_family())
             .text_color(theme.foreground())
@@ -1123,6 +1125,7 @@ impl Render for SettingsModule {
                     .gap(px(28.0))
                     .flex_1()
                     .min_h_0()
+                    .min_w_0()
                     .w_full()
                     .child(render_tabs(self, &theme, cx))
                     .child(

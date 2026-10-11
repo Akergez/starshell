@@ -16,7 +16,6 @@ All notable changes to Capsule are documented in this file.
 - Kept Power and Usage visible when enabled, while Record and Shelf retain their contextual visibility.
 - Limited usage sampling to the expanded panel and stopped requesting animation frames after transitions finish.
 - Replaced the clipboard header title with the search bar beside Clear and Close.
-- Compacted the Usage panel and centered metric icons.
 - Replaced expanded orb titles with circular controls that transition to a Close icon.
 - Added English and Spanish labels for orb controls and Power actions.
 
@@ -28,28 +27,5 @@ All notable changes to Capsule are documented in this file.
 - Fixed the MangoWM output listener failing to compile because a Wayland read guard was held across an asynchronous wait.
 - Kept expanded orbs inside the available viewport and preserved their corner anchors during interrupted transitions.
 - Reported failed shutdown, reboot, and logout commands instead of treating unsuccessful exit statuses as successful actions.
-
-## v2.0.0
-
-### Features
-- Completely rewrote Capsule with a new architecture and redesigned its core systems and user experience.
-- Redesigned the Settings experience with integrated navigation, search, and reusable setting controls.
-- Added new localized strings for the updated Settings interface in English and Spanish.
-- Added a terminal-based (TUI) installer to guide users through the installation process without requiring a graphical interface.
-- Added a notification module with support for displaying, dismissing, and replying to notifications.
-- Restructured the application runtime around Tokio and added event-loop tests.
-
-### Improvements
-- Improved Settings module state handling and window integration.
-- Refined styling and layout primitives throughout the rewritten Capsule.
-- Improved CPU performance by reducing unnecessary work during normal operation.
-- Improved animation performance to make transitions smoother and more responsive.
-- Refined the user interface across all modules for a more consistent and polished experience.
-- Reduced CPU usage during normal operation.
-- Rebuilt the satellite system as part of the Capsule rewrite.
-- Migrated `gpui-capsule` from a fork of `gpui` to `gpui-ce` as part of the rewrite.
-
-### Bug Fixes
-- Fixed clipboard integration when using `cliphist`. Previously, `cliphist` could return an error, causing Capsule to fall back to text-only clipboard handling; the integration now uses the expected clipboard history behavior.
-- Fixed a clipboard issue that prevented items from being copied.
-- Fixed the lock screen continuously rechecking authentication.
+- Fixed Settings window clipping on smaller displays and incorrect sizing after screen resolution changes.
+- Fixed copying images from Clipboard on Wayland, preserving the image selection and reporting copy failures.

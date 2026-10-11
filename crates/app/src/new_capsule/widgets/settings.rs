@@ -34,6 +34,8 @@ pub(crate) fn render_header(
         .items_center()
         .gap(px(10.0))
         .w(px(420.0))
+        .max_w_full()
+        .min_w_0()
         .h(px(44.0))
         .px(px(14.0))
         .rounded_full()
@@ -81,27 +83,36 @@ pub(crate) fn render_header(
             )
         });
     div()
-        .relative()
         .flex()
         .items_center()
-        .justify_center()
+        .gap(px(10.0))
         .w_full()
+        .min_w_0()
         .h(px(48.0))
         .flex_shrink_0()
-        .child(search)
-        .when(module.can_navigate_back(), |s| {
-            s.child(
-                div().absolute().left_0().child(
-                    style::circle_button("settings-nav-back", "chevron-left.svg", 30.0, theme)
-                        .on_click(cx.listener(|this, _, _, cx| this.navigate_back(cx))),
-                ),
-            )
-        })
         .child(
-            div().absolute().right_0().child(
-                style::circle_button("settings-close-btn", "close.svg", 30.0, theme)
-                    .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
-            ),
+            div()
+                .w(px(30.0))
+                .flex_shrink_0()
+                .when(module.can_navigate_back(), |s| {
+                    s.child(
+                        style::circle_button("settings-nav-back", "chevron-left.svg", 30.0, theme)
+                            .on_click(cx.listener(|this, _, _, cx| this.navigate_back(cx))),
+                    )
+                }),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_1()
+                .min_w_0()
+                .justify_center()
+                .child(search),
+        )
+        .child(
+            style::circle_button("settings-close-btn", "close.svg", 30.0, theme)
+                .flex_shrink_0()
+                .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
         )
 }
 
@@ -127,12 +138,17 @@ pub(crate) fn render_tabs(
         (SettingsTab::Record, "play.svg", "settings.tab_record"),
     ];
     div()
+        .id("settings-tabs-scroll")
         .flex()
         .flex_col()
         .gap(px(6.0))
         .w(px(176.0))
+        .max_w(gpui::relative(0.5))
         .h_full()
+        .min_h_0()
+        .min_w_0()
         .flex_shrink_0()
+        .overflow_y_scroll()
         .children(tabs.into_iter().map(|(tab, icon, key)| {
             let selected = module.active_tab == tab && module.search_query.trim().is_empty();
             let foreground = if selected {
@@ -146,6 +162,8 @@ pub(crate) fn render_tabs(
                 .items_center()
                 .gap(px(12.0))
                 .w_full()
+                .min_w_0()
+                .whitespace_nowrap()
                 .h(px(48.0))
                 .px(px(14.0))
                 .flex_shrink_0()
@@ -171,7 +189,13 @@ pub(crate) fn render_tabs(
                         .flex_shrink_0()
                         .text_color(foreground),
                 )
-                .child(div().min_w_0().text_ellipsis().child(text(key, cx)))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_ellipsis()
+                        .child(text(key, cx)),
+                )
         }))
 }
 

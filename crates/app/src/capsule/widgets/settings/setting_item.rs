@@ -463,11 +463,15 @@ pub fn render_control_row(
         )
         .child(
             div()
+                .id(ElementId::Name(
+                    format!("settings-control-scroll-{title}").into(),
+                ))
                 .flex()
                 .items_center()
-                .justify_end()
-                .flex_shrink_0()
-                .child(control),
+                .min_w_0()
+                .max_w(gpui::relative(0.5))
+                .overflow_x_scroll()
+                .child(div().flex().flex_shrink_0().child(control)),
         )
 }
 
