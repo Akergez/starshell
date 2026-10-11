@@ -60,6 +60,48 @@ pub(super) fn visible_bounds(
 }
 
 impl Capsule {
+    pub(super) fn update_location(&mut self, cx: &mut Context<Self>) {
+        let location = match cx.global::<AppState>().config.get().ui.capsule_location {
+            services::CapsuleLocation::Top => CapsuleLocation::TOP,
+            services::CapsuleLocation::Bottom => CapsuleLocation::BOTTOM,
+        };
+        if self.location == location {
+            return;
+        }
+        let entity = cx.entity();
+        cx.defer(move |cx| {
+            let location = match cx.global::<AppState>().config.get().ui.capsule_location {
+                services::CapsuleLocation::Top => CapsuleLocation::TOP,
+                services::CapsuleLocation::Bottom => CapsuleLocation::BOTTOM,
+            };
+            let capsule = entity.read(cx);
+            if capsule.location == location {
+                return;
+            }
+            let previous_window = capsule.window_state.handle;
+            let options =
+                crate::panel::CapsulePanel::new_window_options(&capsule.module_manager, cx);
+            let result = cx.open_window(options, |window, cx| {
+                entity.update(cx, |capsule, cx| {
+                    capsule.location = location;
+                    capsule.window_state = WindowState::new(window);
+                    capsule.apply_window_geometry(window, cx);
+                    if capsule.animation_frame_pending {
+                        Self::queue_animation_frame(window, cx.entity().downgrade());
+                    }
+                    cx.notify();
+                });
+                entity.clone()
+            });
+            match result {
+                Ok(_) => {
+                    let _ = previous_window.update(cx, |_, window, _| window.remove_window());
+                }
+                Err(error) => eprintln!("Failed to move Capsule window: {error}"),
+            }
+        });
+    }
+
     pub(crate) fn maximum_window_size(
         module_manager: &super::module::CapsuleModuleManager,
         available: Option<Size<Pixels>>,
@@ -202,7 +244,12 @@ impl Capsule {
         regions.extend(
             self.orbit
                 .read(cx)
-                .layout(window.viewport_size(), region, px(config.ui.gap))
+                .layout(
+                    window.viewport_size(),
+                    region,
+                    px(config.ui.gap),
+                    self.location,
+                )
                 .filter(|visual| visual.interactive)
                 .map(|visual| visual.bounds),
         );

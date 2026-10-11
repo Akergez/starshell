@@ -159,7 +159,7 @@ mod tests {
                 let mut app = cx.to_async();
                 cx.foreground_executor()
                     .spawn(async move {
-                        for progress in [0.1, 0.5, 1.0, 0.5, 0.1] {
+                        for progress in [0.0, 0.1, 0.5, 1.0, 0.5, 0.1] {
                             app.update_window(window.into(), |root, window, cx| {
                                 let root = root.downcast::<Preview>().expect("satellite preview");
                                 root.update(cx, |view, cx| {
@@ -197,7 +197,7 @@ mod tests {
                     .detach();
             });
         let measurements = measurements.lock().expect("measurements");
-        assert_eq!(measurements.len(), 5);
+        assert_eq!(measurements.len(), 6);
         for &(progress, width, height, visible_width) in measurements.iter() {
             assert!(
                 (width - 300.0).abs() < 0.5,

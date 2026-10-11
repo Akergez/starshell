@@ -42,7 +42,7 @@ pub(crate) fn render_header(
         .border_color(if searching {
             theme.accent()
         } else {
-            style::surface(theme)
+            style::border(theme)
         })
         .cursor_text()
         .on_click(cx.listener(|this, _, window, cx| {
@@ -217,7 +217,14 @@ pub(crate) fn render_switch_row(
     )
 }
 
-fn silhouette(concave: bool, width: f32, height: f32, radius: f32, theme: &Theme) -> Div {
+fn silhouette(
+    concave: bool,
+    bottom: bool,
+    width: f32,
+    height: f32,
+    radius: f32,
+    theme: &Theme,
+) -> Div {
     div()
         .relative()
         .w(px(width))
@@ -230,7 +237,7 @@ fn silhouette(concave: bool, width: f32, height: f32, radius: f32, theme: &Theme
             s.child(style::concave_background(
                 gpui::size(px(width), px(height)),
                 radius,
-                false,
+                bottom,
                 theme.accent(),
             ))
         })
@@ -291,6 +298,7 @@ pub(crate) fn render_ui_section(
         .max(40.0);
     let height = base_height + (f32::from(size.height) - 22.0);
     let concave = module.capsule_style == CapsuleStyle::Concave;
+    let bottom = config.ui.capsule_location == services::CapsuleLocation::Bottom;
     let radius = module.capsule_round_input.parse::<f32>().unwrap_or(24.0);
     let margin = if concave {
         0.0
@@ -359,6 +367,84 @@ pub(crate) fn render_ui_section(
                         .flex()
                         .flex_col()
                         .w_full()
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_between()
+                                .px(px(18.0))
+                                .py(px(12.0))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_col()
+                                        .gap(px(4.0))
+                                        .child(text("settings.location", cx))
+                                        .child(
+                                            div()
+                                                .text_size(px(12.0))
+                                                .text_color(theme.foreground_muted())
+                                                .child(text("settings.location_hint", cx)),
+                                        ),
+                                )
+                                .child(
+                                    div().flex().gap(px(6.0)).children(
+                                        [
+                                            (
+                                                services::CapsuleLocation::Top,
+                                                "settings.location_top",
+                                            ),
+                                            (
+                                                services::CapsuleLocation::Bottom,
+                                                "settings.location_bottom",
+                                            ),
+                                        ]
+                                        .into_iter()
+                                        .enumerate()
+                                        .map(
+                                            |(index, (location, key))| {
+                                                let selected =
+                                                    config.ui.capsule_location == location;
+                                                div()
+                                                    .id(("settings-location", index))
+                                                    .px(px(14.0))
+                                                    .py(px(8.0))
+                                                    .rounded_full()
+                                                    .bg(if selected {
+                                                        theme.accent()
+                                                    } else {
+                                                        style::surface(theme)
+                                                    })
+                                                    .text_color(if selected {
+                                                        style::on_accent(theme)
+                                                    } else {
+                                                        theme.foreground()
+                                                    })
+                                                    .cursor_pointer()
+                                                    .on_click(cx.listener(
+                                                        move |this, _, window, cx| {
+                                                            this.focus(window, cx);
+                                                            if cx
+                                                                .global::<AppState>()
+                                                                .config
+                                                                .get()
+                                                                .ui
+                                                                .capsule_location
+                                                                != location
+                                                            {
+                                                                this.toggle_setting(
+                                                                    SettingsField::CapsuleLocation,
+                                                                    cx,
+                                                                );
+                                                            }
+                                                        },
+                                                    ))
+                                                    .child(text(key, cx))
+                                            },
+                                        ),
+                                    ),
+                                ),
+                        )
                         .child(render_switch_row(
                             SettingsField::CapsuleStyle,
                             &text("settings.concave_style", cx),
@@ -479,6 +565,7 @@ pub(crate) fn render_ui_section(
                                 .relative()
                                 .flex()
                                 .items_start()
+                                .when(bottom, |s| s.items_end())
                                 .justify_center()
                                 .w_full()
                                 .h(px((base_height + 20.0 + margin + 16.0).max(82.0)))
@@ -489,6 +576,7 @@ pub(crate) fn render_ui_section(
                                     div()
                                         .absolute()
                                         .top(px(8.0))
+                                        .when(bottom, |s| s.top_auto().bottom(px(8.0)))
                                         .w_full()
                                         .h(px(1.0))
                                         .bg(style::border(theme)),
@@ -499,13 +587,16 @@ pub(crate) fn render_ui_section(
                                         .items_center()
                                         .gap(px(gap))
                                         .mt(px(8.0 + margin))
+                                        .when(bottom, |s| s.mt_0().mb(px(8.0 + margin)))
                                         .child(
                                             div()
                                                 .size(px(12.0))
                                                 .rounded_full()
                                                 .bg(style::raised(theme)),
                                         )
-                                        .child(silhouette(concave, width, height, radius, theme))
+                                        .child(silhouette(
+                                            concave, bottom, width, height, radius, theme,
+                                        ))
                                         .child(
                                             div()
                                                 .size(px(12.0))

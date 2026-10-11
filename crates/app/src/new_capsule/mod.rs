@@ -13,6 +13,7 @@ pub(crate) mod satellite;
 pub(crate) mod widgets;
 mod window_state;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CapsuleLocation {
     TOP,
     BOTTOM,
@@ -160,6 +161,7 @@ impl Render for Capsule {
                             &self.location,
                         ),
                         gpui::px(cx.global::<services::AppState>().config.get().ui.gap),
+                        self.location,
                     )
                     .render(&theme, cx),
             );

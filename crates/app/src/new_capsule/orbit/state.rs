@@ -1,4 +1,5 @@
 use super::{BADGE_OVERHANG, ORB_SIZE, OrbitId, OrbitVisual, Snapshot, animator::Animator};
+use crate::new_capsule::CapsuleLocation;
 use gpui::{Bounds, Pixels, Size, point, px};
 use services::RecordStatus;
 use std::time::{Duration, Instant};
@@ -47,6 +48,7 @@ impl State {
         viewport: Size<Pixels>,
         capsule: Bounds<Pixels>,
         gap: Pixels,
+        location: CapsuleLocation,
     ) -> impl Iterator<Item = OrbitVisual> {
         let gap = gap.max(px(12.0));
         [
@@ -64,7 +66,11 @@ impl State {
                 OrbitId::Shelf => capsule.origin.x - gap - px(ORB_SIZE) + offset,
                 OrbitId::Recording => capsule.right() + gap - offset,
             };
-            let y = (capsule.origin.y + px(7.0)).clamp(
+            let y = match location {
+                CapsuleLocation::TOP => capsule.origin.y + px(7.0),
+                CapsuleLocation::BOTTOM => capsule.bottom() - px(ORB_SIZE + 7.0),
+            }
+            .clamp(
                 px(0.0),
                 (viewport.height - px(ORB_SIZE + BADGE_OVERHANG)).max(px(0.0)),
             );
@@ -125,7 +131,7 @@ mod tests {
                     px(8.0),
                     &location,
                 );
-                let visuals: Vec<_> = state.layout(viewport, capsule, px(8.0)).collect();
+                let visuals: Vec<_> = state.layout(viewport, capsule, px(8.0), location).collect();
                 assert_eq!(visuals.len(), 2);
                 assert_eq!(visuals[0].id, OrbitId::Shelf);
                 assert_eq!(visuals[1].id, OrbitId::Recording);
@@ -135,7 +141,10 @@ mod tests {
                     assert!(visual.interactive);
                     assert_eq!(
                         visual.bounds.origin.y + px(ORB_SIZE / 2.0),
-                        capsule.origin.y + px(20.0)
+                        match location {
+                            CapsuleLocation::TOP => capsule.origin.y + px(20.0),
+                            CapsuleLocation::BOTTOM => capsule.bottom() - px(20.0),
+                        }
                     );
                 }
             }
@@ -155,7 +164,9 @@ mod tests {
             px(0.0),
             &CapsuleLocation::TOP,
         );
-        let visuals: Vec<_> = state.layout(viewport, capsule, px(8.0)).collect();
+        let visuals: Vec<_> = state
+            .layout(viewport, capsule, px(8.0), CapsuleLocation::TOP)
+            .collect();
         let panel_size = gpui::size(px(320.0), px(300.0));
         let gap = State::satellite_gap(px(8.0));
         let left = SatelliteLayout::new(viewport, capsule, panel_size, gap, Side::Left, 1.0);
@@ -183,12 +194,16 @@ mod tests {
         };
         assert!(state.update(snapshot, Duration::from_millis(200), now));
         assert!(state.animating());
-        let visuals: Vec<_> = state.layout(viewport, capsule, px(0.0)).collect();
+        let visuals: Vec<_> = state
+            .layout(viewport, capsule, px(0.0), CapsuleLocation::TOP)
+            .collect();
         assert!(!visuals[0].interactive);
         assert!(visuals[1].interactive);
         assert!(!state.advance(now + Duration::from_millis(300)));
         assert!(!state.animating());
-        let visuals: Vec<_> = state.layout(viewport, capsule, px(0.0)).collect();
+        let visuals: Vec<_> = state
+            .layout(viewport, capsule, px(0.0), CapsuleLocation::TOP)
+            .collect();
         assert_eq!(visuals.len(), 1);
         assert_eq!(visuals[0].id, OrbitId::Recording);
         assert!(!state.update(snapshot, Duration::ZERO, now + Duration::from_secs(1)));
@@ -197,7 +212,12 @@ mod tests {
             Duration::ZERO,
             now + Duration::from_secs(1),
         );
-        assert_eq!(state.layout(viewport, capsule, px(0.0)).count(), 0);
+        assert_eq!(
+            state
+                .layout(viewport, capsule, px(0.0), CapsuleLocation::TOP)
+                .count(),
+            0
+        );
     }
 
     #[test]
@@ -210,6 +230,11 @@ mod tests {
             px(0.0),
             &CapsuleLocation::TOP,
         );
-        assert_eq!(state.layout(viewport, capsule, px(8.0)).count(), 0);
+        assert_eq!(
+            state
+                .layout(viewport, capsule, px(8.0), CapsuleLocation::TOP)
+                .count(),
+            0
+        );
     }
 }

@@ -62,7 +62,7 @@ impl Theme {
         let colors = if dark {
             ["#09090B", "#18181B", "#27272A", "#FAFAFA", "#A1A1AA"]
         } else {
-            ["#FAFAFA", "#F0F0F2", "#E4E4E7", "#18181B", "#71717A"]
+            ["#FAFAFA", "#B8C0CC", "#D0D6DF", "#18181B", "#71717A"]
         };
         self.background_color = Color::from(colors[0]);
         self.background_color_alt = Color::from(colors[1]);
@@ -100,8 +100,8 @@ impl Theme {
             if dark { 0.65 } else { 0.4 },
         );
         theme.background_color = to_color(0.12, if dark { 0.055 } else { 0.98 });
-        theme.background_color_alt = to_color(0.1, if dark { 0.09 } else { 0.94 });
-        theme.surface_color = to_color(0.12, if dark { 0.16 } else { 0.89 });
+        theme.background_color_alt = to_color(0.14, if dark { 0.09 } else { 0.74 });
+        theme.surface_color = to_color(0.12, if dark { 0.16 } else { 0.84 });
         theme
     }
 
@@ -243,5 +243,24 @@ mod tests {
         assert_eq!(light.mode, ThemeMode::Light);
         assert!(warm.background().lightness < warm.foreground().lightness);
         assert!(light.background().lightness > light.foreground().lightness);
+    }
+
+    #[test]
+    fn light_mode_surfaces_have_distinct_contrast() {
+        let default_light = Theme::default().with_mode(false);
+        assert_eq!(default_light.mode, ThemeMode::Light);
+        assert!(default_light.background().lightness > default_light.surface().lightness);
+        assert!(default_light.surface().lightness > default_light.background_alt().lightness);
+        assert!(
+            default_light.background().lightness - default_light.background_alt().lightness >= 0.15
+        );
+
+        let dynamic_light = Theme::from_wallpaper([100, 180, 120], false, "Geist".into());
+        assert_eq!(dynamic_light.mode, ThemeMode::Light);
+        assert!(dynamic_light.background().lightness > dynamic_light.surface().lightness);
+        assert!(dynamic_light.surface().lightness > dynamic_light.background_alt().lightness);
+        assert!(
+            dynamic_light.background().lightness - dynamic_light.background_alt().lightness >= 0.15
+        );
     }
 }

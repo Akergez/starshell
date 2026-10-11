@@ -258,6 +258,7 @@ impl Capsule {
                     .update(cx, |capsule, cx| {
                         let current = capsule.module_manager.current_id();
                         capsule.handle_module_event(&CapsuleModuleEvent::SizeChanged(current), cx);
+                        capsule.update_location(cx);
                     })
                     .is_err()
                 {
@@ -267,7 +268,16 @@ impl Capsule {
         });
 
         let mut capsule = Self {
-            location: CapsuleLocation::TOP,
+            location: match cx
+                .global::<services::AppState>()
+                .config
+                .get()
+                .ui
+                .capsule_location
+            {
+                services::CapsuleLocation::Top => CapsuleLocation::TOP,
+                services::CapsuleLocation::Bottom => CapsuleLocation::BOTTOM,
+            },
             window_state: super::window_state::WindowState::new(window),
             module_manager,
             animator: Animator::new(
@@ -492,9 +502,12 @@ impl Capsule {
         }
     }
 
-    fn queue_animation_frame(window: &gpui::Window, entity: gpui::WeakEntity<Self>) {
+    pub(super) fn queue_animation_frame(window: &gpui::Window, entity: gpui::WeakEntity<Self>) {
         window.on_next_frame(move |window, cx| {
             let _ = entity.update(cx, |capsule, cx| {
+                if window.window_handle() != capsule.window_state.handle {
+                    return;
+                }
                 let previous_size = capsule.animator.size();
                 let now = Instant::now();
                 let orbits_were_running = capsule.orbit.read(cx).animating();

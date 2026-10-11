@@ -27,13 +27,6 @@ impl SatelliteId {
         }
     }
 
-    fn preferred_side(&self) -> Side {
-        match self {
-            Self::Tray { .. } => Side::Right,
-            Self::Calendar | Self::Wifi | Self::Bluetooth | Self::Audio => Side::Left,
-        }
-    }
-
     fn size(&self) -> Size<Pixels> {
         match self {
             Self::Calendar => gpui::size(
@@ -56,6 +49,7 @@ pub(crate) struct SatelliteVisual {
 
 struct Panel {
     id: SatelliteId,
+    side: Side,
     animator: SatelliteAnimator,
 }
 
@@ -77,18 +71,47 @@ impl Satellite {
         gpui::size(px(320.0), px(400.0))
     }
 
-    fn transition(&mut self, id: SatelliteId, open: bool, duration: Duration) {
+    fn next_side(&self, id: &SatelliteId) -> Side {
+        if let Some(panel) = self.panels.iter().find(|panel| &panel.id == id) {
+            return panel.side;
+        }
+        [Side::Left, Side::Right]
+            .into_iter()
+            .find(|side| {
+                !self
+                    .panels
+                    .iter()
+                    .any(|panel| panel.side == *side && panel.animator.open())
+            })
+            .or_else(|| {
+                self.panels
+                    .iter()
+                    .find(|panel| panel.animator.open())
+                    .map(|panel| panel.side)
+            })
+            .unwrap_or(Side::Left)
+    }
+
+    fn transition(&mut self, id: SatelliteId, open: bool, duration: Duration, side: Side) {
         if open {
             self.panels
-                .retain(|panel| panel.id == id || panel.id.preferred_side() != id.preferred_side());
+                .retain(|panel| panel.id == id || panel.side != side);
+            if let Some(index) = self.panels.iter().position(|panel| panel.id == id) {
+                let panel = self.panels.remove(index);
+                self.panels.push(panel);
+            }
+        } else if !self.contains(&id) {
+            return;
         }
         if !self.contains(&id) {
             self.panels.push(Panel {
                 id: id.clone(),
+                side,
                 animator: SatelliteAnimator::new(),
             });
         }
         if let Some(panel) = self.panels.iter_mut().find(|panel| panel.id == id) {
+            panel.side = side;
             panel.animator.transition(open, duration, Instant::now());
         }
     }
@@ -121,7 +144,7 @@ impl Satellite {
                     capsule,
                     panel.id.size(),
                     gap,
-                    panel.id.preferred_side(),
+                    panel.side,
                     panel.animator.progress(),
                 ),
                 progress: panel.animator.progress(),
@@ -177,6 +200,7 @@ impl Capsule {
     }
 
     fn transition_satellite(&mut self, id: SatelliteId, open: bool, cx: &mut Context<Self>) {
+        let mut destination = self.satellite.next_side(&id);
         if open {
             let handle = self.window_state.handle;
             let _ = handle.update(cx, |_, window, cx| {
@@ -193,21 +217,8 @@ impl Capsule {
                     .get()
                     .ui
                     .gap));
-                let side = |id: &SatelliteId| {
-                    SatelliteLayout::new(
-                        viewport,
-                        capsule,
-                        id.size(),
-                        gap,
-                        id.preferred_side(),
-                        1.0,
-                    )
-                    .side
-                };
-                let destination = side(&id);
-                self.satellite
-                    .panels
-                    .retain(|panel| panel.id == id || side(&panel.id) != destination);
+                destination =
+                    SatelliteLayout::new(viewport, capsule, id.size(), gap, destination, 1.0).side;
             });
         }
         let state = cx.global::<services::AppState>();
@@ -225,7 +236,7 @@ impl Capsule {
                 _ => {}
             }
         }
-        self.satellite.transition(id, open, duration);
+        self.satellite.transition(id, open, duration, destination);
         self.sync_window(cx);
         if self.satellite_animation_task.is_none() && self.satellite.advance(Instant::now()) {
             self.satellite_animation_task = Some(cx.spawn(async move |this, cx| {
@@ -261,11 +272,77 @@ impl Capsule {
 mod tests {
     use super::*;
 
+    fn transition(satellites: &mut Satellite, id: SatelliteId, open: bool, duration: Duration) {
+        let side = satellites.next_side(&id);
+        satellites.transition(id, open, duration, side);
+    }
+
+    #[test]
+    fn panels_fill_both_sides_and_replace_the_oldest() {
+        let mut satellites = Satellite::new();
+        transition(&mut satellites, SatelliteId::Wifi, true, Duration::ZERO);
+        transition(
+            &mut satellites,
+            SatelliteId::Bluetooth,
+            true,
+            Duration::ZERO,
+        );
+        assert_eq!(satellites.panels[0].side, Side::Left);
+        assert_eq!(satellites.panels[1].side, Side::Right);
+        transition(&mut satellites, SatelliteId::Audio, true, Duration::ZERO);
+        assert!(!satellites.contains(&SatelliteId::Wifi));
+        assert_eq!(satellites.panels[1].side, Side::Left);
+        transition(&mut satellites, SatelliteId::Calendar, true, Duration::ZERO);
+        assert!(!satellites.contains(&SatelliteId::Bluetooth));
+        assert_eq!(satellites.panels[1].side, Side::Right);
+        assert_eq!(satellites.panels.len(), 2);
+    }
+
+    #[test]
+    fn reopening_a_closing_panel_makes_it_the_newest() {
+        let mut satellites = Satellite::new();
+        transition(&mut satellites, SatelliteId::Wifi, true, Duration::ZERO);
+        transition(
+            &mut satellites,
+            SatelliteId::Bluetooth,
+            true,
+            Duration::ZERO,
+        );
+        transition(
+            &mut satellites,
+            SatelliteId::Wifi,
+            false,
+            Duration::from_millis(130),
+        );
+        transition(&mut satellites, SatelliteId::Wifi, true, Duration::ZERO);
+        transition(&mut satellites, SatelliteId::Audio, true, Duration::ZERO);
+        assert!(satellites.contains(&SatelliteId::Wifi));
+        assert!(!satellites.contains(&SatelliteId::Bluetooth));
+    }
+
+    #[test]
+    fn a_closed_side_is_reused_without_evicting_the_other() {
+        let mut satellites = Satellite::new();
+        transition(&mut satellites, SatelliteId::Wifi, true, Duration::ZERO);
+        transition(
+            &mut satellites,
+            SatelliteId::Bluetooth,
+            true,
+            Duration::ZERO,
+        );
+        transition(&mut satellites, SatelliteId::Wifi, false, Duration::ZERO);
+        satellites.advance(Instant::now());
+        transition(&mut satellites, SatelliteId::Audio, true, Duration::ZERO);
+        assert!(satellites.contains(&SatelliteId::Bluetooth));
+        assert_eq!(satellites.panels[1].side, Side::Left);
+    }
+
     #[test]
     fn opening_and_closing_panels_preserves_the_others() {
         let mut satellites = Satellite::new();
-        satellites.transition(SatelliteId::Wifi, true, Duration::ZERO);
-        satellites.transition(
+        transition(&mut satellites, SatelliteId::Wifi, true, Duration::ZERO);
+        transition(
+            &mut satellites,
             SatelliteId::Tray {
                 bus: "test".into(),
                 path: "/test".into(),
@@ -274,7 +351,8 @@ mod tests {
             Duration::ZERO,
         );
         assert_eq!(satellites.panels.len(), 2);
-        satellites.transition(
+        transition(
+            &mut satellites,
             SatelliteId::Tray {
                 bus: "test".into(),
                 path: "/test".into(),
@@ -289,7 +367,8 @@ mod tests {
             path: "/test".into()
         }));
         assert!(satellites.open());
-        satellites.transition(
+        transition(
+            &mut satellites,
             SatelliteId::Tray {
                 bus: "test".into(),
                 path: "/test".into(),
@@ -303,8 +382,9 @@ mod tests {
     #[test]
     fn one_panel_per_side_is_centered_on_the_capsule() {
         let mut satellites = Satellite::new();
-        satellites.transition(SatelliteId::Wifi, true, Duration::ZERO);
-        satellites.transition(
+        transition(&mut satellites, SatelliteId::Wifi, true, Duration::ZERO);
+        transition(
+            &mut satellites,
             SatelliteId::Tray {
                 bus: "test".into(),
                 path: "/test".into(),
@@ -312,7 +392,7 @@ mod tests {
             true,
             Duration::ZERO,
         );
-        satellites.transition(SatelliteId::Calendar, true, Duration::ZERO);
+        transition(&mut satellites, SatelliteId::Calendar, true, Duration::ZERO);
         assert_eq!(satellites.panels.len(), 2);
         assert!(!satellites.contains(&SatelliteId::Wifi));
         assert!(satellites.contains(&SatelliteId::Tray {

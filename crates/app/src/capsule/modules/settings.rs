@@ -62,6 +62,7 @@ pub enum SettingsField {
     ClockFormat = 21,
     CapsuleStyle = 22,
     LegacyCapsule = 23,
+    CapsuleLocation = 24,
 }
 
 pub enum SettingsEvent {
@@ -592,6 +593,12 @@ impl SettingsModule {
             SettingsField::DarkMode => cfg.ui.dark_mode = !cfg.ui.dark_mode,
             SettingsField::ClockFormat => cfg.ui.clock_24_hour = !cfg.ui.clock_24_hour,
             SettingsField::LegacyCapsule => cfg.ui.use_new_capsule = !cfg.ui.use_new_capsule,
+            SettingsField::CapsuleLocation => {
+                cfg.ui.capsule_location = match cfg.ui.capsule_location {
+                    services::CapsuleLocation::Top => services::CapsuleLocation::Bottom,
+                    services::CapsuleLocation::Bottom => services::CapsuleLocation::Top,
+                };
+            }
             SettingsField::CapsuleStyle => {
                 cfg.ui.capsule_style = if cfg.ui.capsule_style == CapsuleStyle::Normal {
                     CapsuleStyle::Concave
@@ -765,6 +772,7 @@ impl SettingsModule {
             | SettingsField::DarkMode
             | SettingsField::ClockFormat
             | SettingsField::CapsuleStyle
+            | SettingsField::CapsuleLocation
             | SettingsField::LegacyCapsule),
         ) = self.active_field
         {
@@ -908,6 +916,7 @@ impl SettingsModule {
             | SettingsField::DarkMode
             | SettingsField::ClockFormat
             | SettingsField::CapsuleStyle
+            | SettingsField::CapsuleLocation
             | SettingsField::LegacyCapsule => {
                 return;
             }
@@ -940,6 +949,7 @@ impl SettingsModule {
             | SettingsField::DarkMode
             | SettingsField::ClockFormat
             | SettingsField::CapsuleStyle
+            | SettingsField::CapsuleLocation
             | SettingsField::LegacyCapsule => {
                 return;
             }

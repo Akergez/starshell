@@ -51,13 +51,12 @@ impl CapsulePanel {
         }
     }
 
-    pub fn open_new(
-        cx: &mut gpui::App,
-        ipc_subscriber: IpcSubscriber,
-    ) -> Option<WindowHandle<crate::new_capsule::Capsule>> {
-        let module_manager = crate::new_capsule::module::CapsuleModuleManager::new(cx);
+    pub(crate) fn new_window_options(
+        module_manager: &crate::new_capsule::module::CapsuleModuleManager,
+        cx: &gpui::App,
+    ) -> WindowOptions {
         let size = crate::new_capsule::Capsule::maximum_window_size(
-            &module_manager,
+            module_manager,
             cx.displays().first().map(|display| display.bounds().size),
             cx,
         );
@@ -68,8 +67,26 @@ impl CapsulePanel {
             size,
         }));
         if let WindowKind::LayerShell(layer) = &mut options.kind {
-            layer.anchor = Anchor::TOP;
+            layer.anchor = match cx
+                .global::<services::AppState>()
+                .config
+                .get()
+                .ui
+                .capsule_location
+            {
+                services::CapsuleLocation::Top => Anchor::TOP,
+                services::CapsuleLocation::Bottom => Anchor::BOTTOM,
+            };
         }
+        options
+    }
+
+    pub fn open_new(
+        cx: &mut gpui::App,
+        ipc_subscriber: IpcSubscriber,
+    ) -> Option<WindowHandle<crate::new_capsule::Capsule>> {
+        let module_manager = crate::new_capsule::module::CapsuleModuleManager::new(cx);
+        let options = Self::new_window_options(&module_manager, cx);
         let window = match cx.open_window(options, |window, cx| {
             cx.new(|cx| {
                 crate::new_capsule::Capsule::with_module_manager(module_manager, window, cx)

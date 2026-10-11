@@ -9,7 +9,7 @@ use state::State;
 use std::time::{Duration, Instant};
 
 use super::{
-    Capsule,
+    Capsule, CapsuleLocation,
     module::{CapsuleModuleEvent, CapsuleModuleId},
 };
 
@@ -124,8 +124,9 @@ impl Orbit {
         viewport: Size<Pixels>,
         capsule: Bounds<Pixels>,
         gap: Pixels,
+        location: CapsuleLocation,
     ) -> impl Iterator<Item = OrbitVisual> {
-        self.state.layout(viewport, capsule, gap)
+        self.state.layout(viewport, capsule, gap, location)
     }
 
     pub fn presentation(
@@ -133,10 +134,11 @@ impl Orbit {
         viewport: Size<Pixels>,
         capsule: Bounds<Pixels>,
         gap: Pixels,
+        location: CapsuleLocation,
     ) -> Presentation {
         Presentation {
             state: self.state.snapshot,
-            visuals: self.layout(viewport, capsule, gap).collect(),
+            visuals: self.layout(viewport, capsule, gap, location).collect(),
             capsule,
         }
     }

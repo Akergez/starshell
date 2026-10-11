@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use gpui::{Bounds, Hsla, PathBuilder, Pixels, Size, div, point, prelude::*, px};
-use ui::theme::Theme;
+use ui::theme::{Theme, ThemeMode};
 
 fn opaque(mut color: Hsla) -> Hsla {
     color.alpha = 1.0;
@@ -130,7 +130,10 @@ pub(crate) fn concave_input_regions(
 }
 
 pub(crate) fn surface(theme: &Theme) -> Hsla {
-    tint(background(theme), theme.surface(), 0.5)
+    match theme.mode {
+        ThemeMode::Dark => tint(background(theme), theme.surface(), 0.5),
+        ThemeMode::Light => opaque(theme.surface()),
+    }
 }
 
 pub(crate) fn hover(theme: &Theme) -> Hsla {
@@ -142,7 +145,10 @@ pub(crate) fn selected(theme: &Theme) -> Hsla {
 }
 
 pub(crate) fn border(theme: &Theme) -> Hsla {
-    tint(background(theme), theme.background_alt(), 0.5)
+    match theme.mode {
+        ThemeMode::Dark => tint(background(theme), theme.background_alt(), 0.5),
+        ThemeMode::Light => opaque(theme.background_alt()),
+    }
 }
 
 pub(crate) fn card(theme: &Theme, radius: f32) -> gpui::Div {
@@ -179,7 +185,10 @@ pub(crate) const CARD_RADIUS: f32 = 16.0;
 pub(crate) const INNER_RADIUS: f32 = 12.0;
 
 pub(crate) fn raised(theme: &Theme) -> Hsla {
-    tint(surface(theme), theme.foreground(), 0.06)
+    match theme.mode {
+        ThemeMode::Dark => tint(surface(theme), theme.foreground(), 0.06),
+        ThemeMode::Light => tint(surface(theme), border(theme), 0.5),
+    }
 }
 
 pub(crate) fn accent_card(theme: &Theme) -> Hsla {
@@ -461,5 +470,18 @@ mod tests {
             assert_ne!(hover(&theme), surface(&theme));
             assert_ne!(selected(&theme), surface(&theme));
         }
+    }
+
+    #[test]
+    fn light_mode_surfaces_distinguish_cards_and_borders_from_background() {
+        let theme = Theme::default().with_mode(false);
+        assert_ne!(surface(&theme), background(&theme));
+        assert_ne!(border(&theme), background(&theme));
+        assert_ne!(surface(&theme), border(&theme));
+        assert_ne!(raised(&theme), surface(&theme));
+        assert_ne!(raised(&theme), border(&theme));
+        assert!(background(&theme).lightness > surface(&theme).lightness);
+        assert!(surface(&theme).lightness > raised(&theme).lightness);
+        assert!(raised(&theme).lightness > border(&theme).lightness);
     }
 }

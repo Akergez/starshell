@@ -4,10 +4,7 @@ mod tray;
 use super::error;
 use super::{button, empty};
 use crate::new_capsule::module::dashboard::DashboardModule;
-use gpui::{
-    AnyElement, Context, IntoElement, MotionDurationExt, canvas, div, ease_in_out, prelude::*, px,
-    svg,
-};
+use gpui::{AnyElement, Context, IntoElement, canvas, div, prelude::*, px, svg};
 use ui::theme::Theme;
 pub(crate) fn render_satellite(
     module: &DashboardModule,
@@ -113,16 +110,21 @@ pub(crate) fn render_satellite(
     );
     let bounds_entity = cx.entity().downgrade();
     let bounds_id = visual.id.clone();
-    let height = module
+    let measured_height = module
         .satellite_heights
         .iter()
         .find(|(id, _)| *id == visual.id)
-        .map(|(_, height)| *height)
-        .unwrap_or(px(72.0))
+        .map(|(_, height)| *height);
+    let height = measured_height
+        .unwrap_or(visual.layout.bounds.size.height)
         .min(visual.layout.bounds.size.height);
     crate::new_capsule::widgets::satellite::surface::render(
         visual.layout,
-        visual.progress,
+        if measured_height.is_some() {
+            visual.progress
+        } else {
+            0.0
+        },
         visual.open,
         radius,
         body,
@@ -130,19 +132,22 @@ pub(crate) fn render_satellite(
     )
     .h(height)
     .max_h(visual.layout.bounds.size.height)
-    .transitions(|t| t.h(module.snapshot.duration.with_easing(ease_in_out)))
     .child(
         canvas(
             move |bounds, window, cx| {
                 let entity = bounds_entity.clone();
                 let id = bounds_id.clone();
-                let bounds = gpui::Bounds {
+                let mut bounds = gpui::Bounds {
                     origin: bounds.origin - gpui::point(px(1.0), px(1.0)),
                     size: bounds.size + gpui::size(px(2.0), px(2.0)),
                 };
                 window.defer(cx, move |_, cx| {
                     let _ = entity.update(cx, |module, cx| {
-                        if module.satellites.iter().any(|visual| visual.id == id) {
+                        if module.satellites.iter().any(|visual| visual.id == id)
+                            && let Some((_, height)) =
+                                module.satellite_heights.iter().find(|(key, _)| *key == id)
+                        {
+                            bounds.size.height = *height + px(2.0);
                             cx.emit(
                                 crate::new_capsule::module::CapsuleModuleEvent::SatelliteBounds(
                                     id, bounds,
