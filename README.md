@@ -173,6 +173,15 @@ cd Capsule
 cargo build --release
 ```
 
+## Requirements
+Capsule is a Wayland desktop shell and expects a real Wayland runtime, not a bare X11 setup.
+
+- A supported Wayland compositor such as Niri, Hyprland, or MangoWM.
+- PipeWire and WirePlumber enabled and running.
+- The `wpctl`, `pactl`, and `parec` utilities available in `PATH`.
+- At least one visible audio device (sink/source) exposed by the system.
+- If you are testing inside a VM, you will usually need a virtual audio device or a host with real audio passthrough; otherwise the audio widgets will stay empty.
+
 ### Nix
 
 The provided flake supports `x86_64-linux` and `aarch64-linux`.
