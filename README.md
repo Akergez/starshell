@@ -1,5 +1,22 @@
+
+<div align="center">
+
+[![Arch Linux](https://img.shields.io/badge/Arch_Linux-supported-1793d1?logo=archlinux&logoColor=white)](https://archlinux.org/)
+[![NixOS](https://img.shields.io/badge/NixOS-supported-5277c3?logo=nixos&logoColor=white)](https://nixos.org/)
+
+[![Niri](https://img.shields.io/badge/Niri-supported-5e81ac?logo=wayland&logoColor=white)](https://github.com/YaLTeR/niri)
+[![Hyprland](https://img.shields.io/badge/Hyprland-supported-58e1ff?logo=wayland&logoColor=white)](https://github.com/hyprwm/Hyprland)
+[![MangoWM](https://img.shields.io/badge/MangoWM-supported-f2a65a?logo=wayland&logoColor=white)](https://github.com/DreamMaoMao/mangowc)
+
+</div>
+
+<div align="center">
+
 # Capsule
 A Wayland desktop shell built with GPUI (the Zed UI framework), inspired by Dragon Ball's Capsule Corp.
+</div>
+
+
 
 ## Scope
 Capsule is an all-in-one desktop shell designed to be lightweight, responsive, and GPU-accelerated.
@@ -138,15 +155,6 @@ Conditionals are also supported:
 # Light mode configuration
 {% endif %}
 ```
-
-## Linux Support
-
-![Arch Linux Based](https://img.shields.io/badge/Arch_Linux_Based-1793D1?style=for-the-badge&logo=archlinux&logoColor=white)
-
-- **Distributions**: Currently targeted and optimized for **Arch Linux** and Arch-based distributions.
-- **Compositors**: Native support for **Hyprland** and **Niri** (via direct IPC integrations).
-- **Backend**: Wayland-only (utilizing `wlr-layer-shell`).
-- **Core Integrations**: D-Bus (`org.mpris.MediaPlayer2`, `org.freedesktop.NetworkManager`, BlueZ), PipeWire, WirePlumber, Polkit.
 
 ## Installation
 ```bash
