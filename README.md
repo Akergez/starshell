@@ -165,6 +165,34 @@ cd Capsule
 cargo build --release
 ```
 
+### Nix
+
+The provided flake supports `x86_64-linux` and `aarch64-linux`.
+
+```bash
+nix run github:moiCR/Capsule
+nix build github:moiCR/Capsule#Capsule
+```
+
+For a NixOS or Home Manager configuration, add this input to your flake:
+
+```bash
+inputs.capsule.url = "github:moiCR/Capsule";
+inputs.capsule.inputs.nixpkgs.follows = "nixpkgs";
+```
+
+For NixOS:
+
+```nix
+environment.systemPackages = [ inputs.capsule.packages.${pkgs.system}.default ];
+```
+
+Or with Home Manager:
+
+```nix
+home.packages = [ inputs.capsule.packages.${pkgs.system}.default ];
+```
+
 ## Special Thanks
 - [zed](https://github.com/zed-industries/zed): for creating gpui and making it open source
 - [tide-island](https://github.com/enhaoswen/Tide-island): for the inspiration
