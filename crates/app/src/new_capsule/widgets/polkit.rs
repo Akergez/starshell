@@ -4,11 +4,31 @@ use gpui::{AnyElement, Context, FocusHandle, IntoElement, div, prelude::*, px, s
 use services::AppState;
 use ui::theme::Theme;
 
-pub const WIDTH: f32 = 400.0;
-pub const HEIGHT: f32 = 212.0;
+pub const WIDTH: f32 = 432.0;
+pub const HEIGHT: f32 = 258.0;
 
-pub(crate) fn height(has_error: bool) -> f32 {
-    HEIGHT + if has_error { 40.0 } else { 0.0 }
+pub(crate) fn message_lines(message: &str) -> f32 {
+    let mut lines = 1.0_f32;
+    let mut line_length = 0;
+    for word in message.split_whitespace() {
+        let word_length = word.chars().count();
+        let wraps = line_length > 0 && line_length + word_length + 1 > 58;
+        if wraps {
+            lines += 1.0;
+        }
+        lines += (word_length.saturating_sub(1) / 58) as f32;
+        line_length = if wraps {
+            word_length % 58
+        } else {
+            line_length + word_length + usize::from(line_length > 0)
+        };
+    }
+    lines.clamp(1.0, 3.0)
+}
+
+pub(crate) fn height(has_error: bool, message: Option<&str>) -> f32 {
+    let lines = message.map_or(2.0, message_lines);
+    HEIGHT + (lines - 2.0) * 17.0 + if has_error { 44.0 } else { 0.0 }
 }
 
 pub(crate) fn render(
@@ -21,6 +41,8 @@ pub(crate) fn render(
     let Some(request) = &module.request else {
         return div().into_any_element();
     };
+    let message_height = message_lines(&request.message) * 17.0;
+    let message_card_height = 34.0 + message_height;
     let enabled = !module.authenticating && !module.password.is_empty();
     let placeholder = module.text(
         if module.authenticating {
@@ -33,16 +55,16 @@ pub(crate) fn render(
     let field = div()
         .id("polkit-password")
         .w_full()
-        .h(px(40.0))
+        .h(px(42.0))
         .flex_shrink_0()
         .px(px(14.0))
-        .rounded(px(style::INNER_RADIUS))
-        .bg(style::surface(&theme))
+        .rounded_full()
+        .bg(style::background(&theme))
         .border_1()
         .border_color(if module.error.is_some() {
             theme.red()
         } else {
-            theme.accent()
+            style::tint(style::border(&theme), theme.accent(), 0.35)
         })
         .flex()
         .items_center()
@@ -89,7 +111,7 @@ pub(crate) fn render(
         .track_focus(focus)
         .on_key_down(cx.listener(PolkitModule::key_down))
         .w(px(WIDTH))
-        .h(px(height(module.error.is_some())))
+        .h(px(height(module.error.is_some(), Some(&request.message))))
         .p(px(14.0))
         .rounded(px(config.ui.capsule_round))
         .overflow_hidden()
@@ -98,29 +120,29 @@ pub(crate) fn render(
         .text_color(theme.foreground())
         .flex()
         .flex_col()
-        .gap(px(6.0))
+        .gap(px(10.0))
         .child(
             div()
                 .w_full()
-                .h(px(40.0))
+                .h(px(36.0))
                 .flex_shrink_0()
                 .flex()
                 .items_center()
                 .gap(px(8.0))
                 .child(
                     div()
-                        .size(px(40.0))
+                        .size(px(30.0))
                         .flex_shrink_0()
                         .rounded_full()
-                        .bg(style::selected(&theme))
+                        .bg(theme.accent())
                         .flex()
                         .items_center()
                         .justify_center()
                         .child(
                             svg()
                                 .path("lock.svg")
-                                .size(px(20.0))
-                                .text_color(theme.accent()),
+                                .size(px(15.0))
+                                .text_color(style::on_accent(&theme)),
                         ),
                 )
                 .child(
@@ -132,7 +154,7 @@ pub(crate) fn render(
                         .gap(px(4.0))
                         .child(
                             div()
-                                .text_size(px(16.0))
+                                .text_size(px(15.0))
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .whitespace_nowrap()
                                 .text_ellipsis()
@@ -140,7 +162,7 @@ pub(crate) fn render(
                         )
                         .child(
                             div()
-                                .text_size(px(12.0))
+                                .text_size(px(10.0))
                                 .text_color(theme.foreground_muted())
                                 .whitespace_nowrap()
                                 .text_ellipsis()
@@ -155,16 +177,20 @@ pub(crate) fn render(
         .child(
             div()
                 .w_full()
-                .h(px(54.0))
+                .h(px(message_card_height))
+                .p(px(8.0))
+                .rounded(px(style::CARD_RADIUS))
+                .bg(style::surface(&theme))
                 .flex_shrink_0()
                 .flex()
                 .flex_col()
-                .gap(px(6.0))
+                .gap(px(4.0))
                 .child(
                     div()
                         .id("polkit-message")
                         .w_full()
-                        .flex_1()
+                        .h(px(message_height))
+                        .flex_shrink_0()
                         .min_h_0()
                         .overflow_y_scroll()
                         .text_size(px(13.0))
@@ -183,7 +209,23 @@ pub(crate) fn render(
                         .child(request.action_id.clone()),
                 ),
         )
-        .child(field)
+        .child(
+            div()
+                .w_full()
+                .h(px(64.0))
+                .flex_shrink_0()
+                .flex()
+                .flex_col()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .h(px(14.0))
+                        .text_size(px(11.0))
+                        .text_color(theme.foreground_muted())
+                        .child(module.text("polkit.password_placeholder", cx)),
+                )
+                .child(field),
+        )
         .when(module.error.is_some(), |s| s.child(feedback))
         .child(
             div()
@@ -192,7 +234,7 @@ pub(crate) fn render(
                 .flex_shrink_0()
                 .flex()
                 .items_center()
-                .justify_between()
+                .justify_end()
                 .gap(px(8.0))
                 .child(
                     div()

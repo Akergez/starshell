@@ -56,6 +56,15 @@ impl Mango {
         })
     }
 
+    pub async fn focused_application(&self) -> Option<String> {
+        let socket = self.socket.as_ref()?;
+        let client = tokio::time::timeout(IPC_TIMEOUT, socket.get(query::FocusingClient))
+            .await
+            .ok()?
+            .ok()?;
+        (!client.appid.is_empty()).then_some(client.appid)
+    }
+
     pub async fn refresh(&self) {
         let Some(socket) = &self.socket else {
             return;

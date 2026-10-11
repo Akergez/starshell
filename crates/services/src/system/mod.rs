@@ -3,7 +3,7 @@ use arc_swap::ArcSwap;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 
 mod capture;
@@ -56,10 +56,10 @@ impl SystemService {
         let service = Self {
             status: Arc::new(ArcSwap::from_pointee(SystemStatus::default())),
             capture_status: Arc::new(ArcSwap::from_pointee(CaptureStatus::default())),
-            target_volume: Arc::new(AtomicU32::new(50)),
+            target_volume: Arc::new(AtomicU32::new(0)),
             volume_pending: Arc::new(AtomicBool::new(false)),
             volume_notify: Arc::new(tokio::sync::Notify::new()),
-            target_input_volume: Arc::new(AtomicU32::new(50)),
+            target_input_volume: Arc::new(AtomicU32::new(0)),
             input_volume_pending: Arc::new(AtomicBool::new(false)),
             input_volume_notify: Arc::new(tokio::sync::Notify::new()),
             audio_changed: Arc::new(tokio::sync::Notify::new()),
@@ -71,7 +71,17 @@ impl SystemService {
         let service_clone = service.clone();
         crate::spawn_tokio(async move {
             let _ = service_clone.refresh().await;
-            service_clone.listen_pactl_events().await;
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                let _ = service_clone.refresh_audio().await;
+            }
+        });
+
+        let service_events = service.clone();
+        crate::spawn_tokio(async move {
+            service_events.listen_pactl_events().await;
         });
 
         let service_volume = service.clone();
@@ -106,6 +116,64 @@ impl SystemService {
 
     pub fn audio_changed(&self) -> Arc<tokio::sync::Notify> {
         self.audio_changed.clone()
+    }
+
+    pub async fn monitor_audio_levels(sender: tokio::sync::watch::Sender<[f32; 12]>) {
+        loop {
+            if sender.is_closed() {
+                return;
+            }
+            if let Ok(mut child) = Command::new("parec")
+                .args([
+                    "--device=@DEFAULT_MONITOR@",
+                    "--format=s16le",
+                    "--rate=16000",
+                    "--channels=1",
+                    "--latency-msec=50",
+                    "--raw",
+                ])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .kill_on_drop(true)
+                .spawn()
+            {
+                if let Some(mut stdout) = child.stdout.take() {
+                    let mut frame = [0_u8; 1536];
+                    loop {
+                        tokio::select! {
+                            _ = sender.closed() => return,
+                            result = stdout.read_exact(&mut frame) => {
+                                if result.is_err() { break; }
+                                if sender.send(Self::audio_levels(&frame)).is_err() { return; }
+                            }
+                        }
+                    }
+                }
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+            }
+            let _ = sender.send([0.0; 12]);
+            tokio::select! {
+                _ = sender.closed() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {}
+            }
+        }
+    }
+
+    fn audio_levels(frame: &[u8; 1536]) -> [f32; 12] {
+        std::array::from_fn(|index| {
+            let samples = &frame[index * 128..(index + 1) * 128];
+            let energy = samples
+                .chunks_exact(2)
+                .map(|sample| {
+                    let value = f32::from(i16::from_le_bytes([sample[0], sample[1]])) / 32768.0;
+                    value * value
+                })
+                .sum::<f32>()
+                / 64.0;
+            let level = (energy.sqrt() * 4.0).clamp(0.0, 1.0);
+            (level * 24.0).round() / 24.0
+        })
     }
 
     async fn run_volume_worker(&self) {
@@ -187,11 +255,12 @@ impl SystemService {
     }
 
     pub async fn refresh_audio(&self) -> Result<()> {
-        let (volume, is_muted) = Self::fetch_audio_status().await.unwrap_or((50, false));
-        let (input_volume, is_input_muted) = Self::fetch_input_audio_status()
-            .await
-            .unwrap_or((50, false));
+        let output = Self::fetch_audio_status().await;
+        let input = Self::fetch_input_audio_status().await;
         let mut current = (**self.status.load()).clone();
+        let (volume, is_muted) = output.unwrap_or((current.volume, current.is_muted));
+        let (input_volume, is_input_muted) =
+            input.unwrap_or((current.input_volume, current.is_input_muted));
         if current.volume != volume
             || current.is_muted != is_muted
             || current.input_volume != input_volume
@@ -208,14 +277,15 @@ impl SystemService {
     }
 
     pub async fn refresh(&self) -> Result<()> {
-        let vol_muted = Self::fetch_audio_status().await.unwrap_or((50, false));
-        let input_vol_muted = Self::fetch_input_audio_status()
-            .await
-            .unwrap_or((50, false));
+        let output = Self::fetch_audio_status().await;
+        let input = Self::fetch_input_audio_status().await;
         let brightness = Self::fetch_brightness().await.unwrap_or(100);
         let audio_sinks = Self::fetch_audio_sinks().await;
         let audio_sources = Self::fetch_audio_sources().await;
 
+        let current = self.status.load();
+        let vol_muted = output.unwrap_or((current.volume, current.is_muted));
+        let input_vol_muted = input.unwrap_or((current.input_volume, current.is_input_muted));
         let new_status = SystemStatus {
             volume: vol_muted.0,
             is_muted: vol_muted.1,
@@ -233,21 +303,31 @@ impl SystemService {
     }
 
     async fn listen_pactl_events(&self) {
-        if let Ok(mut child) = Command::new("pactl")
-            .arg("subscribe")
-            .stdout(Stdio::piped())
-            .spawn()
-        {
-            if let Some(stdout) = child.stdout.take() {
-                let mut reader = BufReader::new(stdout).lines();
-                while let Ok(Some(line)) = reader.next_line().await {
-                    if line.contains("sink") || line.contains("source") {
-                        let _ = self.refresh().await;
-                    } else if line.contains("server") {
-                        let _ = self.refresh().await;
+        loop {
+            if let Ok(mut child) = Command::new("pactl")
+                .arg("subscribe")
+                .env("LC_ALL", "C")
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .kill_on_drop(true)
+                .spawn()
+            {
+                if let Some(stdout) = child.stdout.take() {
+                    let _ = self.refresh().await;
+                    let mut reader = BufReader::new(stdout).lines();
+                    while let Ok(Some(line)) = reader.next_line().await {
+                        if line.contains("sink")
+                            || line.contains("source")
+                            || line.contains("server")
+                        {
+                            let _ = self.refresh().await;
+                        }
                     }
                 }
+                let _ = child.kill().await;
+                let _ = child.wait().await;
             }
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         }
     }
 
@@ -428,8 +508,10 @@ impl SystemService {
     async fn fetch_audio_status() -> Result<(u32, bool)> {
         if let Ok(output) = Command::new("wpctl")
             .args(["get-volume", "@DEFAULT_AUDIO_SINK@"])
+            .env("LC_ALL", "C")
             .output()
             .await
+            && output.status.success()
         {
             let text = String::from_utf8_lossy(&output.stdout);
             let is_muted = text.contains("[MUTED]");
@@ -442,8 +524,10 @@ impl SystemService {
 
         if let Ok(output) = Command::new("pactl")
             .args(["get-sink-volume", "@DEFAULT_SINK@"])
+            .env("LC_ALL", "C")
             .output()
             .await
+            && output.status.success()
         {
             let text = String::from_utf8_lossy(&output.stdout);
             if let Some(pos) = text.find('/') {
@@ -456,7 +540,7 @@ impl SystemService {
             }
         }
 
-        Ok((50, false))
+        anyhow::bail!("Could not read output audio volume")
     }
 
     async fn fetch_brightness() -> Result<u32> {
@@ -537,8 +621,10 @@ impl SystemService {
     async fn fetch_input_audio_status() -> Result<(u32, bool)> {
         if let Ok(output) = Command::new("wpctl")
             .args(["get-volume", "@DEFAULT_AUDIO_SOURCE@"])
+            .env("LC_ALL", "C")
             .output()
             .await
+            && output.status.success()
         {
             let text = String::from_utf8_lossy(&output.stdout);
             let is_muted = text.contains("[MUTED]");
@@ -551,8 +637,10 @@ impl SystemService {
 
         if let Ok(output) = Command::new("pactl")
             .args(["get-source-volume", "@DEFAULT_SOURCE@"])
+            .env("LC_ALL", "C")
             .output()
             .await
+            && output.status.success()
         {
             let text = String::from_utf8_lossy(&output.stdout);
             if let Some(pos) = text.find('/') {
@@ -565,7 +653,7 @@ impl SystemService {
             }
         }
 
-        Ok((50, false))
+        anyhow::bail!("Could not read input audio volume")
     }
 
     async fn fetch_audio_sources() -> Vec<AudioSource> {
@@ -626,5 +714,124 @@ impl SystemService {
             }
         }
         sources
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn audio_visualizer_tracks_pcm_energy() {
+        assert_eq!(SystemService::audio_levels(&[0; 1536]), [0.0; 12]);
+        let mut frame = [0_u8; 1536];
+        for sample in frame[..128].chunks_exact_mut(2) {
+            sample.copy_from_slice(&8192_i16.to_le_bytes());
+        }
+        let levels = SystemService::audio_levels(&frame);
+        assert_eq!(levels[0], 1.0);
+        assert_eq!(&levels[1..], &[0.0; 11]);
+        for sample in frame.chunks_exact_mut(2) {
+            sample.copy_from_slice(&i16::MIN.to_le_bytes());
+        }
+        assert_eq!(SystemService::audio_levels(&frame), [1.0; 12]);
+    }
+
+    #[test]
+    fn audio_refresh_recovers_and_preserves_last_volume() -> Result<()> {
+        const FIXTURE_ENV: &str = "CAPSULE_AUDIO_TEST_DIR";
+        if let Some(directory) = std::env::var_os(FIXTURE_ENV) {
+            let directory = std::path::PathBuf::from(directory);
+            return tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?
+                .block_on(async {
+                    let service = SystemService {
+                        status: Arc::new(ArcSwap::from_pointee(SystemStatus::default())),
+                        capture_status: Arc::new(ArcSwap::from_pointee(CaptureStatus::default())),
+                        target_volume: Arc::new(AtomicU32::new(0)),
+                        volume_pending: Arc::new(AtomicBool::new(false)),
+                        volume_notify: Arc::new(tokio::sync::Notify::new()),
+                        target_input_volume: Arc::new(AtomicU32::new(0)),
+                        input_volume_pending: Arc::new(AtomicBool::new(false)),
+                        input_volume_notify: Arc::new(tokio::sync::Notify::new()),
+                        audio_changed: Arc::new(tokio::sync::Notify::new()),
+                        usage_sample: Arc::new(tokio::sync::Mutex::new(None)),
+                    };
+                    assert!(SystemService::fetch_audio_status().await.is_err());
+                    assert!(SystemService::fetch_input_audio_status().await.is_err());
+                    service.refresh().await?;
+                    assert_eq!(service.get_status().volume, 0);
+
+                    let sink = directory.join("@DEFAULT_AUDIO_SINK@");
+                    let source = directory.join("@DEFAULT_AUDIO_SOURCE@");
+                    std::fs::write(&sink, "Volume: 0.83 [MUTED]\n")?;
+                    service.refresh_audio().await?;
+                    assert_eq!(service.get_status().volume, 83);
+                    assert!(service.get_status().is_muted);
+
+                    std::fs::write(&source, "Volume: 0.27 [MUTED]\n")?;
+                    service.refresh().await?;
+                    assert_eq!(service.get_status().input_volume, 27);
+                    assert!(service.get_status().is_input_muted);
+
+                    std::fs::write(directory.join("fail"), "")?;
+                    std::fs::write(&sink, "Volume: 0.50\n")?;
+                    std::fs::write(&source, "Volume: 0.50\n")?;
+                    service.refresh_audio().await?;
+                    service.refresh().await?;
+                    assert_eq!(service.get_status().volume, 83);
+                    assert!(service.get_status().is_muted);
+                    assert_eq!(service.get_status().input_volume, 27);
+                    assert!(service.get_status().is_input_muted);
+
+                    std::fs::remove_file(directory.join("fail"))?;
+                    std::fs::write(&sink, "Volume: 0.64\n")?;
+                    service.refresh_audio().await?;
+                    assert_eq!(service.get_status().volume, 64);
+                    assert!(!service.get_status().is_muted);
+                    Ok(())
+                });
+        }
+
+        let directory = std::env::temp_dir().join(format!(
+            "capsule-audio-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_nanos()
+        ));
+        std::fs::create_dir(&directory)?;
+        for (name, script) in [
+            (
+                "wpctl",
+                "#!/bin/sh\n/bin/cat \"$CAPSULE_AUDIO_TEST_DIR/$2\" || exit 1\n[ ! -f \"$CAPSULE_AUDIO_TEST_DIR/fail\" ]\n",
+            ),
+            ("pactl", "#!/bin/sh\nexit 1\n"),
+            ("brightnessctl", "#!/bin/sh\nexit 1\n"),
+        ] {
+            let path = directory.join(name);
+            std::fs::write(&path, script)?;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))?;
+        }
+        let result = std::process::Command::new(std::env::current_exe()?)
+            .args([
+                "--exact",
+                "system::tests::audio_refresh_recovers_and_preserves_last_volume",
+                "--nocapture",
+            ])
+            .env(FIXTURE_ENV, &directory)
+            .env("PATH", &directory)
+            .output();
+        std::fs::remove_dir_all(&directory)?;
+        let output = result?;
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(())
     }
 }

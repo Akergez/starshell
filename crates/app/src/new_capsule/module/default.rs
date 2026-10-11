@@ -222,7 +222,18 @@ impl Render for DefaultModule {
                 &theme,
                 cx,
             ))
-            .child(render_clock(&self.time, &theme))
+            .child(
+                div()
+                    .id("expand-default")
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .cursor_pointer()
+                    .on_click(cx.listener(|_, _, _, cx| {
+                        cx.emit(CapsuleModuleEvent::Open(CapsuleModuleId::DefaultExpanded));
+                    }))
+                    .child(render_clock(&self.time, &theme)),
+            )
             .child(render_status(&self.status, &theme))
     }
 }

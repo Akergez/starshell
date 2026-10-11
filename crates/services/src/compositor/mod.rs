@@ -143,6 +143,40 @@ impl CompositorService {
         service
     }
 
+    pub async fn focused_application(&self) -> Option<String> {
+        if let Some(mango) = &self.mango {
+            return mango.focused_application().await;
+        }
+        let mut command = match self.backend {
+            CompositorBackend::Hyprland => {
+                let mut command = tokio::process::Command::new("hyprctl");
+                command.args(["-j", "activewindow"]);
+                command
+            }
+            CompositorBackend::Niri => {
+                let mut command = tokio::process::Command::new("niri");
+                command.args(["msg", "-j", "focused-window"]);
+                command
+            }
+            _ => return None,
+        };
+        command.kill_on_drop(true);
+        let output = tokio::time::timeout(Duration::from_secs(1), command.output())
+            .await
+            .ok()?
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+        value
+            .get("class")
+            .or_else(|| value.get("app_id"))?
+            .as_str()
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+    }
+
     pub fn get_refresh_rate(&self) -> f64 {
         **self.refresh_rate.load()
     }

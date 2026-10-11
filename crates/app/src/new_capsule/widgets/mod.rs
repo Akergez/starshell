@@ -1,4 +1,5 @@
 pub mod default;
+pub(crate) mod default_expanded;
 pub(crate) mod settings;
 pub(crate) mod style;
 

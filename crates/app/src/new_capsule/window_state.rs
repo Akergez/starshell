@@ -165,7 +165,10 @@ impl Capsule {
             let keyboard = if !passive_notification
                 && !matches!(
                     current,
-                    CapsuleModuleId::Default | CapsuleModuleId::Shelf | CapsuleModuleId::ShelfDrop
+                    CapsuleModuleId::Default
+                        | CapsuleModuleId::DefaultExpanded
+                        | CapsuleModuleId::Shelf
+                        | CapsuleModuleId::ShelfDrop
                 )
                 || satellite_open
                 || orb_expanded
@@ -298,6 +301,11 @@ impl Capsule {
             module.set_active(current == CapsuleModuleId::Shelf)
         });
 
+        self.module_manager
+            .default_expanded
+            .update(cx, |module, cx| {
+                module.set_active(current == CapsuleModuleId::DefaultExpanded, cx);
+            });
         self.module_manager.record.update(cx, |module, _| {
             module.set_active(current == CapsuleModuleId::Record)
         });

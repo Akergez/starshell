@@ -2,6 +2,7 @@ pub(crate) mod appearance;
 pub(crate) mod clipboard;
 pub(crate) mod dashboard;
 pub(crate) mod default;
+pub(crate) mod default_expanded;
 pub(crate) mod emoji;
 pub(crate) mod launcher;
 pub(crate) mod notification;
@@ -23,6 +24,7 @@ use self::{dashboard::DashboardModule, default::DefaultModule};
 pub struct CapsuleModuleManager {
     current: CapsuleModuleId,
     default: Entity<DefaultModule>,
+    pub(super) default_expanded: Entity<default_expanded::DefaultExpandedModule>,
     launcher: Entity<LauncherModule>,
     pub(super) dashboard: Entity<DashboardModule>,
     pub(super) appearance: Entity<appearance::AppearanceModule>,
@@ -40,6 +42,7 @@ impl CapsuleModuleManager {
         Self {
             current: CapsuleModuleId::Default,
             default: cx.new(DefaultModule::new),
+            default_expanded: cx.new(default_expanded::DefaultExpandedModule::new),
             launcher: cx.new(LauncherModule::new),
             dashboard: cx.new(DashboardModule::new),
             appearance: cx.new(appearance::AppearanceModule::new),
@@ -63,6 +66,9 @@ impl CapsuleModuleManager {
 
     pub fn subscribe(&self, cx: &mut Context<Capsule>) -> Vec<Subscription> {
         vec![
+            cx.subscribe(&self.default_expanded, |capsule, _, event, cx| {
+                capsule.handle_module_event(event, cx)
+            }),
             cx.subscribe(&self.notification, |capsule, _, event, cx| {
                 capsule.handle_module_event(event, cx)
             }),
@@ -101,6 +107,9 @@ impl CapsuleModuleManager {
 
     pub fn maximum_size(&self, cx: &impl AppContext) -> Size<Pixels> {
         let default = self.default.read_with(cx, |module, _| module.size());
+        let expanded = self
+            .default_expanded
+            .read_with(cx, |module, _| module.size());
         let launcher = gpui::size(
             gpui::px(super::widgets::launcher::WIDTH),
             gpui::px(super::widgets::launcher::HEIGHT),
@@ -125,6 +134,7 @@ impl CapsuleModuleManager {
         Size {
             width: default
                 .width
+                .max(expanded.width)
                 .max(launcher.width)
                 .max(dashboard.width)
                 .max(appearance.width)
@@ -136,6 +146,7 @@ impl CapsuleModuleManager {
                 .max(notification.width),
             height: default
                 .height
+                .max(expanded.height)
                 .max(launcher.height)
                 .max(dashboard.height)
                 .max(appearance.height)
@@ -165,6 +176,7 @@ impl CapsuleModuleManager {
     pub fn current(&self) -> AnyView {
         match self.current {
             CapsuleModuleId::Default => self.default.clone().into(),
+            CapsuleModuleId::DefaultExpanded => self.default_expanded.clone().into(),
             CapsuleModuleId::Launcher => self.launcher.clone().into(),
             CapsuleModuleId::Dashboard => self.dashboard.clone().into(),
             CapsuleModuleId::Clipboard => self.clipboard.clone().into(),
@@ -181,6 +193,9 @@ impl CapsuleModuleManager {
     pub fn current_size(&self, cx: &impl AppContext) -> Size<Pixels> {
         match self.current {
             CapsuleModuleId::Default => self.default.read_with(cx, |module, _| module.size()),
+            CapsuleModuleId::DefaultExpanded => self
+                .default_expanded
+                .read_with(cx, |module, _| module.size()),
             CapsuleModuleId::Launcher => self.launcher.read_with(cx, |module, _| module.size()),
             CapsuleModuleId::Dashboard => self.dashboard.read_with(cx, |module, _| module.size()),
             CapsuleModuleId::Clipboard => self.clipboard.read_with(cx, |module, _| module.size()),
@@ -202,6 +217,7 @@ impl CapsuleModuleManager {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CapsuleModuleId {
     Default,
+    DefaultExpanded,
     Launcher,
     Dashboard,
     Themes,

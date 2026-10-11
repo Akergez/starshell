@@ -8,7 +8,6 @@ use services::{AppState, WorkspaceInfo};
 use ui::theme::Theme;
 
 use super::WORKSPACES_WIDTH;
-use crate::new_capsule::module::default::DefaultModule;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkspaceKey {
@@ -38,12 +37,12 @@ pub fn workspace_keys(current: &WorkspaceInfo, workspaces: &[WorkspaceInfo]) -> 
     })
 }
 
-pub fn render_workspaces(
+pub fn render_workspaces<V: 'static>(
     keys: &[WorkspaceKey; 6],
     special: bool,
     duration: Duration,
     theme: &Theme,
-    cx: &mut Context<DefaultModule>,
+    cx: &mut Context<V>,
 ) -> impl IntoElement {
     let mut opposite = theme.accent();
     opposite.color.hue += 180.0;

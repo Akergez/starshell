@@ -255,7 +255,12 @@ impl CapsuleModule for PolkitModule {
     fn size(&self) -> Size<Pixels> {
         gpui::size(
             gpui::px(widgets::WIDTH),
-            gpui::px(widgets::height(self.error.is_some())),
+            gpui::px(widgets::height(
+                self.error.is_some(),
+                self.request
+                    .as_ref()
+                    .map(|request| request.message.as_str()),
+            )),
         )
     }
 }

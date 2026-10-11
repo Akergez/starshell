@@ -26,5 +26,5 @@ o
 - Fixed excessive idle CPU usage on MangoWM by clearing stale Wayland socket readiness after empty reads and waiting for new output events.
 - Kept expanded orbs inside the available viewport and preserved their corner anchors during interrupted transitions.
 - Reported failed shutdown, reboot, and logout commands instead of treating unsuccessful exit statuses as successful actions.
-- Fixed Settings window clipping on smaller displays and incorrect sizing after screen resolution changes.
+- Fixed Settings window clipping on smaller displays and incorrect sizing after screen resolution changes.l bug en cuestion
 - Fixed copying images from Clipboard on Wayland, preserving the image selection and reporting copy failures.
