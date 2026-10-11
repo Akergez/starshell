@@ -1,3 +1,4 @@
+pub mod animator;
 pub mod templates;
 pub mod theme_manager;
 use gpui::{Hsla, Rgba, SharedString, rgb_to_hsla};
@@ -9,6 +10,8 @@ pub use templates::{
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Theme {
     pub mode: ThemeMode,
+    #[serde(skip)]
+    pub light_mode_mix: Option<f32>,
     #[serde(default = "default_font_family")]
     pub font_family: String,
     pub background_color: Color,
@@ -35,6 +38,7 @@ impl Default for Theme {
     fn default() -> Self {
         Theme {
             mode: ThemeMode::Dark,
+            light_mode_mix: None,
             font_family: "Geist".to_string(),
             background_color: Color::from("#000000"),
             background_color_alt: Color::from("#1A1A1A"),
@@ -49,6 +53,15 @@ impl Default for Theme {
 }
 
 impl Theme {
+    pub fn light_mix(&self) -> f32 {
+        self.light_mode_mix
+            .unwrap_or(if self.mode == ThemeMode::Light {
+                1.0
+            } else {
+                0.0
+            })
+    }
+
     pub fn with_mode(mut self, dark: bool) -> Self {
         let mode = if dark {
             ThemeMode::Dark

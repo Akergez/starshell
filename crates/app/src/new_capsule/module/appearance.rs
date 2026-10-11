@@ -335,7 +335,7 @@ impl AppearanceModule {
                             manager.apply_theme_to_apps();
                         }
                         crate::settings::appearance::persist_theme(theme.clone(), cx);
-                        cx.set_global(theme);
+                        crate::settings::appearance::transition_theme(theme, cx);
                     }
                     Ok(Ok(None)) => {}
                     Ok(Err(error)) => {

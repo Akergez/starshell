@@ -31,6 +31,10 @@ impl Animator {
         self.duration = duration;
     }
 
+    pub fn animating(&self) -> bool {
+        self.started_at.is_some() || self.content_started_at.is_some()
+    }
+
     pub fn size(&self) -> Size<Pixels> {
         self.current
     }

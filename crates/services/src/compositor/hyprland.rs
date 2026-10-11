@@ -1,6 +1,7 @@
 use crate::compositor::{Compositor, WorkspaceInfo};
 use arc_swap::ArcSwap;
 use hyprland::data::{Monitors, Workspace};
+use hyprland::dispatch::{Dispatch, DispatchType};
 use hyprland::shared::{HyprData, HyprDataActive, WorkspaceType};
 use std::panic::catch_unwind;
 use std::sync::Arc;
@@ -138,14 +139,13 @@ struct MonitorData {
     special_workspace: Option<MonitorWorkspaceData>,
 }
 
-fn query_hypr_command(cmd: &str) -> Option<String> {
-    ensure_socket_link();
+fn command_socket_path() -> Option<std::path::PathBuf> {
     let sig = std::env::var("HYPRLAND_INSTANCE_SIGNATURE").ok()?;
     if sig.is_empty() {
         return None;
     }
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR").ok();
-    let socket_path = if let Some(ref r) = runtime_dir {
+    Some(if let Some(ref r) = runtime_dir {
         let p = std::path::PathBuf::from(format!("{r}/hypr/{sig}/.socket.sock"));
         if p.exists() {
             p
@@ -154,7 +154,12 @@ fn query_hypr_command(cmd: &str) -> Option<String> {
         }
     } else {
         std::path::PathBuf::from(format!("/tmp/hypr/{sig}/.socket.sock"))
-    };
+    })
+}
+
+fn query_hypr_command(cmd: &str) -> Option<String> {
+    ensure_socket_link();
+    let socket_path = command_socket_path()?;
 
     use std::io::{Read, Write};
     let mut stream = std::os::unix::net::UnixStream::connect(socket_path).ok()?;
@@ -172,6 +177,23 @@ fn query_hypr_monitors() -> Option<Vec<MonitorData>> {
 }
 
 impl Compositor for Hyprland {
+    fn logout(&self) -> futures::future::BoxFuture<'_, anyhow::Result<()>> {
+        Box::pin(async {
+            anyhow::ensure!(is_command_socket_available(), "Hyprland IPC is unavailable");
+            tokio::time::timeout(Duration::from_secs(2), async {
+                match Dispatch::call_async(DispatchType::Custom("hl.dsp.exit()", "")).await {
+                    Ok(()) => Ok(()),
+                    Err(hyprland::shared::HyprError::NotOkDispatch(_)) => {
+                        Dispatch::call_async(DispatchType::Exit).await
+                    }
+                    Err(error) => Err(error),
+                }
+            })
+            .await??;
+            Ok(())
+        })
+    }
+
     fn get_refresh_rate(&self) -> f64 {
         let res = catch_unwind(|| {
             if let Some(monitors) = query_hypr_monitors() {

@@ -256,6 +256,13 @@ impl Capsule {
                 }
                 if this
                     .update(cx, |capsule, cx| {
+                        let config = cx.global::<services::AppState>().config.get();
+                        let duration =
+                            Duration::from_millis(config.ui.animation_duration_ms as u64);
+                        capsule
+                            .orbit
+                            .update(cx, |orbit, _| orbit.configure(config.ui.orbits, duration));
+                        capsule.orbit_changed(cx);
                         let current = capsule.module_manager.current_id();
                         capsule.handle_module_event(&CapsuleModuleEvent::SizeChanged(current), cx);
                         capsule.update_location(cx);
@@ -333,6 +340,7 @@ impl Capsule {
             match event {
                 CapsuleModuleEvent::Open(id) if *id != CapsuleModuleId::Polkit => return,
                 CapsuleModuleEvent::Close => {
+                    self.close_expanded_orb(cx);
                     self.module_manager
                         .polkit
                         .update(cx, |module, cx| module.cancel(cx));
@@ -400,6 +408,7 @@ impl Capsule {
                 return;
             }
             CapsuleModuleEvent::Open(id) => {
+                self.close_expanded_orb(cx);
                 if *id == CapsuleModuleId::ShelfDrop {
                     if self.module_manager.shelf_drop.read(cx).return_to() != Some(previous_module)
                     {
@@ -457,6 +466,7 @@ impl Capsule {
                 self.module_manager.open(*id);
             }
             CapsuleModuleEvent::Close => {
+                self.close_expanded_orb(cx);
                 self.module_manager
                     .shelf_drop
                     .update(cx, |module, _| module.cancel());

@@ -13,6 +13,7 @@ pub(super) struct WindowState {
     exclusive_zone: Option<Pixels>,
     current_module: Option<CapsuleModuleId>,
     satellite_open: bool,
+    orb_expanded: bool,
     notification_popup: bool,
     pub satellite_bounds: Vec<(super::satellite::SatelliteId, Bounds<Pixels>)>,
 }
@@ -29,6 +30,7 @@ impl WindowState {
             exclusive_zone: None,
             current_module: None,
             satellite_open: false,
+            orb_expanded: false,
             notification_popup: false,
             satellite_bounds: Vec::new(),
         }
@@ -112,7 +114,8 @@ impl Capsule {
             config.ui.capsule_style,
             config.ui.margin_top,
         ));
-        let gap = super::orbit::Orbit::satellite_gap(px(config.ui.gap));
+        let gap = super::orbit::Orbit::satellite_gap(px(config.ui.gap))
+            + px(super::orbit::USAGE_PANEL_WIDTH - super::orbit::ORB_SIZE);
         let mut maximum = module_manager.maximum_size(cx);
         maximum.width *= 1.1;
         if config.ui.capsule_style == CapsuleStyle::Concave {
@@ -147,14 +150,17 @@ impl Capsule {
     pub(super) fn apply_window_geometry(&mut self, window: &mut Window, cx: &mut gpui::App) {
         let current = self.module_manager.current_id();
         let satellite_open = self.satellite.open();
+        let orb_expanded = self.orbit.read(cx).expanded();
         let passive_notification = current == CapsuleModuleId::Notification
             && !self.module_manager.notification.read(cx).history;
         if self.window_state.current_module != Some(current)
             || self.window_state.satellite_open != satellite_open
+            || self.window_state.orb_expanded != orb_expanded
             || self.window_state.notification_popup != passive_notification
         {
             self.window_state.current_module = Some(current);
             self.window_state.satellite_open = satellite_open;
+            self.window_state.orb_expanded = orb_expanded;
             self.window_state.notification_popup = passive_notification;
             let keyboard = if !passive_notification
                 && !matches!(
@@ -162,6 +168,7 @@ impl Capsule {
                     CapsuleModuleId::Default | CapsuleModuleId::Shelf | CapsuleModuleId::ShelfDrop
                 )
                 || satellite_open
+                || orb_expanded
             {
                 gpui::layer_shell::KeyboardInteractivity::Exclusive
             } else {
@@ -169,7 +176,10 @@ impl Capsule {
             };
 
             window.set_keyboard_interactivity(keyboard);
-            if satellite_open {
+            if orb_expanded {
+                let focus = self.orbit.read(cx).focus_handle.clone();
+                window.focus(&focus, cx);
+            } else if satellite_open {
                 window.focus(&self.module_manager.dashboard_focus_handle(cx), cx);
             } else if current == CapsuleModuleId::Launcher {
                 window.focus(&self.module_manager.launcher_focus_handle(cx), cx);
@@ -258,7 +268,7 @@ impl Capsule {
             self.satellite.layout(
                 window.viewport_size(),
                 region,
-                super::orbit::Orbit::satellite_gap(px(config.ui.gap)),
+                self.orbit.read(cx).layout_gap(px(config.ui.gap)),
                 &self.window_state.satellite_bounds,
             )
         } else {

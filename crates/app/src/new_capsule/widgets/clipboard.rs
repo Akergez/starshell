@@ -15,12 +15,11 @@ pub const CARD_HEIGHT: f32 = 144.0;
 pub const GRID_GAP: f32 = 10.0;
 const PADDING: f32 = 16.0;
 const GAP: f32 = 10.0;
-const HEADER_HEIGHT: f32 = 32.0;
-const SEARCH_HEIGHT: f32 = 40.0;
+const HEADER_HEIGHT: f32 = 40.0;
 const TABS_HEIGHT: f32 = 28.0;
 const FOOTER_HEIGHT: f32 = 18.0;
 pub const BASE_HEIGHT: f32 =
-    PADDING * 2.0 + HEADER_HEIGHT + SEARCH_HEIGHT + TABS_HEIGHT + FOOTER_HEIGHT + GAP * 4.0;
+    PADDING * 2.0 + HEADER_HEIGHT + TABS_HEIGHT + FOOTER_HEIGHT + GAP * 3.0;
 pub const MAX_HEIGHT: f32 = BASE_HEIGHT + CARD_HEIGHT * 2.0 + GRID_GAP;
 const CARD_WIDTH: f32 = (WIDTH - PADDING * 2.0 - GRID_GAP) / COLUMNS as f32;
 
@@ -83,13 +82,7 @@ pub(crate) fn render(
         .flex_shrink_0()
         .flex()
         .items_center()
-        .gap(px(8.0))
-        .child(
-            div()
-                .text_size(px(19.0))
-                .font_weight(gpui::FontWeight::MEDIUM)
-                .child(module.text("clipboard.title", cx)),
-        );
+        .gap(px(8.0));
     let mut tabs = div()
         .h(px(TABS_HEIGHT))
         .flex_shrink_0()
@@ -132,8 +125,11 @@ pub(crate) fn render(
                 .child(div().text_size(px(12.0)).child(module.text(label, cx))),
         );
     }
-    header = header
-        .child(div().flex_1())
+    let actions = div()
+        .flex_shrink_0()
+        .flex()
+        .items_center()
+        .gap(px(8.0))
         .when(module.model.tab == ClipboardTab::History, |s| {
             s.child(action(
                 "clipboard-clear".into(),
@@ -171,8 +167,9 @@ pub(crate) fn render(
         module.model.query.clone()
     };
     let search = div()
-        .h(px(SEARCH_HEIGHT))
-        .flex_shrink_0()
+        .h(px(HEADER_HEIGHT))
+        .flex_1()
+        .min_w_0()
         .px(px(12.0))
         .flex()
         .items_center()
@@ -198,6 +195,7 @@ pub(crate) fn render(
                 })
                 .child(query),
         );
+    header = header.child(search).child(actions);
     let mut gallery = div()
         .id("clipboard-gallery")
         .w_full()
@@ -475,7 +473,6 @@ pub(crate) fn render(
         .font_family(theme.font_family())
         .text_color(theme.foreground())
         .child(header)
-        .child(search)
         .child(tabs)
         .child(gallery)
         .child(
@@ -513,9 +510,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn two_full_rows_fit_below_the_header_search_tabs_and_above_the_footer() {
-        let controls =
-            PADDING * 2.0 + HEADER_HEIGHT + SEARCH_HEIGHT + TABS_HEIGHT + FOOTER_HEIGHT + GAP * 4.0;
+    fn two_full_rows_fit_below_the_search_header_and_tabs_and_above_the_footer() {
+        let controls = PADDING * 2.0 + HEADER_HEIGHT + TABS_HEIGHT + FOOTER_HEIGHT + GAP * 3.0;
         assert_eq!(controls, BASE_HEIGHT);
         assert_eq!(MAX_HEIGHT - controls, CARD_HEIGHT * 2.0 + GRID_GAP);
         assert_eq!(

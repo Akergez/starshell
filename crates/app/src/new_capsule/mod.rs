@@ -166,6 +166,13 @@ impl Render for Capsule {
                     .render(&theme, cx),
             );
         let root = div()
+            .track_focus(&self.orbit.read(cx).focus_handle)
+            .on_key_down(cx.listener(|capsule, event: &gpui::KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" && capsule.orbit.read(cx).expanded() {
+                    capsule.close_expanded_orb(cx);
+                    cx.stop_propagation();
+                }
+            }))
             .relative()
             .size_full()
             .flex()

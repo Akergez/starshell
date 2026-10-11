@@ -203,7 +203,7 @@ pub(crate) fn render_switch_row(
     enabled: bool,
     theme: &Theme,
     cx: &mut Context<SettingsModule>,
-) -> impl IntoElement {
+) -> gpui::AnyElement {
     render_toggle_row(
         ("settings-switch", field as usize).into(),
         title,
@@ -213,8 +213,18 @@ pub(crate) fn render_switch_row(
         cx.listener(move |this, _, window, cx| {
             this.focus(window, cx);
             this.toggle_setting(field, cx);
+            if matches!(
+                field,
+                SettingsField::OrbitPower
+                    | SettingsField::OrbitUsage
+                    | SettingsField::OrbitRecord
+                    | SettingsField::OrbitShelf
+            ) {
+                this.play_motion_preview(window, cx);
+            }
         }),
     )
+    .into_any_element()
 }
 
 fn silhouette(
@@ -358,6 +368,49 @@ pub(crate) fn render_ui_section(
                             .child(error),
                     )
                 }),
+        )
+        .child(
+            group(theme)
+                .child(heading(&text("settings.orbits_heading", cx), theme))
+                .children(
+                    [
+                        (
+                            SettingsField::OrbitPower,
+                            "settings.orbit_power",
+                            "settings.orbit_always_hint",
+                            config.ui.orbits.power,
+                        ),
+                        (
+                            SettingsField::OrbitUsage,
+                            "settings.orbit_usage",
+                            "settings.orbit_always_hint",
+                            config.ui.orbits.usage,
+                        ),
+                        (
+                            SettingsField::OrbitRecord,
+                            "settings.orbit_record",
+                            "settings.orbit_record_hint",
+                            config.ui.orbits.record,
+                        ),
+                        (
+                            SettingsField::OrbitShelf,
+                            "settings.orbit_shelf",
+                            "settings.orbit_shelf_hint",
+                            config.ui.orbits.shelf,
+                        ),
+                    ]
+                    .into_iter()
+                    .map(|(field, key, hint, enabled)| {
+                        render_switch_row(
+                            field,
+                            &text(key, cx),
+                            &text(hint, cx),
+                            enabled,
+                            theme,
+                            cx,
+                        )
+                    }),
+                ),
         )
         .child(
             group(theme)
@@ -568,7 +621,7 @@ pub(crate) fn render_ui_section(
                                 .when(bottom, |s| s.items_end())
                                 .justify_center()
                                 .w_full()
-                                .h(px((base_height + 20.0 + margin + 16.0).max(82.0)))
+                                .h(px((base_height + 20.0 + margin + 16.0).max(120.0)))
                                 .rounded(px(10.0))
                                 .bg(style::background(theme))
                                 .overflow_hidden()
@@ -583,26 +636,20 @@ pub(crate) fn render_ui_section(
                                 )
                                 .child(
                                     div()
-                                        .flex()
-                                        .items_center()
-                                        .gap(px(gap))
+                                        .relative()
+                                        .w(px(width))
+                                        .h(px(height))
                                         .mt(px(8.0 + margin))
                                         .when(bottom, |s| s.mt_0().mb(px(8.0 + margin)))
-                                        .child(
-                                            div()
-                                                .size(px(12.0))
-                                                .rounded_full()
-                                                .bg(style::raised(theme)),
-                                        )
                                         .child(silhouette(
                                             concave, bottom, width, height, radius, theme,
                                         ))
-                                        .child(
-                                            div()
-                                                .size(px(12.0))
-                                                .rounded_full()
-                                                .bg(style::raised(theme)),
-                                        ),
+                                        .child(module.orbit_preview.render(
+                                            gpui::size(px(width), px(height)),
+                                            px(gap),
+                                            bottom,
+                                            theme,
+                                        )),
                                 ),
                         )
                         .child(

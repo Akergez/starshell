@@ -102,7 +102,8 @@ impl SelectThemeModule {
             cx.global_mut::<ThemeManager>().set_theme(theme);
             cx.global_mut::<ThemeManager>().selected_theme = selected.clone();
             let _ = ThemeManager::save_selected_theme(&selected);
-            cx.set_global(cx.global::<ThemeManager>().current_theme.clone());
+            let current = cx.global::<ThemeManager>().current_theme.clone();
+            crate::settings::appearance::transition_theme(current, cx);
         }
         cx.emit(SelectThemeEvent::ThemeSelected);
     }

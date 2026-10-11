@@ -7,7 +7,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 mod capture;
+mod usage;
 pub use capture::CaptureStatus;
+pub use usage::UsageStatus;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AudioSink {
@@ -45,6 +47,7 @@ pub struct SystemService {
     input_volume_pending: Arc<AtomicBool>,
     input_volume_notify: Arc<tokio::sync::Notify>,
     audio_changed: Arc<tokio::sync::Notify>,
+    usage_sample: Arc<tokio::sync::Mutex<Option<(u64, u64)>>>,
 }
 
 impl SystemService {
@@ -60,6 +63,7 @@ impl SystemService {
             input_volume_pending: Arc::new(AtomicBool::new(false)),
             input_volume_notify: Arc::new(tokio::sync::Notify::new()),
             audio_changed: Arc::new(tokio::sync::Notify::new()),
+            usage_sample: Arc::new(tokio::sync::Mutex::new(None)),
         };
 
         crate::spawn_tokio(capture::monitor(service.capture_status.clone()));
@@ -81,6 +85,15 @@ impl SystemService {
         });
 
         service
+    }
+
+    pub async fn reset_usage_sample(&self) {
+        *self.usage_sample.lock().await = None;
+    }
+
+    pub async fn sample_usage(&self) -> UsageStatus {
+        let mut previous = self.usage_sample.lock().await;
+        usage::sample(&mut previous).await
     }
 
     pub fn get_status(&self) -> SystemStatus {
@@ -369,20 +382,46 @@ impl SystemService {
     }
 
     pub async fn reboot() -> Result<()> {
-        Command::new("systemctl")
+        let output = Command::new("systemctl")
             .arg("reboot")
-            .status()
+            .output()
             .await
             .context("Failed to reboot system")?;
+        anyhow::ensure!(
+            output.status.success(),
+            "Failed to reboot system: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+        Ok(())
+    }
+
+    pub async fn logout() -> Result<()> {
+        let session = std::env::var("XDG_SESSION_ID").context("No login session is available")?;
+        anyhow::ensure!(!session.trim().is_empty(), "No login session is available");
+        let output = Command::new("loginctl")
+            .args(["terminate-session", &session])
+            .output()
+            .await
+            .context("Failed to log out")?;
+        anyhow::ensure!(
+            output.status.success(),
+            "Failed to log out: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
         Ok(())
     }
 
     pub async fn poweroff() -> Result<()> {
-        Command::new("systemctl")
+        let output = Command::new("systemctl")
             .arg("poweroff")
-            .status()
+            .output()
             .await
-            .context("Failed to power off system")?;
+            .context("Failed to poweroff system")?;
+        anyhow::ensure!(
+            output.status.success(),
+            "Failed to poweroff system: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
         Ok(())
     }
 
