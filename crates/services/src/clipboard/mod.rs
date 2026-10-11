@@ -1,3 +1,4 @@
+mod images;
 pub mod snippets;
 pub use snippets::Snippet;
 
@@ -27,6 +28,9 @@ fn decode_content(bytes: Vec<u8>, is_image: bool) -> Result<ClipboardContent, St
     if is_image {
         let image =
             image::load_from_memory(&bytes).map_err(|_| "clipboard.copy_error".to_string())?;
+        if image::guess_format(&bytes).ok() == Some(image::ImageFormat::Png) {
+            return Ok(ClipboardContent::Image(bytes));
+        }
         let mut png = std::io::Cursor::new(Vec::new());
         image
             .write_to(&mut png, image::ImageFormat::Png)
@@ -42,10 +46,16 @@ fn decode_content(bytes: Vec<u8>, is_image: bool) -> Result<ClipboardContent, St
 fn has_history_watcher(processes: &str, mime: &str) -> bool {
     processes.lines().any(|line| {
         let arguments: Vec<_> = line.split_whitespace().collect();
-        arguments
+        let requested = arguments
             .windows(2)
-            .any(|pair| matches!(pair[0], "--type" | "-t") && pair[1] == mime)
-            && arguments.contains(&"--watch")
+            .find_map(|pair| matches!(pair[0], "--type" | "-t").then_some(pair[1]))
+            .or_else(|| {
+                arguments
+                    .iter()
+                    .find_map(|argument| argument.strip_prefix("--type="))
+            });
+        requested.is_none_or(|requested| requested.split('/').next() == Some(mime))
+            && (arguments.contains(&"--watch") || arguments.contains(&"-w"))
             && arguments.contains(&"cliphist")
             && arguments.contains(&"store")
     })
@@ -161,6 +171,7 @@ fn parse_image_preview(raw: &str) -> String {
 pub struct ClipboardService {
     fallback_history: Arc<Mutex<VecDeque<String>>>,
     snippets: Arc<Mutex<snippets::SnippetsConfig>>,
+    images: Arc<Mutex<images::HistoryImages>>,
 }
 
 impl Default for ClipboardService {
@@ -174,6 +185,7 @@ impl ClipboardService {
         let service = Self {
             fallback_history: Arc::new(Mutex::new(VecDeque::new())),
             snippets: Arc::new(Mutex::new(snippets::SnippetsConfig::load())),
+            images: Arc::new(Mutex::new(images::HistoryImages::default())),
         };
 
         let has_cliphist = Command::new("cliphist")
@@ -328,13 +340,16 @@ impl ClipboardService {
                 }
 
                 if !items.is_empty() {
+                    if let Ok(mut images) = self.images.lock() {
+                        images.retain_unique(&mut items);
+                    }
                     return items;
                 }
             }
         }
 
         if let Ok(guard) = self.fallback_history.lock() {
-            return guard
+            let mut items = guard
                 .iter()
                 .map(|text| {
                     use std::hash::{Hash, Hasher};
@@ -350,6 +365,10 @@ impl ClipboardService {
                     }
                 })
                 .collect();
+            if let Ok(mut images) = self.images.lock() {
+                images.retain_unique(&mut items);
+            }
+            return items;
         }
 
         Vec::new()
@@ -444,6 +463,9 @@ impl ClipboardService {
         let _ = Command::new("cliphist").arg("wipe").status();
         let _ = Command::new("wl-copy").arg("-c").status();
         let _ = std::fs::remove_dir_all("/tmp/capsule_clipboard");
+        if let Ok(mut images) = self.images.lock() {
+            *images = images::HistoryImages::default();
+        }
         true
     }
 
@@ -520,6 +542,44 @@ impl ClipboardService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn png_payloads_keep_their_original_encoding_when_copied() {
+        let mut source = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(2, 1)
+            .write_to(&mut source, image::ImageFormat::Png)
+            .expect("PNG fixture");
+        let original = source.into_inner();
+        let ClipboardContent::Image(copied) =
+            decode_content(original.clone(), true).expect("PNG payload")
+        else {
+            panic!("image payload");
+        };
+        assert_eq!(copied, original);
+    }
+
+    #[test]
+    fn general_watchers_cover_images_and_text_without_extra_daemons() {
+        for process in [
+            "10 wl-paste --watch cliphist store",
+            "10 wl-paste -w cliphist store",
+        ] {
+            assert!(has_history_watcher(process, "image"));
+            assert!(has_history_watcher(process, "text"));
+        }
+        assert!(has_history_watcher(
+            "10 wl-paste --type=image/png --watch cliphist store",
+            "image"
+        ));
+        assert!(!has_history_watcher(
+            "10 wl-paste --type=image/png --watch cliphist store",
+            "text"
+        ));
+        assert!(!has_history_watcher(
+            "10 wl-paste --watch another store",
+            "image"
+        ));
+    }
 
     #[test]
     fn image_payloads_are_validated_and_normalized_to_png() {
@@ -621,6 +681,7 @@ mod tests {
         let service = ClipboardService {
             fallback_history: Arc::new(Mutex::new(VecDeque::new())),
             snippets: Arc::new(Mutex::new(snippets::SnippetsConfig::default())),
+            images: Arc::new(Mutex::new(images::HistoryImages::default())),
         };
         let items = service.fetch_history();
         for item in &items {

@@ -510,6 +510,15 @@ mod tests {
                 "settings.color_mode",
                 "settings.clock_format",
                 "settings.themes_locked",
+                "settings.orbits_heading",
+                "settings.orbit_power",
+                "settings.orbit_usage",
+                "settings.orbit_record",
+                "settings.orbit_shelf",
+                "orbit.poweroff",
+                "orbit.reboot",
+                "orbit.logout",
+                "orbit.lock",
             ] {
                 assert!(bundle.strings.contains_key(key), "missing {key}");
             }

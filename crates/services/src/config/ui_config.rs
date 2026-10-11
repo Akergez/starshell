@@ -16,9 +16,31 @@ pub enum CapsuleLocation {
     Bottom,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OrbitConfig {
+    pub power: bool,
+    pub usage: bool,
+    pub record: bool,
+    pub shelf: bool,
+}
+
+impl Default for OrbitConfig {
+    fn default() -> Self {
+        Self {
+            power: true,
+            usage: true,
+            record: true,
+            shelf: true,
+        }
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UIConfig {
+    #[serde(default)]
+    pub orbits: OrbitConfig,
     #[serde(default = "default_enabled")]
     pub use_new_capsule: bool,
 
@@ -78,6 +100,7 @@ pub type UiConfig = UIConfig;
 impl Default for UIConfig {
     fn default() -> Self {
         Self {
+            orbits: OrbitConfig::default(),
             use_new_capsule: true,
             dynamic_colors: false,
             dark_mode: true,
@@ -184,6 +207,21 @@ mod tests {
         let decoded: UIConfig = toml::from_str(&encoded).expect("deserialize config");
         assert_eq!(decoded, config);
         assert_eq!(decoded.clock_format(), "%I:%M %p");
+    }
+
+    #[test]
+    fn orbit_switches_default_to_enabled_and_round_trip_independently() {
+        let fresh: UIConfig = toml::from_str("").expect("existing config");
+        assert_eq!(fresh.orbits, OrbitConfig::default());
+        let config: UIConfig =
+            toml::from_str("[orbits]\nusage = false\nshelf = false\n").expect("orbit settings");
+        assert!(config.orbits.power);
+        assert!(config.orbits.record);
+        assert!(!config.orbits.usage);
+        assert!(!config.orbits.shelf);
+        let encoded = toml::to_string(&config).expect("serialize orbit settings");
+        let restored: UIConfig = toml::from_str(&encoded).expect("restore orbit settings");
+        assert_eq!(restored.orbits, config.orbits);
     }
 
     #[test]

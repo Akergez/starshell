@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use gpui::{Bounds, Hsla, PathBuilder, Pixels, Size, div, point, prelude::*, px};
-use ui::theme::{Theme, ThemeMode};
+use ui::theme::Theme;
 
 fn opaque(mut color: Hsla) -> Hsla {
     color.alpha = 1.0;
@@ -130,10 +130,11 @@ pub(crate) fn concave_input_regions(
 }
 
 pub(crate) fn surface(theme: &Theme) -> Hsla {
-    match theme.mode {
-        ThemeMode::Dark => tint(background(theme), theme.surface(), 0.5),
-        ThemeMode::Light => opaque(theme.surface()),
-    }
+    tint(
+        tint(background(theme), theme.surface(), 0.5),
+        opaque(theme.surface()),
+        theme.light_mix(),
+    )
 }
 
 pub(crate) fn hover(theme: &Theme) -> Hsla {
@@ -145,10 +146,11 @@ pub(crate) fn selected(theme: &Theme) -> Hsla {
 }
 
 pub(crate) fn border(theme: &Theme) -> Hsla {
-    match theme.mode {
-        ThemeMode::Dark => tint(background(theme), theme.background_alt(), 0.5),
-        ThemeMode::Light => opaque(theme.background_alt()),
-    }
+    tint(
+        tint(background(theme), theme.background_alt(), 0.5),
+        opaque(theme.background_alt()),
+        theme.light_mix(),
+    )
 }
 
 pub(crate) fn card(theme: &Theme, radius: f32) -> gpui::Div {
@@ -185,10 +187,11 @@ pub(crate) const CARD_RADIUS: f32 = 16.0;
 pub(crate) const INNER_RADIUS: f32 = 12.0;
 
 pub(crate) fn raised(theme: &Theme) -> Hsla {
-    match theme.mode {
-        ThemeMode::Dark => tint(surface(theme), theme.foreground(), 0.06),
-        ThemeMode::Light => tint(surface(theme), border(theme), 0.5),
-    }
+    tint(
+        tint(surface(theme), theme.foreground(), 0.06),
+        tint(surface(theme), border(theme), 0.5),
+        theme.light_mix(),
+    )
 }
 
 pub(crate) fn accent_card(theme: &Theme) -> Hsla {

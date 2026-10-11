@@ -1,11 +1,13 @@
 use super::Snapshot;
-use services::{RecordService, ShelfService};
+use services::{RecordService, ShelfService, SystemService};
 use std::time::Duration;
 use tokio::sync::{broadcast, watch};
 
 pub(super) fn start(
     shelf: ShelfService,
     record: RecordService,
+    system: SystemService,
+    mut enabled: watch::Receiver<bool>,
 ) -> (watch::Receiver<Snapshot>, tokio::task::JoinHandle<()>) {
     let (sender, receiver) = watch::channel(Snapshot::default());
     let worker = services::spawn_tokio(async move {
@@ -13,10 +15,18 @@ pub(super) fn start(
         let mut record_changes = record.subscribe_status();
         let mut fallback = tokio::time::interval(Duration::from_secs(2));
         fallback.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        fallback.reset();
+        let mut refresh_usage = false;
+        let mut usage = services::system::UsageStatus::default();
         loop {
+            if refresh_usage && *enabled.borrow_and_update() {
+                usage = system.sample_usage().await;
+                refresh_usage = false;
+            }
             let snapshot = Snapshot {
                 shelf_count: shelf.count(),
                 record_status: record.get_status(),
+                usage,
             };
             sender.send_if_modified(|previous| {
                 if *previous == snapshot {
@@ -39,7 +49,12 @@ pub(super) fn start(
                         record_changes = record.subscribe_status();
                     }
                 },
-                _ = fallback.tick() => {},
+                _ = fallback.tick() => { refresh_usage = true; },
+                result = enabled.changed() => {
+                    if result.is_err() { break; }
+                    refresh_usage = *enabled.borrow();
+                    if !refresh_usage { system.reset_usage_sample().await; }
+                },
             }
         }
     });
@@ -56,7 +71,13 @@ mod tests {
             let shelf = ShelfService::new();
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
             assert_eq!(shelf.add_paths(&[path]), 1);
-            let (mut updates, worker) = start(shelf.clone(), RecordService::new());
+            let (_enabled, enabled) = watch::channel(false);
+            let (mut updates, worker) = start(
+                shelf.clone(),
+                RecordService::new(),
+                SystemService::new(),
+                enabled,
+            );
             tokio::time::timeout(Duration::from_secs(2), updates.changed())
                 .await
                 .expect("initial snapshot")

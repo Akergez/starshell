@@ -45,6 +45,12 @@ impl Niri {
 }
 
 impl Compositor for Niri {
+    fn logout(&self) -> futures::future::BoxFuture<'_, anyhow::Result<()>> {
+        Box::pin(async {
+            tokio::task::spawn_blocking(|| logout_with_socket(Socket::connect()?)).await?
+        })
+    }
+
     fn get_refresh_rate(&self) -> f64 {
         let res = catch_unwind(|| {
             if let Ok(mut socket) = Socket::connect()
@@ -130,6 +136,16 @@ impl Compositor for Niri {
     fn request_layer_focus(&self) {}
 }
 
+fn logout_with_socket(mut socket: Socket) -> anyhow::Result<()> {
+    match socket.send(Request::Action(niri_ipc::Action::Quit {
+        skip_confirmation: true,
+    }))? {
+        Ok(Response::Handled) => Ok(()),
+        Ok(response) => anyhow::bail!("Unexpected Niri logout response: {response:?}"),
+        Err(error) => anyhow::bail!("Niri rejected logout: {error}"),
+    }
+}
+
 pub async fn run_events_listener(
     current_workspace: Arc<ArcSwap<WorkspaceInfo>>,
     tx: broadcast::Sender<WorkspaceInfo>,
@@ -172,6 +188,48 @@ pub async fn run_events_listener(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn logout_ipc_sends_quit_and_validates_the_reply() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+        for (name, reply, success) in [
+            ("handled", Ok(Response::Handled), true),
+            ("rejected", Err("logout denied".to_owned()), false),
+            ("unexpected", Ok(Response::Workspaces(Vec::new())), false),
+        ] {
+            let path = std::env::temp_dir().join(format!(
+                "capsule-niri-logout-{}-{name}.sock",
+                std::process::id()
+            ));
+            let listener = tokio::net::UnixListener::bind(&path).expect("mock socket");
+            let server = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.expect("connection");
+                let mut stream = BufReader::new(stream);
+                let mut request = String::new();
+                stream.read_line(&mut request).await.expect("request");
+                let request: Request = serde_json::from_str(&request).expect("typed request");
+                assert!(matches!(
+                    request,
+                    Request::Action(niri_ipc::Action::Quit {
+                        skip_confirmation: true
+                    })
+                ));
+                let mut reply = serde_json::to_vec(&reply).expect("reply");
+                reply.push(b'\n');
+                stream.get_mut().write_all(&reply).await.expect("response");
+            });
+            let client_path = path.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                logout_with_socket(Socket::connect_to(client_path)?)
+            })
+            .await
+            .expect("client task");
+            assert_eq!(result.is_ok(), success, "{name}: {result:?}");
+            server.await.expect("mock server");
+            std::fs::remove_file(path).expect("fixture cleanup");
+        }
+    }
 
     #[test]
     fn test_parse_niri_workspace() {

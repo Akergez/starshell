@@ -1,9 +1,13 @@
-use gpui::{App, Global};
+use gpui::{App, Global, Task};
 use services::AppState;
+use std::time::{Duration, Instant};
+use ui::theme::animator::ThemeAnimator;
 use ui::theme::{Theme, theme_manager::ThemeManager};
 
 pub(crate) struct AppearanceStatus {
     pub error: Option<String>,
+    animator: ThemeAnimator,
+    animation: Option<Task<()>>,
     persistence: tokio::sync::mpsc::UnboundedSender<Theme>,
 }
 
@@ -17,6 +21,8 @@ pub(crate) fn initialize(cx: &mut App) {
     let (persist, mut persistence) = tokio::sync::mpsc::unbounded_channel::<Theme>();
     cx.set_global(AppearanceStatus {
         error: None,
+        animator: ThemeAnimator::new(cx.global::<Theme>().clone()),
+        animation: None,
         persistence: persist.clone(),
     });
     services::spawn_tokio(async move {
@@ -111,9 +117,8 @@ pub(crate) fn initialize(cx: &mut App) {
                 let manager = cx.global_mut::<ThemeManager>();
                 manager.current_theme = theme.clone();
                 manager.apply_theme_to_apps();
-                cx.set_global(theme.clone());
+                transition_theme(theme.clone(), cx);
                 let _ = persist.send(theme);
-                cx.refresh_windows();
             });
         }
     })
@@ -122,4 +127,48 @@ pub(crate) fn initialize(cx: &mut App) {
 
 pub(crate) fn persist_theme(theme: Theme, cx: &App) {
     let _ = cx.global::<AppearanceStatus>().persistence.send(theme);
+}
+
+pub(crate) fn transition_theme(theme: Theme, cx: &mut App) {
+    let duration = Duration::from_millis(
+        cx.global::<AppState>()
+            .config
+            .get()
+            .ui
+            .animation_duration_ms
+            .min(180) as u64,
+    );
+    let interval = cx
+        .global::<AppState>()
+        .compositor
+        .get_frame_duration()
+        .max(Duration::from_millis(2));
+    let status = cx.global_mut::<AppearanceStatus>();
+    status.animation = None;
+    let running = status
+        .animator
+        .transition_to(theme, duration, Instant::now());
+    let displayed = status.animator.theme().clone();
+    cx.set_global(displayed);
+    cx.refresh_windows();
+    if !running {
+        return;
+    }
+    let animation = cx.spawn(async move |cx| {
+        loop {
+            cx.background_executor().timer(interval).await;
+            let running = cx.update(|cx| {
+                let animator = &mut cx.global_mut::<AppearanceStatus>().animator;
+                let running = animator.advance(Instant::now());
+                let displayed = animator.theme().clone();
+                cx.set_global(displayed);
+                cx.refresh_windows();
+                running
+            });
+            if !running {
+                break;
+            }
+        }
+    });
+    cx.global_mut::<AppearanceStatus>().animation = Some(animation);
 }

@@ -471,7 +471,7 @@ impl Capsule {
                                         .global::<ui::theme::theme_manager::ThemeManager>()
                                         .current_theme
                                         .clone();
-                                    cx.set_global(new_theme);
+                                    crate::settings::appearance::transition_theme(new_theme, cx);
                                     services::log_info!(
                                         "THEME",
                                         "Reloaded current_theme and applied to GTK/Qt/Ghostty/Fish/Yazi apps!"

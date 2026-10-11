@@ -106,7 +106,7 @@ fn process(
                     decoded.insert(item.id.clone(), text.clone());
                     service.copy_text(text)
                 }
-                ClipboardContent::Image(bytes) => service.copy_binary(bytes, "image/png"),
+                ClipboardContent::Image(_) => true,
             };
             if success {
                 copied = Some((generation, content));

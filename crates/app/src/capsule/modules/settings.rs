@@ -63,6 +63,10 @@ pub enum SettingsField {
     CapsuleStyle = 22,
     LegacyCapsule = 23,
     CapsuleLocation = 24,
+    OrbitPower = 25,
+    OrbitUsage = 26,
+    OrbitRecord = 27,
+    OrbitShelf = 28,
 }
 
 pub enum SettingsEvent {
@@ -74,6 +78,7 @@ pub type SliderDragState = (SettingsField, f32, f32, f32, Rc<Cell<(f32, f32)>>);
 pub struct SettingsModule {
     pub appearance_error: Option<String>,
     pub motion_preview: Animator,
+    pub orbit_preview: crate::new_capsule::orbit::Preview,
     motion_preview_generation: u64,
     pub active_tab: SettingsTab,
     pub active_field: Option<SettingsField>,
@@ -146,6 +151,9 @@ impl SettingsModule {
 
         let mut module = Self {
             appearance_error: None,
+            orbit_preview: crate::new_capsule::orbit::Preview::new(
+                cx.global::<AppState>().config.get().ui.orbits,
+            ),
             motion_preview: Animator::new(gpui::size(px(72.0), px(22.0)), Duration::ZERO),
             motion_preview_generation: 0,
             active_tab: SettingsTab::Appearance,
@@ -340,6 +348,11 @@ impl SettingsModule {
         let duration = self.anim_duration_input.parse::<u64>().unwrap_or(250);
         self.motion_preview
             .set_duration(Duration::from_millis(duration));
+        self.orbit_preview.transition(
+            cx.global::<AppState>().config.get().ui.orbits,
+            Duration::from_millis(duration),
+            duration != 0,
+        );
         if duration == 0 {
             self.motion_preview
                 .transition_to(gpui::size(px(72.0), px(22.0)), Instant::now());
@@ -373,7 +386,10 @@ impl SettingsModule {
                 {
                     return;
                 }
-                let running = this.motion_preview.advance(Instant::now());
+                let now = Instant::now();
+                let capsule_running = this.motion_preview.advance(now);
+                let orbits_running = this.orbit_preview.advance(now);
+                let running = capsule_running || orbits_running;
                 if running {
                     Self::queue_preview_frame(
                         window,
@@ -382,6 +398,13 @@ impl SettingsModule {
                         returning,
                     );
                 } else if !returning {
+                    this.orbit_preview.transition(
+                        cx.global::<AppState>().config.get().ui.orbits,
+                        Duration::from_millis(
+                            this.anim_duration_input.parse::<u64>().unwrap_or(250),
+                        ),
+                        false,
+                    );
                     this.motion_preview
                         .transition_to(gpui::size(px(72.0), px(22.0)), Instant::now());
                     Self::queue_preview_frame(window, cx.entity().downgrade(), generation, true);
@@ -589,6 +612,10 @@ impl SettingsModule {
     pub fn toggle_setting(&mut self, field: SettingsField, cx: &mut Context<Self>) {
         let config = cx.global::<AppState>().config.clone();
         let result = config.update(|cfg| match field {
+            SettingsField::OrbitPower => cfg.ui.orbits.power = !cfg.ui.orbits.power,
+            SettingsField::OrbitUsage => cfg.ui.orbits.usage = !cfg.ui.orbits.usage,
+            SettingsField::OrbitRecord => cfg.ui.orbits.record = !cfg.ui.orbits.record,
+            SettingsField::OrbitShelf => cfg.ui.orbits.shelf = !cfg.ui.orbits.shelf,
             SettingsField::DynamicColors => cfg.ui.dynamic_colors = !cfg.ui.dynamic_colors,
             SettingsField::DarkMode => cfg.ui.dark_mode = !cfg.ui.dark_mode,
             SettingsField::ClockFormat => cfg.ui.clock_24_hour = !cfg.ui.clock_24_hour,
@@ -917,7 +944,11 @@ impl SettingsModule {
             | SettingsField::ClockFormat
             | SettingsField::CapsuleStyle
             | SettingsField::CapsuleLocation
-            | SettingsField::LegacyCapsule => {
+            | SettingsField::LegacyCapsule
+            | SettingsField::OrbitPower
+            | SettingsField::OrbitUsage
+            | SettingsField::OrbitRecord
+            | SettingsField::OrbitShelf => {
                 return;
             }
         };
@@ -950,7 +981,11 @@ impl SettingsModule {
             | SettingsField::ClockFormat
             | SettingsField::CapsuleStyle
             | SettingsField::CapsuleLocation
-            | SettingsField::LegacyCapsule => {
+            | SettingsField::LegacyCapsule
+            | SettingsField::OrbitPower
+            | SettingsField::OrbitUsage
+            | SettingsField::OrbitRecord
+            | SettingsField::OrbitShelf => {
                 return;
             }
         };

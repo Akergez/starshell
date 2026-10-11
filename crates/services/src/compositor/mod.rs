@@ -1,5 +1,6 @@
 pub mod hyprland;
 pub mod kwin;
+pub mod mangowm;
 pub mod niri;
 
 use arc_swap::ArcSwap;
@@ -37,6 +38,42 @@ pub trait Compositor: Send + Sync {
     }
     fn switch_workspace(&self, _id: i64) {}
     fn request_layer_focus(&self) {}
+    fn logout(&self) -> futures::future::BoxFuture<'_, anyhow::Result<()>> {
+        Box::pin(crate::SystemService::logout())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CompositorBackend {
+    KWin,
+    Hyprland,
+    Niri,
+    Mango,
+}
+
+impl CompositorBackend {
+    fn detect(desktop: &str, kwin: bool, hyprland: bool, niri: bool, mango: bool) -> Self {
+        for component in desktop.split(':') {
+            match component.trim().to_ascii_lowercase().as_str() {
+                "kde" | "kinetic" => return Self::KWin,
+                "hyprland" => return Self::Hyprland,
+                "niri" => return Self::Niri,
+                "mango" | "mangowm" => return Self::Mango,
+                _ => {}
+            }
+        }
+        if kwin {
+            Self::KWin
+        } else if niri {
+            Self::Niri
+        } else if hyprland {
+            Self::Hyprland
+        } else if mango {
+            Self::Mango
+        } else {
+            Self::KWin
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -45,22 +82,33 @@ pub struct CompositorService {
     current_workspace: Arc<ArcSwap<WorkspaceInfo>>,
     workspace_tx: broadcast::Sender<WorkspaceInfo>,
     compositor: Arc<dyn Compositor>,
+    backend: CompositorBackend,
     kwin: Option<kwin::KWin>,
+    mango: Option<mangowm::Mango>,
 }
 
 impl CompositorService {
+    pub async fn logout(&self) -> anyhow::Result<()> {
+        self.compositor.logout().await
+    }
+
     pub fn new() -> Self {
         let refresh_rate = Arc::new(ArcSwap::from_pointee(60.0));
         let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
-        let use_kwin = std::env::var("KWIN_WAYLAND").is_ok()
-            || desktop.contains("KDE")
-            || desktop.contains("Kinetic")
-            || (std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_err()
-                && std::env::var("NIRI_SOCKET").is_err());
-        let kwin = use_kwin.then(kwin::KWin::new);
+        let backend = CompositorBackend::detect(
+            &desktop,
+            std::env::var_os("KWIN_WAYLAND").is_some(),
+            std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some(),
+            std::env::var_os(niri_ipc::socket::SOCKET_PATH_ENV).is_some(),
+            std::env::var_os(mango_ipc::SOCKET_PATH_ENV).is_some(),
+        );
+        let kwin = (backend == CompositorBackend::KWin).then(kwin::KWin::new);
+        let mango = (backend == CompositorBackend::Mango).then(mangowm::Mango::new);
         let compositor: Arc<dyn Compositor> = if let Some(backend) = &kwin {
             Arc::new(backend.clone())
-        } else if std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
+        } else if let Some(backend) = &mango {
+            Arc::new(backend.clone())
+        } else if backend == CompositorBackend::Hyprland {
             Arc::new(hyprland::Hyprland::new())
         } else {
             Arc::new(niri::Niri::new())
@@ -74,10 +122,15 @@ impl CompositorService {
             current_workspace,
             workspace_tx,
             compositor,
+            backend,
             kwin,
+            mango,
         };
 
         let service_clone = service.clone();
+        if let Some(backend) = service.mango.clone() {
+            crate::spawn_tokio(mangowm::run_output_listener(backend));
+        }
         crate::spawn_tokio(async move {
             service_clone.run_polling_loop().await;
         });
@@ -134,6 +187,15 @@ impl CompositorService {
     }
 
     async fn run_workspace_events_loop(&self) {
+        if let Some(backend) = &self.mango {
+            mangowm::run_events_listener(
+                backend.clone(),
+                self.current_workspace.clone(),
+                self.workspace_tx.clone(),
+            )
+            .await;
+            return;
+        }
         if let Some(backend) = &self.kwin {
             kwin::run_events_listener(
                 backend.clone(),
@@ -143,8 +205,6 @@ impl CompositorService {
             .await;
             return;
         }
-        let use_hyprland = std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok();
-        let use_niri = !use_hyprland && std::env::var("NIRI_SOCKET").is_ok();
         let compositor = self.compositor.clone();
         let initial = crate::spawn_blocking(move || compositor.get_workspace())
             .await
@@ -159,27 +219,32 @@ impl CompositorService {
             }
         }
 
-        if use_hyprland {
+        if self.backend == CompositorBackend::Hyprland {
             hyprland::run_events_listener(
                 self.current_workspace.clone(),
                 self.workspace_tx.clone(),
             )
             .await;
-        } else if use_niri {
+        } else if self.backend == CompositorBackend::Niri {
             niri::run_events_listener(self.current_workspace.clone(), self.workspace_tx.clone())
                 .await;
         }
     }
 
     async fn run_polling_loop(&self) {
-        let use_hyprland =
-            self.kwin.is_none() && std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok();
-        let use_niri = self.kwin.is_none() && !use_hyprland && std::env::var("NIRI_SOCKET").is_ok();
+        let use_hyprland = self.backend == CompositorBackend::Hyprland;
+        let use_niri = self.backend == CompositorBackend::Niri;
 
         loop {
+            if let Some(backend) = &self.mango {
+                backend.refresh().await;
+            }
+            let mango = self.mango.clone();
             let mut rate = crate::spawn_blocking(move || {
                 std::panic::catch_unwind(|| {
-                    if use_hyprland {
+                    if let Some(backend) = mango {
+                        backend.get_refresh_rate()
+                    } else if use_hyprland {
                         hyprland::Hyprland::new().get_refresh_rate()
                     } else if use_niri {
                         niri::Niri::new().get_refresh_rate()
@@ -234,6 +299,44 @@ impl Default for CompositorService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backend_selection_prefers_current_desktop_over_inherited_sockets() {
+        for (desktop, expected) in [
+            ("niri", CompositorBackend::Niri),
+            ("Niri", CompositorBackend::Niri),
+            ("Wayland:niri", CompositorBackend::Niri),
+            ("Hyprland", CompositorBackend::Hyprland),
+            ("mango", CompositorBackend::Mango),
+            ("KDE", CompositorBackend::KWin),
+        ] {
+            assert_eq!(
+                CompositorBackend::detect(desktop, true, true, true, true),
+                expected,
+                "{desktop}",
+            );
+        }
+    }
+
+    #[test]
+    fn backend_selection_falls_back_to_session_sockets() {
+        assert_eq!(
+            CompositorBackend::detect("", false, false, true, true),
+            CompositorBackend::Niri,
+        );
+        assert_eq!(
+            CompositorBackend::detect("", false, true, false, false),
+            CompositorBackend::Hyprland,
+        );
+        assert_eq!(
+            CompositorBackend::detect("", false, false, false, true),
+            CompositorBackend::Mango,
+        );
+        assert_eq!(
+            CompositorBackend::detect("", false, false, false, false),
+            CompositorBackend::KWin,
+        );
+    }
 
     #[tokio::test]
     async fn test_compositor_service_workspace_methods() {
