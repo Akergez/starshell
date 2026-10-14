@@ -1,6 +1,5 @@
-mod capsule;
 pub mod lockscreen;
-pub mod new_capsule;
+pub mod capsule;
 pub mod panel;
 pub mod settings;
 
@@ -89,17 +88,7 @@ fn run_application() {
         cx.set_global(theme_manager);
         settings::appearance::initialize(cx);
 
-        if cx
-            .global::<services::AppState>()
-            .config
-            .get()
-            .ui
-            .use_new_capsule
-        {
-            panel::CapsulePanel::open_new(cx, ipc_subscriber);
-        } else {
-            panel::CapsulePanel::open(cx, ipc_subscriber);
-        }
+        panel::CapsulePanel::open(cx, ipc_subscriber);
     });
 }
 

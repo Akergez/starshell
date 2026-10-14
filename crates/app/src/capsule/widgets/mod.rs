@@ -1,12 +1,21 @@
-pub mod clipboard;
-pub mod dashboard;
 pub mod default;
-pub mod emoji;
+pub(crate) mod default_expanded;
+pub(crate) mod style;
+
 pub mod launcher;
-pub mod notification;
-pub mod polkit;
-pub mod record;
-pub mod select_theme;
-pub mod settings;
-pub mod shelf;
-pub mod volume;
+
+pub mod dashboard;
+pub(crate) mod satellite;
+
+pub(crate) mod appearance;
+
+pub(crate) mod clipboard;
+pub(crate) mod emoji;
+
+pub(crate) mod record;
+pub(crate) mod shelf;
+pub(crate) mod shelf_drop;
+
+pub(crate) mod polkit;
+
+pub(crate) mod notification;

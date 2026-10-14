@@ -10,9 +10,8 @@ use gpui::{
 
 use services::IpcSubscriber;
 
-use crate::capsule::Capsule;
 use crate::lockscreen::LockScreen;
-use crate::settings::SettingsWindow;
+use crate::settings::Settings;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PanelMode {
@@ -24,7 +23,16 @@ pub enum PanelMode {
 pub struct CapsulePanel;
 
 impl CapsulePanel {
-    pub fn window_options(cx: &gpui::App) -> WindowOptions {
+    pub fn window_options(
+        module_manager: &crate::capsule::module::CapsuleModuleManager,
+        cx: &gpui::App,
+    ) -> WindowOptions {
+        let size = crate::capsule::Capsule::maximum_window_size(
+            module_manager,
+            cx.displays().first().map(|display| display.bounds().size),
+            cx,
+        );
+
         let display_bounds = cx.displays().first().map(|d| d.bounds());
         let exclusive_zone = if cx.has_global::<services::AppState>() {
             let config = cx.global::<services::AppState>().config.get();
@@ -33,7 +41,7 @@ impl CapsulePanel {
             25.0 + 8.0
         };
 
-        WindowOptions {
+        let mut options = WindowOptions {
             titlebar: None,
             window_bounds: display_bounds.map(WindowBounds::Windowed),
             app_id: Some("capsule-panel".to_string()),
@@ -48,20 +56,8 @@ impl CapsulePanel {
                 ..Default::default()
             }),
             ..Default::default()
-        }
-    }
+        };
 
-    pub(crate) fn new_window_options(
-        module_manager: &crate::new_capsule::module::CapsuleModuleManager,
-        cx: &gpui::App,
-    ) -> WindowOptions {
-        let size = crate::new_capsule::Capsule::maximum_window_size(
-            module_manager,
-            cx.displays().first().map(|display| display.bounds().size),
-            cx,
-        );
-
-        let mut options = Self::window_options(cx);
         options.inactive_frame_interval = None;
         options.window_bounds = Some(WindowBounds::Windowed(gpui::Bounds {
             origin: gpui::point(px(0.0), px(0.0)),
@@ -83,15 +79,15 @@ impl CapsulePanel {
         options
     }
 
-    pub fn open_new(
+    pub fn open(
         cx: &mut gpui::App,
         ipc_subscriber: IpcSubscriber,
-    ) -> Option<WindowHandle<crate::new_capsule::Capsule>> {
-        let module_manager = crate::new_capsule::module::CapsuleModuleManager::new(cx);
-        let options = Self::new_window_options(&module_manager, cx);
+    ) -> Option<WindowHandle<crate::capsule::Capsule>> {
+        let module_manager = crate::capsule::module::CapsuleModuleManager::new(cx);
+        let options = Self::window_options(&module_manager, cx);
         let window = match cx.open_window(options, |window, cx| {
             cx.new(|cx| {
-                crate::new_capsule::Capsule::with_module_manager(module_manager, window, cx)
+                crate::capsule::Capsule::with_module_manager(module_manager, window, cx)
             })
         }) {
             Ok(window) => window,
@@ -101,29 +97,8 @@ impl CapsulePanel {
             }
         };
         if let Ok(entity) = window.entity(cx) {
-            ipc_subscriber.start(cx, entity, crate::new_capsule::Capsule::handle_ipc_command);
+            ipc_subscriber.start(cx, entity, crate::capsule::Capsule::handle_ipc_command);
         }
-        Some(window)
-    }
-
-    pub fn open(
-        cx: &mut gpui::App,
-        ipc_subscriber: IpcSubscriber,
-    ) -> Option<WindowHandle<Capsule>> {
-        let options = Self::window_options(cx);
-        let window =
-            match cx.open_window(options, |window, cx| cx.new(|cx| Capsule::new(window, cx))) {
-                Ok(w) => w,
-                Err(err) => {
-                    eprintln!("Failed to open layer shell window: {err}");
-                    return None;
-                }
-            };
-
-        if let Ok(capsule_handle) = window.entity(cx) {
-            ipc_subscriber.start(cx, capsule_handle, Capsule::handle_ipc_command);
-        }
-
         Some(window)
     }
 }
@@ -285,7 +260,7 @@ impl SettingsPanel {
         }
     }
 
-    pub fn open(cx: &mut gpui::App) -> Option<WindowHandle<SettingsWindow>> {
+    pub fn open(cx: &mut gpui::App) -> Option<WindowHandle<Settings>> {
         if IS_SETTINGS_OPEN
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .is_err()
@@ -296,7 +271,7 @@ impl SettingsPanel {
         let options = Self::window_options(cx);
 
         match cx.open_window(options, |window, cx| {
-            cx.new(|cx| SettingsWindow::new(window, cx))
+            cx.new(|cx| Settings::new(window, cx))
         }) {
             Ok(w) => Some(w),
             Err(err) => {
@@ -309,7 +284,7 @@ impl SettingsPanel {
 
     pub fn close(cx: &mut gpui::App) {
         for window in cx.windows() {
-            if let Some(settings_window) = window.downcast::<SettingsWindow>() {
+            if let Some(settings_window) = window.downcast::<Settings>() {
                 let _ = settings_window.update(cx, |this, _, cx| {
                     this.request_close(cx);
                 });

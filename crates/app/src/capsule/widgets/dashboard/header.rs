@@ -1,112 +1,84 @@
-use gpui::{ColorExt, Context, FontWeight, IntoElement, div, prelude::*, px, svg};
+use super::{DashboardAction as Action, HEADER};
+use crate::capsule::module::dashboard::DashboardModule;
+use crate::capsule::satellite::SatelliteId;
+use crate::capsule::widgets::style;
+use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, svg};
 use ui::theme::Theme;
 
-use super::tray::render_tray_widget;
-use crate::capsule::modules::dashboard::{DashboardEvent, DashboardModule};
-
-#[allow(clippy::too_many_arguments)]
-pub fn render_header(
-    battery_percentage: Option<i32>,
-    battery_charging: bool,
-    open_panel_indices: &[usize],
-    _greeting_str: &str,
-    _greeting_icon: &str,
-    date_str: &str,
-    time_str: &str,
+pub fn render(
+    module: &DashboardModule,
     theme: &Theme,
     cx: &mut Context<DashboardModule>,
-) -> impl IntoElement {
-    let date_time_text = format!("{date_str} • {time_str}");
-
-    let battery_chip = if let Some(pct) = battery_percentage {
-        let icon = if battery_charging {
-            "battery-charging.svg"
-        } else if pct <= 20 {
-            "battery-low.svg"
-        } else if pct <= 60 {
-            "battery-medium.svg"
-        } else {
-            "battery-full.svg"
-        };
-        Some(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .flex_shrink_0()
-                .gap(px(3.5))
-                .px_2()
-                .py(px(2.0))
-                .rounded_full()
-                .bg(theme.surface().opacity(0.35))
-                .border_1()
-                .border_color(theme.surface().opacity(0.15))
-                .text_color(theme.foreground())
-                .text_size(px(11.0))
-                .font_weight(FontWeight::MEDIUM)
-                .child(svg().path(icon).size(px(12.5)).flex_shrink_0().text_color(
-                    if battery_charging || pct <= 20 {
-                        theme.accent()
-                    } else {
-                        theme.foreground_muted()
-                    },
-                ))
-                .child(
-                    div()
-                        .text_color(theme.foreground())
-                        .child(format!("{pct}%")),
-                ),
-        )
-    } else {
-        None
-    };
-
-    div()
+) -> AnyElement {
+    let mut header = div()
         .id("dashboard-header")
         .flex()
-        .flex_row()
         .items_center()
         .justify_between()
         .w_full()
-        .child(
+        .h(px(HEADER))
+        .flex_shrink_0()
+        .gap(px(8.0));
+    let leading =
+        div()
+            .id("dashboard-calendar")
+            .min_w_0()
+            .text_size(px(12.0))
+            .text_color(theme.foreground_muted())
+            .whitespace_nowrap()
+            .text_ellipsis()
+            .cursor_pointer()
+            .hover(|s| s.text_color(theme.foreground()))
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.dispatch(Action::Satellite(SatelliteId::Calendar), cx)
+            }))
+            .child(module.snapshot.date.clone());
+
+    let mut trailing = div().flex().items_center().gap(px(8.0)).flex_shrink_0();
+    if let Some(battery) = module.snapshot.battery {
+        trailing = trailing.child(
             div()
-                .id("header-calendar-btn")
                 .flex()
-                .flex_row()
                 .items_center()
-                .flex_shrink_0()
-                .gap_2()
-                .cursor_pointer()
-                .px_2()
-                .py_1()
-                .rounded_full()
-                .hover(|s| s.bg(theme.surface().opacity(0.35)))
-                .active(|s| s.bg(theme.surface().opacity(0.6)))
-                .on_click(cx.listener(|_this, _, _, cx| {
-                    cx.emit(DashboardEvent::CalendarClicked);
-                }))
+                .gap(px(4.0))
+                .text_size(px(12.0))
                 .child(
                     svg()
-                        .path("calendar-days.svg")
-                        .size(px(13.0))
+                        .path(if battery.is_charging {
+                            "battery-charging.svg"
+                        } else if battery.percentage <= 20 {
+                            "battery-low.svg"
+                        } else {
+                            "battery-full.svg"
+                        })
+                        .size(px(16.0))
                         .text_color(theme.foreground_muted()),
                 )
-                .child(
-                    div()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_size(px(12.0))
-                        .text_color(theme.foreground())
-                        .child(date_time_text),
-                ),
-        )
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .flex_shrink_0()
-                .gap_1p5()
-                .child(render_tray_widget(open_panel_indices, theme, cx))
-                .children(battery_chip),
-        )
+                .child(format!("{}%", battery.percentage)),
+        );
+    }
+
+    trailing = trailing.child(
+        div()
+            .id("dashboard-settings")
+            .size(px(28.0))
+            .flex_shrink_0()
+            .rounded_full()
+            .bg(style::surface(theme))
+            .flex()
+            .items_center()
+            .justify_center()
+            .cursor_pointer()
+            .hover(|s| s.bg(style::hover(theme)))
+            .on_click(cx.listener(|this, _, _, cx| this.dispatch(Action::Settings, cx)))
+            .child(
+                svg()
+                    .path("settings.svg")
+                    .size(px(16.0))
+                    .text_color(theme.foreground()),
+            ),
+    );
+
+    header = header.child(leading).child(trailing);
+    header.into_any_element()
 }

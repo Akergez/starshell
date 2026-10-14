@@ -1,14 +1,29 @@
-use gpui::{IntoElement, div, prelude::*};
+use gpui::{IntoElement, div, prelude::*, px};
 use ui::theme::Theme;
 
-use super::flip_clock::FlipClock;
+use super::CLOCK_WIDTH;
 
-pub fn render_clock_widget(flip_clock: &FlipClock, theme: &Theme) -> impl IntoElement {
+pub fn render_clock(time: &str, theme: &Theme) -> impl IntoElement {
+    let (digits, period) = time
+        .split_once(' ')
+        .map_or((time, None), |(digits, period)| (digits, Some(period)));
     div()
-        .id("default-clock")
+        .w(px(CLOCK_WIDTH))
+        .flex_shrink_0()
         .flex()
-        .flex_row()
+        .flex_col()
         .items_center()
         .justify_center()
-        .child(flip_clock.render(theme))
+        .text_size(px(13.0))
+        .text_color(theme.foreground())
+        .child(digits.to_owned())
+        .when_some(period, |s, period| {
+            s.child(
+                div()
+                    .text_size(px(8.0))
+                    .line_height(px(9.0))
+                    .text_color(theme.foreground_muted())
+                    .child(period.to_owned()),
+            )
+        })
 }

@@ -1,139 +1,189 @@
-#[allow(clippy::module_inception)]
-pub mod capsule;
-pub mod container;
-pub mod modules;
-pub mod orbit;
-pub mod satellites;
-pub mod widgets;
+use gpui::{
+    AnyView, Context, IntoElement, ParentElement, Render, Styled, Subscription, Task, Window, div,
+    prelude::*,
+};
 
-pub use capsule::Capsule;
+use crate::capsule::{animator::Animator, module::CapsuleModuleManager};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CapsuleMode {
-    Default,
-    Dashboard,
-    Notification,
-    Launcher,
-    Volume,
-    Polkit,
-    SelectTheme,
-    Wallpaper,
-    Clipboard,
-    Emoji,
-    Record,
-    Shelf,
+pub(crate) mod animator;
+mod ipc_handler;
+pub(crate) mod module;
+pub(crate) mod orbit;
+pub(crate) mod satellite;
+pub(crate) mod widgets;
+mod window_state;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum CapsuleLocation {
+    TOP,
+    BOTTOM,
 }
 
-impl CapsuleMode {
-    pub fn dimensions(&self) -> (f32, f32) {
-        match self {
-            CapsuleMode::Default => (300.0, 42.0),
-            CapsuleMode::Dashboard => (540.0, 540.0),
-            CapsuleMode::Notification => (348.0, 68.0),
-            CapsuleMode::Launcher => (380.0, 360.0),
-            CapsuleMode::Volume => (280.0, 42.0),
-            CapsuleMode::Polkit => (380.0, 190.0),
-            CapsuleMode::SelectTheme => (680.0, 180.0),
-            CapsuleMode::Wallpaper => (700.0, 240.0),
-            CapsuleMode::Clipboard => (380.0, 360.0),
-            CapsuleMode::Emoji => (430.0, 390.0),
-            CapsuleMode::Record => (220.0, 42.0),
-            CapsuleMode::Shelf => (560.0, 114.0),
+struct OutgoingContent {
+    view: AnyView,
+    size: gpui::Size<gpui::Pixels>,
+    scale: f32,
+    opacity: f32,
+}
+
+pub struct Capsule {
+    location: CapsuleLocation,
+    window_state: window_state::WindowState,
+    module_manager: CapsuleModuleManager,
+    animator: Animator,
+    outgoing_content: Option<OutgoingContent>,
+    orbit: gpui::Entity<orbit::Orbit>,
+    satellite: satellite::Satellite,
+    satellite_animation_task: Option<Task<()>>,
+    animation_frame_pending: bool,
+    _subscriptions: Vec<Subscription>,
+    _ipc_task: Task<()>,
+    _config_task: Task<()>,
+}
+
+impl Capsule {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let module_manager = CapsuleModuleManager::new(cx);
+        Self::with_module_manager(module_manager, window, cx)
+    }
+}
+
+impl Render for Capsule {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let size = self.animator.size();
+        let content_progress = self.animator.content_progress();
+        let theme = cx.global::<ui::theme::Theme>().clone();
+        let concave = self.window_state.style == services::CapsuleStyle::Concave;
+        let bottom = matches!(self.location, CapsuleLocation::BOTTOM);
+        let (radius, _) = widgets::style::concave_radii(size, self.window_state.radius);
+        let container = div()
+            .id("capsule-drop-target")
+            .relative()
+            .on_drop(cx.listener(Self::drop_on_shelf))
+            .on_drop(cx.listener(Self::drop_shelf_file))
+            .on_drag_move::<widgets::shelf::DraggedFile>(cx.listener(
+                |capsule, event: &gpui::DragMoveEvent<widgets::shelf::DraggedFile>, _, cx| {
+                    capsule
+                        .set_shelf_drop_hovered(event.bounds.contains(&event.event.position), cx);
+                },
+            ))
+            .on_drag_move::<gpui::ExternalPaths>(cx.listener(
+                |capsule, event: &gpui::DragMoveEvent<gpui::ExternalPaths>, _, cx| {
+                    capsule
+                        .set_shelf_drop_hovered(event.bounds.contains(&event.event.position), cx);
+                },
+            ))
+            .on_mouse_exit(cx.listener(|capsule, _, _, cx| {
+                capsule.set_shelf_drop_hovered(false, cx);
+            }))
+            .w(size.width)
+            .h(size.height)
+            .flex_shrink_0()
+            .when(
+                self.module_manager.current_id() != module::CapsuleModuleId::Dashboard
+                    || content_progress < 1.0,
+                |s| s.overflow_hidden(),
+            )
+            .when(!concave, |s| {
+                s.rounded(gpui::px(self.window_state.radius))
+                    .bg(widgets::style::background(&theme))
+            })
+            .when(concave, |s| {
+                s.when(bottom, |s| {
+                    s.rounded_tl(gpui::px(radius)).rounded_tr(gpui::px(radius))
+                })
+                .when(!bottom, |s| {
+                    s.rounded_bl(gpui::px(radius)).rounded_br(gpui::px(radius))
+                })
+            })
+            .font_family(theme.font_family())
+            .text_color(theme.foreground())
+            .when_some(self.outgoing_content.as_ref(), |s, outgoing| {
+                s.child(
+                    div()
+                        .id("capsule-outgoing-content")
+                        .absolute()
+                        .top((size.height - outgoing.size.height * outgoing.scale) * 0.5)
+                        .left((size.width - outgoing.size.width * outgoing.scale) * 0.5)
+                        .w(outgoing.size.width * outgoing.scale)
+                        .h(outgoing.size.height * outgoing.scale)
+                        .opacity(outgoing.opacity * (1.0 - content_progress))
+                        .capture_any_mouse_down(|_, _, cx| cx.stop_propagation())
+                        .capture_any_mouse_up(|_, _, cx| {
+                            if !cx.has_active_drag() {
+                                cx.stop_propagation();
+                            }
+                        })
+                        .child(outgoing.view.clone()),
+                )
+            })
+            .child(
+                div()
+                    .id("capsule-module-content")
+                    .relative()
+                    .top(size.height * (1.0 - self.animator.content_scale()) * 0.5)
+                    .left(size.width * (1.0 - self.animator.content_scale()) * 0.5)
+                    .w(size.width * self.animator.content_scale())
+                    .h(size.height * self.animator.content_scale())
+                    .occlude()
+                    .on_drop(cx.listener(Self::drop_on_shelf))
+                    .on_drop(cx.listener(Self::drop_shelf_file))
+                    .opacity(if self.outgoing_content.is_some() {
+                        content_progress
+                    } else {
+                        1.0
+                    })
+                    .child(self.module_manager.current()),
+            );
+        let container = div()
+            .relative()
+            .w(size.width)
+            .h(size.height)
+            .flex_shrink_0()
+            .when(concave, |s| {
+                s.child(widgets::style::concave_background(
+                    size,
+                    self.window_state.radius,
+                    bottom,
+                    widgets::style::background(&theme),
+                ))
+            })
+            .child(container)
+            .child(
+                self.orbit
+                    .read(cx)
+                    .presentation(
+                        window.viewport_size(),
+                        window_state::visible_bounds(
+                            window.viewport_size(),
+                            size,
+                            gpui::px(self.window_state.margin),
+                            &self.location,
+                        ),
+                        gpui::px(cx.global::<services::AppState>().config.get().ui.gap),
+                        self.location,
+                    )
+                    .render(&theme, cx),
+            );
+        let root = div()
+            .track_focus(&self.orbit.read(cx).focus_handle)
+            .on_key_down(cx.listener(|capsule, event: &gpui::KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" && capsule.orbit.read(cx).expanded() {
+                    capsule.close_expanded_orb(cx);
+                    cx.stop_propagation();
+                }
+            }))
+            .relative()
+            .size_full()
+            .flex()
+            .flex_col()
+            .items_center();
+        match self.location {
+            CapsuleLocation::TOP => root.pt(gpui::px(self.window_state.margin)).child(container),
+            CapsuleLocation::BOTTOM => root
+                .justify_end()
+                .pb(gpui::px(self.window_state.margin))
+                .child(container),
         }
-    }
-
-    pub fn radius(&self) -> f32 {
-        match self {
-            CapsuleMode::Default => 42.0,
-            CapsuleMode::Dashboard => 42.0,
-            CapsuleMode::Notification => 42.0,
-            CapsuleMode::Launcher => 42.0,
-            CapsuleMode::Volume => 42.0,
-            CapsuleMode::Polkit => 42.0,
-            CapsuleMode::SelectTheme => 42.0,
-            CapsuleMode::Wallpaper => 42.0,
-            CapsuleMode::Clipboard => 42.0,
-            CapsuleMode::Emoji => 42.0,
-            CapsuleMode::Record => 42.0,
-            CapsuleMode::Shelf => 42.0,
-        }
-    }
-}
-
-fn spring_eval(t: f32, zeta: f32) -> f32 {
-    if t <= 0.0 {
-        return 0.0;
-    }
-    if t >= 1.0 {
-        return 1.0;
-    }
-    let wd = 2.0 * std::f32::consts::PI;
-    let omega0 = wd / (1.0 - zeta * zeta).sqrt();
-    let beta = zeta * omega0;
-    let scale = 1.0 / (1.0 - (-beta).exp());
-    let envelope = (-beta * t).exp();
-    let osc = (wd * t).cos() + (beta / wd) * (wd * t).sin();
-    (1.0 - envelope * osc) * scale
-}
-
-pub fn apple_island_spring(t: f32) -> f32 {
-    spring_eval(t, 0.75)
-}
-
-pub fn apple_island_morph(t: f32, expanding: bool) -> (f32, f32) {
-    if t <= 0.0 {
-        return (0.0, 0.0);
-    }
-    if t >= 1.0 {
-        return (1.0, 1.0);
-    }
-    let (uw, uh) = if expanding {
-        (t.powf(0.92), t.powf(1.04))
-    } else {
-        (t.powf(1.04), t.powf(0.92))
-    };
-    (spring_eval(uw, 0.73), spring_eval(uh, 0.77))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_spring_bounds() {
-        assert_eq!(apple_island_spring(0.0), 0.0);
-        assert_eq!(apple_island_spring(-0.5), 0.0);
-        assert_eq!(apple_island_spring(1.0), 1.0);
-        assert_eq!(apple_island_spring(1.5), 1.0);
-    }
-
-    #[test]
-    fn test_spring_overshoot() {
-        let mid = apple_island_spring(0.5);
-        assert!(mid > 1.02 && mid < 1.05);
-    }
-
-    #[test]
-    fn test_morph_bounds() {
-        let (w_start, h_start) = apple_island_morph(0.0, true);
-        assert_eq!(w_start, 0.0);
-        assert_eq!(h_start, 0.0);
-
-        let (w_end, h_end) = apple_island_morph(1.0, true);
-        assert_eq!(w_end, 1.0);
-        assert_eq!(h_end, 1.0);
-
-        let (w_end_c, h_end_c) = apple_island_morph(1.0, false);
-        assert_eq!(w_end_c, 1.0);
-        assert_eq!(h_end_c, 1.0);
-    }
-
-    #[test]
-    fn test_morph_asymmetry() {
-        let (w_exp, h_exp) = apple_island_morph(0.2, true);
-        assert!(w_exp > h_exp);
-
-        let (w_col, h_col) = apple_island_morph(0.2, false);
-        assert!(h_col > w_col);
     }
 }

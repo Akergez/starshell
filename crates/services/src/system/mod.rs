@@ -342,12 +342,17 @@ impl SystemService {
     }
 
     pub async fn set_default_sink(&self, sink_name: &str) -> Result<()> {
-        if Command::new("pactl")
+        let pactl_ok = if let Ok(status) = Command::new("pactl")
             .args(["set-default-sink", sink_name])
             .status()
             .await
-            .is_err()
         {
+            status.success()
+        } else {
+            false
+        };
+
+        if !pactl_ok {
             let _ = Command::new("wpctl")
                 .args(["set-default", sink_name])
                 .status()
@@ -357,12 +362,17 @@ impl SystemService {
     }
 
     pub async fn set_default_source(&self, source_name: &str) -> Result<()> {
-        if Command::new("pactl")
+        let pactl_ok = if let Ok(status) = Command::new("pactl")
             .args(["set-default-source", source_name])
             .status()
             .await
-            .is_err()
         {
+            status.success()
+        } else {
+            false
+        };
+
+        if !pactl_ok {
             let _ = Command::new("wpctl")
                 .args(["set-default", source_name])
                 .status()
@@ -615,6 +625,68 @@ impl SystemService {
                 });
             }
         }
+        if sinks.is_empty() {
+            sinks = Self::parse_wpctl_sinks().await;
+        }
+        sinks
+    }
+
+    async fn parse_wpctl_sinks() -> Vec<AudioSink> {
+        let mut sinks = Vec::new();
+        if let Ok(output) = Command::new("wpctl")
+            .arg("status")
+            .env("LC_ALL", "C")
+            .output()
+            .await
+        {
+            if !output.status.success() {
+                return sinks;
+            }
+            let text = String::from_utf8_lossy(&output.stdout);
+            let mut in_sinks = false;
+
+            for line in text.lines() {
+                let trimmed = line.trim();
+                if trimmed.contains("Sinks:") {
+                    in_sinks = true;
+                    continue;
+                }
+                if in_sinks {
+                    if trimmed.contains("Sources:")
+                        || trimmed.contains("Filters:")
+                        || trimmed.contains("Streams:")
+                        || trimmed.starts_with("├─")
+                        || trimmed.starts_with("└─")
+                    {
+                        break;
+                    }
+                    if let Some(dot_pos) = trimmed.find('.') {
+                        let prefix = trimmed[..dot_pos]
+                            .trim_start_matches(|c| c == '│' || c == ' ' || c == '*')
+                            .trim();
+                        if let Ok(id) = prefix.parse::<u32>() {
+                            let is_default = trimmed.contains('*');
+                            let rest = trimmed[dot_pos + 1..].trim();
+                            let desc = if let Some(bracket_pos) = rest.rfind('[') {
+                                rest[..bracket_pos].trim().to_string()
+                            } else {
+                                rest.to_string()
+                            };
+
+                            sinks.push(AudioSink {
+                                name: id.to_string(),
+                                description: if desc.is_empty() {
+                                    format!("Output {id}")
+                                } else {
+                                    desc
+                                },
+                                is_default,
+                            });
+                        }
+                    }
+                }
+            }
+        }
         sinks
     }
 
@@ -711,6 +783,67 @@ impl SystemService {
                     },
                     is_default: is_def,
                 });
+            }
+        }
+        if sources.is_empty() {
+            sources = Self::parse_wpctl_sources().await;
+        }
+        sources
+    }
+
+    async fn parse_wpctl_sources() -> Vec<AudioSource> {
+        let mut sources = Vec::new();
+        if let Ok(output) = Command::new("wpctl")
+            .arg("status")
+            .env("LC_ALL", "C")
+            .output()
+            .await
+        {
+            if !output.status.success() {
+                return sources;
+            }
+            let text = String::from_utf8_lossy(&output.stdout);
+            let mut in_sources = false;
+
+            for line in text.lines() {
+                let trimmed = line.trim();
+                if trimmed.contains("Sources:") {
+                    in_sources = true;
+                    continue;
+                }
+                if in_sources {
+                    if trimmed.contains("Filters:")
+                        || trimmed.contains("Streams:")
+                        || trimmed.starts_with("├─")
+                        || trimmed.starts_with("└─")
+                    {
+                        break;
+                    }
+                    if let Some(dot_pos) = trimmed.find('.') {
+                        let prefix = trimmed[..dot_pos]
+                            .trim_start_matches(|c| c == '│' || c == ' ' || c == '*')
+                            .trim();
+                        if let Ok(id) = prefix.parse::<u32>() {
+                            let is_default = trimmed.contains('*');
+                            let rest = trimmed[dot_pos + 1..].trim();
+                            let desc = if let Some(bracket_pos) = rest.rfind('[') {
+                                rest[..bracket_pos].trim().to_string()
+                            } else {
+                                rest.to_string()
+                            };
+
+                            sources.push(AudioSource {
+                                name: id.to_string(),
+                                description: if desc.is_empty() {
+                                    format!("Input {id}")
+                                } else {
+                                    desc
+                                },
+                                is_default,
+                            });
+                        }
+                    }
+                }
             }
         }
         sources

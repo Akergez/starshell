@@ -1,11 +1,12 @@
 use crate::theme::Theme;
 use gpui::{
-    AnyElement, App, ClickEvent, ColorExt, ElementId, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, canvas,
-    deferred, div, px, svg,
+    AnyElement, App, ClickEvent, ColorExt, DurationWithEasing, ElementId, InteractiveElement,
+    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
+    Window, canvas, deferred, div, ease_in_out, millis, px, svg,
 };
 use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Duration;
 
 fn ease_out_cubic(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
@@ -55,7 +56,7 @@ impl SelectItem {
 
 impl RenderOnce for SelectItem {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let theme = cx.global::<Theme>();
+        let theme = cx.global::<Theme>().clone();
         let mut row = div()
             .id(self.id)
             .flex()
@@ -77,6 +78,10 @@ impl RenderOnce for SelectItem {
                 theme.foreground()
             })
             .hover(|s| s.bg(theme.surface().opacity(0.6)))
+            .transitions(|t| {
+                t.bg(millis(120).with_easing(ease_in_out))
+                    .text_color(millis(120).with_easing(ease_in_out))
+            })
             .cursor_pointer();
 
         if let Some(on_click) = self.on_click {
@@ -230,12 +235,29 @@ impl ParentElement for Select {
 impl RenderOnce for Select {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let _bounds = window.bounds();
-        let theme = cx.global::<Theme>();
+        let theme = cx.global::<Theme>().clone();
         let display_label = self
             .selected_label
             .clone()
             .unwrap_or_else(|| self.placeholder.clone());
         let is_placeholder = self.selected_label.is_none();
+
+        let open_transition = window
+            .use_keyed_transition(
+                (self.id.clone(), "select-open"),
+                cx,
+                Duration::from_millis(160),
+                |_window, _cx| 0.0f32,
+            )
+            .with_easing(ease_in_out);
+
+        let target_progress = if self.is_open { 1.0f32 } else { 0.0f32 };
+        if (*open_transition.read_goal(cx) - target_progress).abs() > 0.001 {
+            open_transition.update(cx, |val, _cx| {
+                *val = target_progress;
+            });
+        }
+        let progress = *open_transition.evaluate(window, cx);
 
         let mut trigger = div()
             .id(self.id)
@@ -248,7 +270,7 @@ impl RenderOnce for Select {
             .px_3()
             .rounded(px(10.0))
             .bg(if self.is_open {
-                theme.accent().opacity(0.1)
+                theme.accent().opacity(0.12)
             } else {
                 theme.surface().opacity(0.3)
             })
@@ -257,6 +279,10 @@ impl RenderOnce for Select {
                 theme.accent()
             } else {
                 theme.surface().opacity(0.4)
+            })
+            .transitions(|t| {
+                t.bg(millis(160).with_easing(ease_in_out))
+                    .border_color(millis(160).with_easing(ease_in_out))
             })
             .hover(|s| {
                 if !self.is_open {
@@ -315,19 +341,22 @@ impl RenderOnce for Select {
             );
 
         let chevron = svg()
-            .path("chevron-down.svg")
+            .path(if self.is_open { "chevron-up.svg" } else { "chevron-down.svg" })
             .size(px(14.0))
             .flex_shrink_0()
             .text_color(if self.is_open {
                 theme.accent()
             } else {
                 theme.foreground_muted()
+            })
+            .transitions(|t| {
+                t.text_color(millis(160).with_easing(ease_in_out))
             });
 
         let trigger_element = trigger.child(trigger_content).child(chevron);
 
-        let dropdown_menu = if self.is_open && self.anim_progress > 0.0 {
-            let p = ease_out_cubic(self.anim_progress);
+        let dropdown_menu = if progress > 0.005 || self.is_open {
+            let p = ease_out_cubic(progress);
             let target_max = self.max_menu_height.max(32.0);
             let min_h = 32.0f32.min(target_max);
             let menu_h = (target_max * p).clamp(min_h, target_max);

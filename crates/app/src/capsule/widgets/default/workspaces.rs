@@ -1,144 +1,184 @@
-use gpui::{AnyElement, ColorExt, Context, IntoElement, div, prelude::*, px, svg};
-use services::WorkspaceInfo;
+use std::time::Duration;
+
+use gpui::{
+    BoxShadow, ColorExt, Context, IntoElement, MotionDurationExt, div, ease_in_out, point,
+    prelude::*, px,
+};
+use services::{AppState, WorkspaceInfo};
 use ui::theme::Theme;
 
-use crate::capsule::modules::default::{DefaultEvent, DefaultModule};
+use super::WORKSPACES_WIDTH;
 
-pub fn render_workspaces_widget(
-    active_workspace: &WorkspaceInfo,
-    special_progress: f32,
-    theme: &Theme,
-    cx: &mut Context<DefaultModule>,
-) -> AnyElement {
-    let current_num = active_workspace.num.max(1);
-    let slot4 = if current_num > 4 { current_num } else { 4 };
-    let normal_slots = [1, 2, 3, slot4];
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkspaceKey {
+    pub id: Option<i64>,
+    pub active: bool,
+}
 
-    let mut normal_items = Vec::new();
-    for &num in &normal_slots {
-        let is_active = !active_workspace.is_special && (num == current_num);
-        let ws_id = num as i64;
-
-        if is_active {
-            let icon_path = if num == 4 {
-                "pacman-left.svg"
-            } else {
-                "pacman.svg"
+pub fn workspace_keys(current: &WorkspaceInfo, workspaces: &[WorkspaceInfo]) -> [WorkspaceKey; 6] {
+    std::array::from_fn(|index| {
+        if index == 5 && (!current.is_special && current.num > 6) {
+            return WorkspaceKey {
+                id: Some(current.id),
+                active: true,
             };
-            normal_items.push(
-                div()
-                    .id(("ws-pacman", num as u32))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(14.0))
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |_this, _, _, cx| {
-                        cx.emit(DefaultEvent::WorkspaceClicked(ws_id));
-                    }))
-                    .child(
-                        svg()
-                            .path(icon_path)
-                            .size(px(13.0))
-                            .text_color(theme.accent()),
-                    )
-                    .into_any_element(),
-            );
+        }
+        let number = index as i32 + 1;
+        let active = !current.is_special && current.num.max(1) == number;
+        let id = if active {
+            Some(current.id)
         } else {
-            let inactive_color = theme.foreground_muted().opacity(0.35);
-            let hover_color = theme.foreground_muted().opacity(0.75);
-            normal_items.push(
-                div()
-                    .id(("ws-dot-btn", num as u32))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(14.0))
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |_this, _, _, cx| {
-                        cx.emit(DefaultEvent::WorkspaceClicked(ws_id));
-                    }))
-                    .child(
-                        div()
-                            .size(px(5.0))
-                            .rounded_full()
-                            .bg(inactive_color)
-                            .hover(move |style| style.bg(hover_color)),
-                    )
-                    .into_any_element(),
-            );
+            workspaces
+                .iter()
+                .find(|workspace| !workspace.is_special && workspace.num == number)
+                .map(|workspace| workspace.id)
+        };
+        WorkspaceKey { id, active }
+    })
+}
+
+pub fn render_workspaces<V: 'static>(
+    keys: &[WorkspaceKey; 6],
+    special: bool,
+    duration: Duration,
+    theme: &Theme,
+    cx: &mut Context<V>,
+) -> impl IntoElement {
+    let mut opposite = theme.accent();
+    opposite.color.hue += 180.0;
+    let row = div()
+        .h(px(16.0))
+        .flex()
+        .items_center()
+        .gap(px(2.0))
+        .children(keys.iter().enumerate().map(|(index, key)| {
+            let id = key.id;
+            let width = if key.active { 8.0 } else { 5.0 };
+            let height = if key.active { 16.0 } else { 10.0 };
+            let color = if key.active {
+                theme.accent()
+            } else {
+                theme.accent().opacity(0.4)
+            };
+            div()
+                .id(("workspace-key", index))
+                .w(px(width))
+                .transitions(|t| t.w(duration.with_easing(ease_in_out)))
+                .h_full()
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .cursor_pointer()
+                .on_click(cx.listener(move |_, _, _, cx| {
+                    let target_id = id.unwrap_or(index as i64 + 1);
+                    cx.global::<AppState>()
+                        .compositor
+                        .switch_workspace(target_id);
+                }))
+                .child(
+                    div()
+                        .id(("workspace-oval", index))
+                        .relative()
+                        .w(px(width))
+                        .h(px(height))
+                        .rounded_full()
+                        .bg(color)
+                        .transitions(|transitions| {
+                            transitions
+                                .w(duration.with_easing(ease_in_out))
+                                .h(duration.with_easing(ease_in_out))
+                                .bg(duration.with_easing(ease_in_out))
+                        })
+                        .child(
+                            div()
+                                .id(("workspace-glow", index))
+                                .absolute()
+                                .inset_0()
+                                .rounded_full()
+                                .bg(theme.accent())
+                                .opacity(if key.active { 1.0 } else { 0.0 })
+                                .shadow(vec![BoxShadow {
+                                    color: theme.accent().opacity(0.4).into(),
+                                    offset: point(px(0.0), px(0.0)),
+                                    blur_radius: px(4.0),
+                                    spread_radius: px(1.0),
+                                    inset: false,
+                                }])
+                                .transitions(|transitions| {
+                                    transitions.opacity(duration.with_easing(ease_in_out))
+                                }),
+                        ),
+                )
+        }));
+    div()
+        .w(px(WORKSPACES_WIDTH))
+        .h_full()
+        .flex_shrink_0()
+        .flex()
+        .flex_col()
+        .justify_center()
+        .items_start()
+        .child(row)
+        .child(
+            div()
+                .id("special-workspace-indicator")
+                .w(px(40.0))
+                .h(px(if special { 4.0 } else { 0.0 }))
+                .mt(px(if special { 4.0 } else { 0.0 }))
+                .rounded_full()
+                .bg(opposite)
+                .opacity(if special { 1.0 } else { 0.0 })
+                .transitions(|t| {
+                    t.h(duration.with_easing(ease_in_out))
+                        .mt(duration.with_easing(ease_in_out))
+                        .opacity(duration.with_easing(ease_in_out))
+                }),
+        )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace(num: i32, id: i64, special: bool) -> WorkspaceInfo {
+        WorkspaceInfo {
+            num,
+            id,
+            is_special: special,
+            ..WorkspaceInfo::default()
         }
     }
 
-    let special_id = active_workspace.id;
-    let special_item = div()
-        .id("ws-special-pacman")
-        .flex()
-        .items_center()
-        .justify_center()
-        .size(px(14.0))
-        .cursor_pointer()
-        .on_click(cx.listener(move |_this, _, _, cx| {
-            cx.emit(DefaultEvent::WorkspaceClicked(special_id));
-        }))
-        .child(
-            svg()
-                .path("pacman.svg")
-                .size(px(13.0))
-                .text_color(theme.accent()),
-        );
+    #[test]
+    fn special_workspace_leaves_all_normal_slots_unselected() {
+        let existing = vec![workspace(1, 101, false), workspace(6, 606, false)];
+        let keys = workspace_keys(&workspace(-1, -99, true), &existing);
+        assert!(keys.iter().all(|key| !key.active));
+        assert_eq!(keys[0].id, Some(101));
+        assert_eq!(keys[5].id, Some(606));
+        assert!(!keys.iter().any(|key| key.id == Some(-99)));
+    }
 
-    let p = special_progress.clamp(0.0, 1.0);
-    let normal_top = p * 22.0;
-    let normal_opacity = (1.0 - p).clamp(0.0, 1.0);
-    let special_top = (1.0 - p) * -22.0;
-    let special_opacity = p.clamp(0.0, 1.0);
-    let dock_w = 58.0 + (30.0 - 58.0) * p;
-
-    let normal_layer = div()
-        .id("workspaces-normal-layer")
-        .absolute()
-        .top(px(normal_top))
-        .left_0()
-        .right_0()
-        .h(px(22.0))
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_center()
-        .gap(px(6.0))
-        .opacity(normal_opacity)
-        .children(normal_items);
-
-    let special_layer = div()
-        .id("workspaces-special-layer")
-        .absolute()
-        .top(px(special_top))
-        .left_0()
-        .right_0()
-        .h(px(22.0))
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_center()
-        .opacity(special_opacity)
-        .child(special_item);
-
-    div()
-        .id("default-workspaces-dock")
-        .flex()
-        .flex_shrink_0()
-        .items_center()
-        .justify_center()
-        .h(px(22.0))
-        .w(px(dock_w))
-        .rounded(px(7.0))
-        .bg(theme.surface().opacity(0.35))
-        .border_1()
-        .border_color(theme.surface().opacity(0.2))
-        .overflow_hidden()
-        .relative()
-        .child(normal_layer)
-        .child(special_layer)
-        .into_any_element()
+    #[test]
+    fn keys_use_real_ids_and_replace_last_with_high_workspace() {
+        let existing = vec![workspace(1, 101, false), workspace(2, 202, false)];
+        let keys = workspace_keys(&existing[1], &existing);
+        assert_eq!(keys[0].id, Some(101));
+        assert!(keys[1].active);
+        assert_eq!(keys[2].id, None);
+        {
+            let current = workspace(8, 808, false);
+            let keys = workspace_keys(&current, &existing);
+            assert_eq!(
+                keys[5],
+                WorkspaceKey {
+                    id: Some(current.id),
+                    active: true
+                }
+            );
+            assert_eq!(keys.iter().filter(|key| key.active).count(), 1);
+            assert_eq!(keys[0].id, Some(101));
+        }
+    }
 }
