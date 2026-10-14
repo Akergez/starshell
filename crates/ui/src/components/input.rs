@@ -452,6 +452,7 @@ pub struct Input {
     text_size: Option<Pixels>,
     max_visible_chars: usize,
     cursor_visible: Option<bool>,
+    flex_1: bool,
     on_click: Option<InputClickListener>,
     on_clear: Option<InputClickListener>,
 }
@@ -482,6 +483,7 @@ impl Input {
             text_size: None,
             max_visible_chars: 30,
             cursor_visible: None,
+            flex_1: false,
             on_click: None,
             on_clear: None,
         }
@@ -626,6 +628,11 @@ impl Input {
         self
     }
 
+    pub fn flex_1(mut self, flex_1: bool) -> Self {
+        self.flex_1 = flex_1;
+        self
+    }
+
     pub fn on_click<F>(mut self, listener: F) -> Self
     where
         F: Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -690,8 +697,12 @@ impl RenderOnce for Input {
 
         if let Some(w) = self.width {
             container = container.w(w);
-        } else {
+        } else if !self.flex_1 {
             container = container.w_full();
+        }
+
+        if self.flex_1 {
+            container = container.flex_1();
         }
 
         if let Some(max_w) = self.max_width {

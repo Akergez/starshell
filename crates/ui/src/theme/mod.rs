@@ -1,7 +1,7 @@
 pub mod animator;
 pub mod templates;
 pub mod theme_manager;
-use gpui::{Hsla, Rgba, SharedString, rgb_to_hsla};
+use gpui::{Hsla, Rgba, SharedString, hsla_to_rgba, rgb_to_hsla};
 use serde::{Deserialize, Serialize};
 pub use templates::{
     AppTheme, GtkApps, QtApps, TemplateEngine, TemplatePlugin, TemplatePluginManager,
@@ -155,6 +155,34 @@ impl Theme {
 
     pub fn green(&self) -> Hsla {
         self.green_color.to_hsla()
+    }
+
+    pub fn on_accent(&self) -> Hsla {
+        fn luminance(color: Hsla) -> f32 {
+            let color = hsla_to_rgba(color);
+            let linear = |channel: f32| {
+                if channel <= 0.04045 {
+                    channel / 12.92
+                } else {
+                    ((channel + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue)
+        }
+        let accent = luminance(self.accent());
+        let foreground = self.foreground();
+        let background = self.background();
+        let contrast = |color| {
+            let value = luminance(color);
+            (accent.max(value) + 0.05) / (accent.min(value) + 0.05)
+        };
+        let mut text = if contrast(background) > contrast(foreground) {
+            background
+        } else {
+            foreground
+        };
+        text.alpha = 1.0;
+        text
     }
 }
 
