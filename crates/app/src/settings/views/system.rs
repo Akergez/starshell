@@ -2,8 +2,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ColorExt, Context, ElementId, FontWeight, InteractiveElement,
-    IntoElement, ParentElement, StatefulInteractiveElement, Styled, Window, div, px, svg,
+    AnyElement, App, ColorExt, Context, DurationWithEasing, ElementId, FontWeight, InteractiveElement,
+    IntoElement, ParentElement, StatefulInteractiveElement, Styled, Window, div, ease_in_out, millis,
+    px, svg,
 };
 use services::{AppState, PowerProfile};
 use ui::components::select::{Select, SelectItem};
@@ -97,6 +98,9 @@ impl SettingsView for SystemView {
                     } else {
                         gpui::transparent_black()
                     })
+                    .transitions(|t| {
+                        t.bg(millis(160).with_easing(ease_in_out))
+                    })
                     .hover(|s| {
                         if !is_active {
                             s.bg(theme.surface().opacity(0.4))
@@ -121,6 +125,9 @@ impl SettingsView for SystemView {
                                 theme.background()
                             } else {
                                 theme.foreground_muted()
+                            })
+                            .transitions(|t| {
+                                t.text_color(millis(160).with_easing(ease_in_out))
                             }),
                     )
                     .child(
@@ -135,6 +142,9 @@ impl SettingsView for SystemView {
                                 theme.background()
                             } else {
                                 theme.foreground()
+                            })
+                            .transitions(|t| {
+                                t.text_color(millis(160).with_easing(ease_in_out))
                             })
                             .child(label),
                     ),

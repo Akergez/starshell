@@ -128,6 +128,13 @@ impl SettingsView for LockScreenView {
                                 view.update_timeout(event.position.x.into(), cx);
                             }
                         }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<LockScreenView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
+                            }
+                        }),
                     ))
                     .child(row_divider(&theme))
                     .child(toggle_row(

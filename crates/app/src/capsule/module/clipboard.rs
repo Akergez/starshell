@@ -10,11 +10,13 @@ use gpui::{
 use model::ClipboardModel;
 pub(crate) use model::ClipboardTab;
 use services::{AppState, clipboard::ClipboardContent};
+use ui::components::InputState;
 use ui::theme::Theme;
 use worker::Request;
 
 pub(crate) struct ClipboardModule {
     pub model: ClipboardModel,
+    pub search_input: InputState,
     pub loading: bool,
     pub busy: bool,
     pub error: Option<String>,
@@ -87,6 +89,7 @@ impl ClipboardModule {
         });
         Self {
             model: ClipboardModel::default(),
+            search_input: InputState::new("").with_focused(true).with_max_len(120),
             loading: true,
             busy: false,
             error: None,
@@ -113,6 +116,7 @@ impl ClipboardModule {
     }
     pub fn open(&mut self, cx: &mut Context<Self>) {
         self.generation = self.generation.wrapping_add(1);
+        self.search_input.clear();
         self.model.search(String::new());
         self.loading = self.model.items.is_empty() && self.model.snippets.is_empty();
         self.error = None;
@@ -124,6 +128,9 @@ impl ClipboardModule {
         cx.global::<AppState>().language.get(key)
     }
     pub fn search(&mut self, query: String, cx: &mut Context<Self>) {
+        if self.search_input.text() != query {
+            self.search_input.set_text(&query);
+        }
         let size = self.size();
         self.model.search(query);
         self.scroll.scroll_to_item(0);
@@ -205,57 +212,57 @@ impl ClipboardModule {
     }
     fn key_down(&mut self, event: &gpui::KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
         let control = event.keystroke.modifiers.control || event.keystroke.modifiers.platform;
+        let shift = event.keystroke.modifiers.shift;
         let key = event.keystroke.key.as_str();
-        if control {
-            match key {
-                "u" => self.search(String::new(), cx),
-                "w" => self.search(
-                    self.model
-                        .query
-                        .trim_end()
-                        .rsplit_once(' ')
-                        .map(|(prefix, _)| prefix)
-                        .unwrap_or("")
-                        .to_string(),
-                    cx,
-                ),
-                "v" => {
-                    if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                        let clean: String = text
-                            .chars()
-                            .filter(|character| !character.is_control())
-                            .collect();
-                        self.search(format!("{}{}", self.model.query, clean), cx);
-                    }
-                }
-                "c" => self.copy(self.model.selected, cx),
-                _ => {}
+
+        if key == "escape" {
+            if !self.search_input.is_empty() {
+                self.search_input.clear();
+                self.search(String::new(), cx);
+            } else {
+                cx.emit(CapsuleModuleEvent::Close);
             }
             return;
         }
-        match key {
-            "escape" => cx.emit(CapsuleModuleEvent::Close),
-            "enter" => self.copy(self.model.selected, cx),
-            "tab" => self.switch_tab(
+
+        if key == "enter" {
+            self.copy(self.model.selected, cx);
+            return;
+        }
+
+        if key == "tab" && !control && !shift {
+            self.switch_tab(
                 if self.model.tab == ClipboardTab::History {
                     ClipboardTab::Snippets
                 } else {
                     ClipboardTab::History
                 },
                 cx,
-            ),
-            "up" | "down" | "left" | "right" => {
-                self.model.navigate(match key {
-                    "up" => -(widgets::COLUMNS as i32),
-                    "down" => widgets::COLUMNS as i32,
-                    "left" => -1,
-                    _ => 1,
-                });
-                self.scroll
-                    .scroll_to_item(self.model.selected / widgets::COLUMNS);
-                cx.notify();
-            }
-            "home" | "end" => self.select(
+            );
+            return;
+        }
+
+        if (key == "up" || key == "down") && !control && !shift {
+            self.model.navigate(match key {
+                "up" => -(widgets::COLUMNS as i32),
+                _ => widgets::COLUMNS as i32,
+            });
+            self.scroll
+                .scroll_to_item(self.model.selected / widgets::COLUMNS);
+            cx.notify();
+            return;
+        }
+
+        if (key == "left" || key == "right") && !control && !shift && self.search_input.is_empty() {
+            self.model.navigate(if key == "left" { -1 } else { 1 });
+            self.scroll
+                .scroll_to_item(self.model.selected / widgets::COLUMNS);
+            cx.notify();
+            return;
+        }
+
+        if (key == "home" || key == "end") && !control && !shift && self.search_input.is_empty() {
+            self.select(
                 if key == "home" {
                     0
                 } else {
@@ -263,20 +270,14 @@ impl ClipboardModule {
                 },
                 true,
                 cx,
-            ),
-            "backspace" => {
-                let mut query = self.model.query.clone();
-                query.pop();
-                self.search(query, cx);
-            }
-            _ if !event.keystroke.modifiers.alt => {
-                if let Some(text) = &event.keystroke.key_char
-                    && !text.chars().any(char::is_control)
-                {
-                    self.search(format!("{}{}", self.model.query, text), cx);
-                }
-            }
-            _ => {}
+            );
+            return;
+        }
+
+        // Delegate search input keys (Ctrl+A, Ctrl+C, Ctrl+V, Shift+Arrows, Backspace, Delete, typing)
+        if self.search_input.handle_key_down(event, cx) {
+            let text = self.search_input.text();
+            self.search(text, cx);
         }
     }
 }

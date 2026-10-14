@@ -378,7 +378,7 @@ impl SettingsView for AppearanceView {
             // Capsule Group (Location, Style, Clock format)
             .child(
                 card(&theme)
-                    .child(heading("Capsule", &theme))
+                    .child(heading(&text("settings.tab_capsule", cx), &theme))
                     .child(
                         div()
                             .flex()
@@ -495,8 +495,15 @@ impl SettingsView for AppearanceView {
                                     16.0,
                                     60.0,
                                     1.0,
-                                ));
+                                    ));
                                 view.update_slider_value(event.position.x.into(), cx);
+                            }
+                        }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
                             }
                         }),
                     ))
@@ -520,6 +527,13 @@ impl SettingsView for AppearanceView {
                                 view.update_slider_value(event.position.x.into(), cx);
                             }
                         }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
+                            }
+                        }),
                     ))
                     .child(row_divider(&theme))
                     .child(slider_row(
@@ -539,6 +553,13 @@ impl SettingsView for AppearanceView {
                                     1.0,
                                 ));
                                 view.update_slider_value(event.position.x.into(), cx);
+                            }
+                        }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
                             }
                         }),
                     ))
@@ -563,6 +584,13 @@ impl SettingsView for AppearanceView {
                                 view.update_slider_value(event.position.x.into(), cx);
                             }
                         }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
+                            }
+                        }),
                     ))
                     .child(row_divider(&theme))
                     .child(slider_row(
@@ -582,6 +610,13 @@ impl SettingsView for AppearanceView {
                                     1.0,
                                 ));
                                 view.update_slider_value(event.position.x.into(), cx);
+                            }
+                        }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
                             }
                         }),
                     ))
@@ -605,6 +640,13 @@ impl SettingsView for AppearanceView {
                                 view.update_slider_value(event.position.x.into(), cx);
                             }
                         }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
+                            }
+                        }),
                     ))
                     .child(row_divider(&theme))
                     .child(heading(&text("settings.motion_heading", cx), &theme))
@@ -625,6 +667,13 @@ impl SettingsView for AppearanceView {
                                     25.0,
                                 ));
                                 view.update_slider_value(event.position.x.into(), cx);
+                            }
+                        }),
+                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
+                                if view.handle_mouse_up(event, cx) {
+                                    cx.notify();
+                                }
                             }
                         }),
                     )),

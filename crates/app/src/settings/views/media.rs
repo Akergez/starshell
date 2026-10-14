@@ -3,10 +3,11 @@ use super::SettingsView;
 use crate::capsule::widgets::style;
 use crate::settings::Settings;
 use gpui::{
-    AnyElement, App, Bounds, ColorExt, Context, ElementId, FontWeight, IntoElement, MouseMoveEvent,
-    MouseUpEvent, ParentElement, Styled, Window, div, fill, prelude::*, px, size, svg,
+    AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, MouseMoveEvent,
+    MouseUpEvent, ParentElement, Styled, Window, div, prelude::*, px, svg,
 };
 use services::AppState;
+use ui::components::Slider;
 use ui::{theme::Theme, tracker::DimensionTracker};
 
 fn text(key: &str, cx: &App) -> String {
@@ -178,7 +179,6 @@ impl SettingsView for MediaView {
         let in_fraction = in_vol as f32 / 100.0;
         let in_muted = status.is_input_muted;
 
-        let track_color = style::surface(&theme);
         let active_color = if out_muted {
             theme.foreground_muted()
         } else {
@@ -190,190 +190,49 @@ impl SettingsView for MediaView {
             theme.accent()
         };
 
-        let out_tracker = self.output_bounds.clone();
-        let in_tracker = self.input_bounds.clone();
-
         // 1. Output Volume Drag Bar (Capsule Dashboard Style)
-        let output_drag_bar = div()
-            .id("settings-output-slider")
-            .relative()
-            .w_full()
-            .h(px(32.0))
-            .rounded_full()
-            .cursor_pointer()
-            .on_mouse_down(
-                gpui::MouseButton::Left,
-                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                    if let Some(media) = this.view_as_mut::<MediaView>() {
-                        media.dragging_output = true;
-                        media.update_output_volume(event.position.x.into(), cx);
+        let output_drag_bar = Slider::new("settings-output-slider")
+            .fraction(out_fraction)
+            .height(32.0)
+            .icon(if out_muted { "volume-x.svg" } else { "volume-2.svg" })
+            .label(format!("{out_vol}%"))
+            .track_bounds(&self.output_bounds)
+            .active_color(active_color)
+            .on_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                if let Some(media) = this.view_as_mut::<MediaView>() {
+                    media.dragging_output = true;
+                    media.update_output_volume(event.position.x.into(), cx);
+                }
+            }))
+            .on_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                if let Some(media) = this.view_as_mut::<MediaView>() {
+                    if media.handle_mouse_up(event, cx) {
+                        cx.notify();
                     }
-                }),
-            )
-            .on_mouse_up(
-                gpui::MouseButton::Left,
-                cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                    if let Some(media) = this.view_as_mut::<MediaView>() {
-                        if media.handle_mouse_up(event, cx) {
-                            cx.notify();
-                        }
-                    }
-                }),
-            )
-            .child(
-                gpui::canvas(
-                    move |bounds, _, _| {
-                        out_tracker.track_bounds(bounds);
-                        bounds
-                    },
-                    move |bounds, inner, window, _| {
-                        window.paint_quad(fill(bounds, track_color).corner_radii(px(16.0)));
-                        let width = inner.size.width * out_fraction;
-                        if width > px(0.0) {
-                            let visible = Bounds {
-                                origin: inner.origin,
-                                size: size(width, inner.size.height),
-                            };
-                            window.with_content_mask(
-                                Some(gpui::ContentMask {
-                                    bounds: visible,
-                                    fade_out: Default::default(),
-                                }),
-                                |window| {
-                                    window.paint_quad(
-                                        fill(inner, active_color)
-                                            .corner_radii(inner.size.height / 2.0),
-                                    );
-                                },
-                            );
-                        }
-                    },
-                )
-                .size_full(),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(10.0))
-                    .top(px(6.0))
-                    .child(
-                        svg()
-                            .path(if out_muted {
-                                "volume-x.svg"
-                            } else {
-                                "volume-2.svg"
-                            })
-                            .size(px(20.0))
-                            .text_color(if out_fraction >= 0.08 && out_vol > 0 {
-                                style::on_accent(&theme)
-                            } else {
-                                theme.foreground_muted()
-                            }),
-                    ),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .right(px(12.0))
-                    .top(px(6.0))
-                    .text_size(px(12.0))
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(if out_fraction >= 0.95 {
-                        style::on_accent(&theme)
-                    } else {
-                        theme.foreground_muted()
-                    })
-                    .child(format!("{out_vol}%")),
-            );
+                }
+            }));
 
         // 2. Input Volume Drag Bar (Capsule Dashboard Style)
-        let input_drag_bar = div()
-            .id("settings-input-slider")
-            .relative()
-            .w_full()
-            .h(px(32.0))
-            .rounded_full()
-            .cursor_pointer()
-            .on_mouse_down(
-                gpui::MouseButton::Left,
-                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                    if let Some(media) = this.view_as_mut::<MediaView>() {
-                        media.dragging_input = true;
-                        media.update_input_volume(event.position.x.into(), cx);
+        let input_drag_bar = Slider::new("settings-input-slider")
+            .fraction(in_fraction)
+            .height(32.0)
+            .icon(if in_muted { "mic-off.svg" } else { "mic.svg" })
+            .label(format!("{in_vol}%"))
+            .track_bounds(&self.input_bounds)
+            .active_color(in_active_color)
+            .on_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                if let Some(media) = this.view_as_mut::<MediaView>() {
+                    media.dragging_input = true;
+                    media.update_input_volume(event.position.x.into(), cx);
+                }
+            }))
+            .on_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
+                if let Some(media) = this.view_as_mut::<MediaView>() {
+                    if media.handle_mouse_up(event, cx) {
+                        cx.notify();
                     }
-                }),
-            )
-            .on_mouse_up(
-                gpui::MouseButton::Left,
-                cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                    if let Some(media) = this.view_as_mut::<MediaView>() {
-                        if media.handle_mouse_up(event, cx) {
-                            cx.notify();
-                        }
-                    }
-                }),
-            )
-            .child(
-                gpui::canvas(
-                    move |bounds, _, _| {
-                        in_tracker.track_bounds(bounds);
-                        bounds
-                    },
-                    move |bounds, inner, window, _| {
-                        window.paint_quad(fill(bounds, track_color).corner_radii(px(16.0)));
-                        let width = inner.size.width * in_fraction;
-                        if width > px(0.0) {
-                            let visible = Bounds {
-                                origin: inner.origin,
-                                size: size(width, inner.size.height),
-                            };
-                            window.with_content_mask(
-                                Some(gpui::ContentMask {
-                                    bounds: visible,
-                                    fade_out: Default::default(),
-                                }),
-                                |window| {
-                                    window.paint_quad(
-                                        fill(inner, in_active_color)
-                                            .corner_radii(inner.size.height / 2.0),
-                                    );
-                                },
-                            );
-                        }
-                    },
-                )
-                .size_full(),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .left(px(10.0))
-                    .top(px(6.0))
-                    .child(
-                        svg()
-                            .path(if in_muted { "mic-off.svg" } else { "mic.svg" })
-                            .size(px(20.0))
-                            .text_color(if in_fraction >= 0.08 && in_vol > 0 {
-                                style::on_accent(&theme)
-                            } else {
-                                theme.foreground_muted()
-                            }),
-                    ),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .right(px(12.0))
-                    .top(px(6.0))
-                    .text_size(px(12.0))
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(if in_fraction >= 0.95 {
-                        style::on_accent(&theme)
-                    } else {
-                        theme.foreground_muted()
-                    })
-                    .child(format!("{in_vol}%")),
-            );
+                }
+            }));
 
         // Output devices list (Capsule native style)
         let show_out_devices = self.show_output_devices;

@@ -4,8 +4,9 @@ use super::{
 };
 use crate::capsule::satellite::SatelliteId as View;
 use crate::capsule::{module::dashboard::DashboardModule, widgets::style};
-use gpui::{AnyElement, Bounds, Context, IntoElement, div, fill, img, prelude::*, px, size, svg};
+use gpui::{AnyElement, Context, IntoElement, div, img, prelude::*, px, svg};
 use std::path::PathBuf;
+use ui::components::Slider;
 use ui::theme::Theme;
 
 struct Connectivity {
@@ -136,86 +137,39 @@ fn slider(
     };
     let track_color = style::background(theme);
     let hover = style::hover(theme);
-    let track = div()
-        .id(if brightness {
-            "dashboard-brightness-slider"
+    let track = Slider::new(if brightness {
+        "dashboard-brightness-slider"
+    } else {
+        "dashboard-volume-slider"
+    })
+    .fraction(fraction)
+    .height(32.0)
+    .flex_1(true)
+    .icon(if brightness {
+        "sun.svg"
+    } else if module.snapshot.audio.is_muted {
+        "volume-x.svg"
+    } else {
+        "volume-2.svg"
+    })
+    .icon_size(20.0)
+    .track_bounds(&tracker)
+    .track_color(track_color)
+    .active_color(active)
+    .on_mouse_down(cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
+        if brightness {
+            this.start_brightness(event.position.x.into(), cx);
         } else {
-            "dashboard-volume-slider"
-        })
-        .relative()
-        .flex_1()
-        .min_w_0()
-        .h(px(32.0))
-        .rounded_full()
-        .cursor_pointer()
-        .on_mouse_down(
-            gpui::MouseButton::Left,
-            cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
-                if brightness {
-                    this.start_brightness(event.position.x.into(), cx);
-                } else {
-                    this.start_volume(event.position.x.into(), cx);
-                }
-            }),
-        )
-        .child(
-            gpui::canvas(
-                move |bounds, _, _| {
-                    let inner = bounds;
-                    tracker.track_bounds(inner);
-                    inner
-                },
-                move |bounds, inner, window, _| {
-                    window.paint_quad(fill(bounds, track_color).corner_radii(px(16.0)));
-                    let width = inner.size.width * fraction;
-                    if width > px(0.0) {
-                        let visible = Bounds {
-                            origin: inner.origin,
-                            size: size(width, inner.size.height),
-                        };
-                        window.with_content_mask(
-                            Some(gpui::ContentMask {
-                                bounds: visible,
-                                fade_out: Default::default(),
-                            }),
-                            |window| {
-                                window.paint_quad(
-                                    fill(inner, active).corner_radii(inner.size.height / 2.0),
-                                );
-                            },
-                        );
-                    }
-                },
-            )
-            .size_full(),
-        )
-        .child(
-            div().absolute().left(px(10.0)).top(px(6.0)).child(
-                svg()
-                    .path(if brightness {
-                        "sun.svg"
-                    } else if module.snapshot.audio.is_muted {
-                        "volume-x.svg"
-                    } else {
-                        "volume-2.svg"
-                    })
-                    .size(px(20.0))
-                    .text_color(
-                        if value > 0
-                            && fraction
-                                * (super::WIDTH
-                                    - PADDING * 2.0
-                                    - 40.0
-                                    - if brightness { 0.0 } else { 42.0 })
-                                >= 28.0
-                        {
-                            style::on_accent(theme)
-                        } else {
-                            theme.foreground_muted()
-                        },
-                    ),
-            ),
-        );
+            this.start_volume(event.position.x.into(), cx);
+        }
+    }))
+    .on_mouse_up(cx.listener(move |this, _, _, cx| {
+        if brightness {
+            this.finish_brightness(cx);
+        } else {
+            this.finish_volume();
+        }
+    }));
     card(theme, cx)
         .id(if brightness {
             "dashboard-brightness"

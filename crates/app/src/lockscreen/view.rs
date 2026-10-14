@@ -3,6 +3,7 @@ use services::AppState;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use ui::components::InputState;
 use ui::theme::Theme;
 
 use super::components::{render_auth_form, render_clock, render_lyrics};
@@ -10,7 +11,7 @@ use super::components::{render_auth_form, render_clock, render_lyrics};
 pub struct LockScreen {
     is_primary: bool,
     pub username: String,
-    password: String,
+    pub password_input: InputState,
     auth_failed: bool,
     is_checking: bool,
     pub focus_handle: gpui::FocusHandle,
@@ -55,7 +56,7 @@ impl LockScreen {
         let mut screen = Self {
             is_primary,
             username,
-            password: String::new(),
+            password_input: InputState::new("").with_masked(true).with_focused(true),
             auth_failed: false,
             is_checking: false,
             focus_handle,
@@ -102,11 +103,11 @@ impl LockScreen {
     }
 
     pub fn submit_password(&mut self, cx: &mut Context<Self>) {
-        if self.password.is_empty() || self.is_checking {
+        let pass = self.password_input.text();
+        if pass.is_empty() || self.is_checking {
             return;
         }
 
-        let pass = self.password.clone();
         self.is_checking = true;
         self.auth_failed = false;
         cx.notify();
@@ -147,7 +148,7 @@ impl LockScreen {
                     });
                 } else {
                     this.auth_failed = true;
-                    this.password.clear();
+                    this.password_input.clear();
                     cx.notify();
                 }
             });
@@ -399,7 +400,7 @@ impl Render for LockScreen {
                         )
                         .child(render_auth_form(
                             &theme,
-                            self.password.len(),
+                            &self.password_input,
                             self.auth_failed,
                             self.is_checking,
                             cx,
@@ -430,7 +431,7 @@ impl Render for LockScreen {
 
                 match key {
                     "escape" | "Escape" | "esc" | "\u{1b}" => {
-                        this.password.clear();
+                        this.password_input.clear();
                         this.auth_failed = false;
                         cx.notify();
                         return;
@@ -442,64 +443,13 @@ impl Render for LockScreen {
                     return;
                 }
                 window.focus(&this.focus_handle, cx);
-                let ctrl = event.keystroke.modifiers.control || event.keystroke.modifiers.platform;
-
-                if ctrl {
-                    match key {
-                        "v" => {
-                            if let Some(text) =
-                                cx.read_from_clipboard().and_then(|item| item.text())
-                            {
-                                let clean_text: String =
-                                    text.chars().filter(|c| !c.is_control()).collect();
-                                if !clean_text.is_empty() {
-                                    this.password.push_str(&clean_text);
-                                    this.auth_failed = false;
-                                    cx.notify();
-                                }
-                            }
-                            return;
-                        }
-                        "u" | "w" | "c" | "x" => {
-                            this.password.clear();
-                            this.auth_failed = false;
-                            cx.notify();
-                            return;
-                        }
-                        _ => return,
-                    }
-                }
-
-                if event.keystroke.modifiers.alt {
-                    return;
-                }
 
                 match key {
                     "enter" | "return" | "numpad_enter" | "kp_enter" | "numpadenter" => {
                         this.submit_password(cx);
                     }
-                    "backspace" => {
-                        this.password.pop();
-                        this.auth_failed = false;
-                        cx.notify();
-                    }
-                    "space" => {
-                        this.password.push(' ');
-                        this.auth_failed = false;
-                        cx.notify();
-                    }
-                    k => {
-                        if let Some(ref ch) = event.keystroke.key_char {
-                            let clean: String = ch.chars().filter(|c| !c.is_control()).collect();
-                            if !clean.is_empty() {
-                                this.password.push_str(&clean);
-                                this.auth_failed = false;
-                                cx.notify();
-                            }
-                        } else if let Some(c) =
-                            k.chars().next().filter(|c| !c.is_control() && k.len() == 1)
-                        {
-                            this.password.push(c);
+                    _ => {
+                        if this.password_input.handle_key_down(event, cx) {
                             this.auth_failed = false;
                             cx.notify();
                         }

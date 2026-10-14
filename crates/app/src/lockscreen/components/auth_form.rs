@@ -1,10 +1,11 @@
-use gpui::{ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, px};
+use gpui::{ColorExt, Context, IntoElement};
 use services::AppState;
+use ui::components::{Input, InputState};
 use ui::theme::Theme;
 
 pub fn render_auth_form(
     theme: &Theme,
-    password_len: usize,
+    password_input: &InputState,
     auth_failed: bool,
     is_checking: bool,
     cx: &mut Context<crate::lockscreen::LockScreen>,
@@ -24,54 +25,34 @@ pub fn render_auth_form(
         )
     };
 
-    let border_color = if auth_failed {
-        theme.red()
+    let placeholder = if is_checking {
+        checking_text
+    } else if auth_failed && password_input.is_empty() {
+        incorrect_text
     } else {
-        theme.surface().opacity(0.35)
+        enter_pwd
     };
 
-    let masked_password = "● ".repeat(password_len);
-
-    div().flex().flex_col().items_center().gap(px(6.0)).child(
-        div()
-            .w(px(200.0))
-            .h(px(34.0))
-            .px(px(16.0))
-            .rounded_full()
-            .bg(theme.surface().opacity(0.35))
-            .border_1()
-            .border_color(border_color)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(
-                div()
-                    .w_full()
-                    .text_center()
-                    .font_family(theme.font_family())
-                    .child(if is_checking {
-                        div()
-                            .text_size(px(12.0))
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.accent())
-                            .child(checking_text)
-                    } else if auth_failed && password_len == 0 {
-                        div()
-                            .text_size(px(12.0))
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.red())
-                            .child(incorrect_text)
-                    } else if password_len == 0 {
-                        div()
-                            .text_size(px(12.0))
-                            .text_color(theme.foreground_muted().opacity(0.5))
-                            .child(enter_pwd)
-                    } else {
-                        div()
-                            .text_size(px(14.0))
-                            .text_color(theme.foreground())
-                            .child(masked_password)
-                    }),
-            ),
-    )
+    Input::from_state("lockscreen-password-input", password_input)
+        .placeholder(placeholder)
+        .masked(true)
+        .focused(true)
+        .cursor_visible(false)
+        .error(auth_failed)
+        .centered(true)
+        .w_px(200.0)
+        .max_w_px(200.0)
+        .h_px(34.0)
+        .rounded_full()
+        .bg(theme.surface().opacity(0.35))
+        .border_color(if auth_failed {
+            theme.red()
+        } else {
+            theme.surface().opacity(0.35)
+        })
+        .focused_border_color(if auth_failed {
+            theme.red()
+        } else {
+            theme.accent()
+        })
 }

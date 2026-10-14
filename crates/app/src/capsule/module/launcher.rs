@@ -7,6 +7,7 @@ use gpui::{
     Subscription, Window, div, prelude::*, px,
 };
 use services::{AppState, Application, LauncherService};
+use ui::components::InputState;
 use ui::theme::Theme;
 
 use super::{CapsuleModule, CapsuleModuleEvent};
@@ -17,6 +18,7 @@ use crate::capsule::widgets::launcher::{
 
 pub struct LauncherModule {
     service: LauncherService,
+    pub search_input: InputState,
     query: String,
     apps: Vec<Application>,
     calculator: Option<String>,
@@ -34,6 +36,7 @@ impl LauncherModule {
         let apps = service.search("");
         Self {
             service,
+            search_input: InputState::new("").with_focused(true).with_max_len(120),
             query: String::new(),
             apps,
             calculator: None,
@@ -51,11 +54,15 @@ impl LauncherModule {
     }
 
     pub(crate) fn reset_search(&mut self, cx: &mut Context<Self>) {
+        self.search_input.clear();
         self.update_search(String::new(), cx);
         self.mouse_moved = false;
     }
 
-    fn update_search(&mut self, query: String, cx: &mut Context<Self>) {
+    pub(crate) fn update_search(&mut self, query: String, cx: &mut Context<Self>) {
+        if self.search_input.text() != query {
+            self.search_input.set_text(&query);
+        }
         self.calculator = services::launcher::calculator::evaluate(&query);
         self.apps = self.service.search(&query);
         self.query = query;
@@ -204,7 +211,7 @@ impl Render for LauncherModule {
             .on_mouse_move(cx.listener(|this, _, _, _| {
                 this.mouse_moved = true;
             }))
-            .child(render_search(&self.query, duration, &theme, cx))
+            .child(render_search(&self.search_input, duration, &theme, cx))
             .child(content)
             .child(
                 div()

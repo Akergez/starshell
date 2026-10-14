@@ -1,7 +1,8 @@
 use gpui::{
     AnyElement, App, Bounds, Div, DurationWithEasing, ElementId, FontWeight, IntoElement,
-    ParentElement, Pixels, Styled, Window, canvas, div, ease_in_out, millis, prelude::*, px, svg,
+    ParentElement, Pixels, Styled, Window, div, ease_in_out, millis, prelude::*, px, svg,
 };
+use ui::components::{Slider, Switch};
 use ui::theme::Theme;
 use ui::tracker::DimensionTracker;
 
@@ -149,12 +150,6 @@ pub fn toggle_row(
     theme: &Theme,
     on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
-    let bg = if is_on {
-        theme.accent()
-    } else {
-        style::raised(theme)
-    };
-
     div()
         .flex()
         .flex_row()
@@ -192,26 +187,9 @@ pub fn toggle_row(
                 }),
         )
         .child(
-            div()
-                .id(id)
-                .w(px(44.0))
-                .h(px(26.0))
-                .rounded_full()
-                .bg(bg)
-                .transitions(|t| t.bg(millis(180).with_easing(ease_in_out)))
-                .p(px(3.0))
-                .cursor_pointer()
-                .on_click(on_click)
-                .child(
-                    div()
-                        .w(px(20.0))
-                        .h(px(20.0))
-                        .rounded_full()
-                        .bg(style::on_accent(theme))
-                        .shadow_sm()
-                        .ml(if is_on { px(18.0) } else { px(0.0) })
-                        .transitions(|t| t.ml(millis(180).with_easing(ease_in_out))),
-                ),
+            Switch::new(id)
+                .checked(is_on)
+                .on_click(on_click),
         )
         .into_any_element()
 }
@@ -224,10 +202,8 @@ pub fn slider_row(
     tracker: &DimensionTracker,
     theme: &Theme,
     on_mouse_down: impl Fn(&gpui::MouseDownEvent, &mut Window, &mut App) + 'static,
+    on_mouse_up: impl Fn(&gpui::MouseUpEvent, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
-    let trk = tracker.clone();
-    let pct_clamped = pct.clamp(0.0, 1.0);
-
     div()
         .flex()
         .flex_col()
@@ -270,53 +246,12 @@ pub fn slider_row(
                 ),
         )
         .child(
-            div()
-                .id(id)
-                .relative()
-                .flex()
-                .items_center()
-                .w_full()
-                .h(px(18.0))
-                .cursor_pointer()
-                .on_mouse_down(gpui::MouseButton::Left, on_mouse_down)
-                .child(
-                    canvas(
-                        move |bounds, _, _| {
-                            trk.track_bounds(bounds);
-                            bounds
-                        },
-                        |_, _, _, _| {},
-                    )
-                    .absolute()
-                    .size_full(),
-                )
-                .child(
-                    div()
-                        .w_full()
-                        .h(px(6.0))
-                        .rounded_full()
-                        .bg(style::raised(theme))
-                        .overflow_hidden()
-                        .child(
-                            div()
-                                .h_full()
-                                .w(gpui::relative(pct_clamped))
-                                .rounded_full()
-                                .bg(theme.accent()),
-                        ),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .top(px(2.0))
-                        .left(gpui::relative(pct_clamped))
-                        .ml(px(-14.0 * pct_clamped))
-                        .w(px(14.0))
-                        .h(px(14.0))
-                        .rounded_full()
-                        .bg(theme.foreground())
-                        .shadow_sm(),
-                ),
+            Slider::new(id)
+                .fraction(pct)
+                .height(28.0)
+                .track_bounds(tracker)
+                .on_mouse_down(on_mouse_down)
+                .on_mouse_up(on_mouse_up),
         )
         .into_any_element()
 }
@@ -349,6 +284,10 @@ pub fn pill_button(
             style::on_accent(theme)
         } else {
             theme.foreground()
+        })
+        .transitions(|t| {
+            t.bg(millis(160).with_easing(ease_in_out))
+                .text_color(millis(160).with_easing(ease_in_out))
         })
         .text_size(px(13.0))
         .font_weight(if is_selected {

@@ -88,6 +88,9 @@ impl DashboardModule {
         self.dragging_volume = true;
         self.volume_at(x, cx);
     }
+    pub fn finish_volume(&mut self) {
+        self.dragging_volume = false;
+    }
     pub fn brightness_at(&mut self, x: f32, cx: &mut Context<Self>) {
         if let Some(fraction) = slider_fraction(
             x,
@@ -108,7 +111,7 @@ impl DashboardModule {
         self.dragging_brightness = true;
         self.brightness_at(x, cx);
     }
-    pub(super) fn finish_brightness(&mut self, cx: &mut Context<Self>) {
+    pub fn finish_brightness(&mut self, cx: &mut Context<Self>) {
         if !self.dragging_brightness {
             return;
         }

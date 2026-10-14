@@ -8,6 +8,7 @@ use crate::capsule::module::{
 };
 use gpui::{Context, IntoElement, div, prelude::*, px, svg};
 use services::AppState;
+use ui::components::Input;
 use ui::theme::Theme;
 
 pub const WIDTH: f32 = 440.0;
@@ -33,47 +34,25 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
     let language = &cx.global::<AppState>().language;
     let placeholder = language.get("emoji.search_placeholder");
     let empty = language.get("emoji.no_emojis");
-    let query = &module.model.query;
-    let search = div()
-        .id("emoji-search")
-        .h(px(40.0))
-        .flex_1()
-        .min_w_0()
-        .px(px(12.0))
+    let search = Input::from_state("emoji-search", &module.search_input)
+        .placeholder(placeholder)
+        .cleanable(true)
+        .h_px(40.0)
+        .w_full()
         .rounded_full()
         .bg(style::surface(&theme))
-        .flex()
-        .items_center()
-        .gap(px(10.0))
-        .child(
+        .border_color(style::border(&theme))
+        .focused_border_color(theme.accent())
+        .prefix(
             svg()
                 .path("search.svg")
                 .size(px(16.0))
                 .text_color(theme.foreground_muted()),
         )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_size(px(13.0))
-                .text_ellipsis()
-                .text_color(if query.is_empty() {
-                    theme.foreground_muted()
-                } else {
-                    theme.foreground()
-                })
-                .child(if query.is_empty() {
-                    placeholder
-                } else {
-                    query.clone()
-                }),
-        )
-        .when(!query.is_empty(), |element| {
-            element.child(
-                style::circle_button("emoji-search-clear", "close.svg", 22.0, &theme)
-                    .on_click(cx.listener(|module, _, _, cx| module.search(String::new(), cx))),
-            )
-        });
+        .on_clear(cx.listener(|module, _, _, cx| {
+            module.search_input.clear();
+            module.search(String::new(), cx);
+        }));
     let categories = div()
         .h(px(32.0))
         .flex_shrink_0()

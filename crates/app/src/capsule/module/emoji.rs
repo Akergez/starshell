@@ -8,10 +8,12 @@ use gpui::{
 };
 use model::EmojiModel;
 use services::EmojiService;
+use ui::components::InputState;
 use ui::theme::Theme;
 
 pub(crate) struct EmojiModule {
     pub model: EmojiModel,
+    pub search_input: InputState,
     service: EmojiService,
     focus: FocusHandle,
     _theme: Subscription,
@@ -22,6 +24,7 @@ impl EmojiModule {
         let service = EmojiService::new();
         Self {
             model: EmojiModel::new(service.load_emojis()),
+            search_input: InputState::new("").with_focused(true).with_max_len(120),
             service,
             focus: cx.focus_handle(),
             _theme: cx.observe_global::<Theme>(|_, cx| cx.notify()),
@@ -33,11 +36,15 @@ impl EmojiModule {
     }
 
     pub fn open(&mut self, cx: &mut Context<Self>) {
+        self.search_input.clear();
         self.model.reset();
         cx.notify();
     }
 
     pub fn search(&mut self, query: String, cx: &mut Context<Self>) {
+        if self.search_input.text() != query {
+            self.search_input.set_text(&query);
+        }
         self.model.search(query);
         cx.notify();
     }
@@ -77,50 +84,44 @@ impl EmojiModule {
         let key = event.keystroke.key.as_str();
         let modifiers = &event.keystroke.modifiers;
         let control = modifiers.control || modifiers.platform;
+        let shift = modifiers.shift;
+
         if key == "escape" {
-            cx.emit(CapsuleModuleEvent::Close);
-        } else if control {
-            match key {
-                "v" => {
-                    if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                        let clean: String = text.chars().filter(|ch| !ch.is_control()).collect();
-                        self.search(format!("{}{}", self.model.query, clean), cx);
-                    }
-                }
-                "u" => self.search(String::new(), cx),
-                "w" => {
-                    let query = self
-                        .model
-                        .query
-                        .trim_end()
-                        .rsplit_once(' ')
-                        .map_or("", |(prefix, _)| prefix)
-                        .to_owned();
-                    self.search(query, cx);
-                }
-                _ => {}
+            if !self.search_input.is_empty() {
+                self.search_input.clear();
+                self.search(String::new(), cx);
+            } else {
+                cx.emit(CapsuleModuleEvent::Close);
             }
-        } else {
-            match key {
-                "enter" => self.copy_selected(cx),
-                "left" | "right" | "up" | "down" | "home" | "end" | "pageup" | "pagedown" => {
-                    self.navigate(key, cx)
-                }
-                "backspace" => {
-                    let mut query = self.model.query.clone();
-                    query.pop();
-                    self.search(query, cx);
-                }
-                "space" => self.search(format!("{} ", self.model.query), cx),
-                _ if !modifiers.alt => {
-                    if let Some(text) = &event.keystroke.key_char
-                        && !text.chars().any(char::is_control)
-                    {
-                        self.search(format!("{}{}", self.model.query, text), cx);
-                    }
-                }
-                _ => {}
-            }
+            cx.stop_propagation();
+            return;
+        }
+
+        if key == "enter" {
+            self.copy_selected(cx);
+            cx.stop_propagation();
+            return;
+        }
+
+        if (key == "up" || key == "down" || key == "pageup" || key == "pagedown") && !control && !shift {
+            self.navigate(key, cx);
+            cx.stop_propagation();
+            return;
+        }
+
+        if (key == "left" || key == "right" || key == "home" || key == "end")
+            && !control
+            && !shift
+            && self.search_input.is_empty()
+        {
+            self.navigate(key, cx);
+            cx.stop_propagation();
+            return;
+        }
+
+        if self.search_input.handle_key_down(event, cx) {
+            let text = self.search_input.text();
+            self.search(text, cx);
         }
         cx.stop_propagation();
     }

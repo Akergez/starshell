@@ -215,6 +215,7 @@ pub fn render(module: &ShelfModule, cx: &mut Context<ShelfModule>) -> gpui::Stat
         "shelf.navigate_hint"
     });
     let empty = language.get("shelf.empty_title");
+    let title = language.get("shelf.title");
     let mut gallery = div()
         .id("shelf-gallery")
         .w_full()
@@ -265,7 +266,7 @@ pub fn render(module: &ShelfModule, cx: &mut Context<ShelfModule>) -> gpui::Stat
                             div()
                                 .text_size(px(14.0))
                                 .font_weight(gpui::FontWeight::MEDIUM)
-                                .child("Shelf"),
+                                .child(title),
                         )
                         .child(
                             div()

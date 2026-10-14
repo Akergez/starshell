@@ -131,6 +131,7 @@ pub struct Select {
     is_open: bool,
     anim_progress: f32,
     open_upwards: bool,
+    disabled: bool,
     width: f32,
     max_menu_height: f32,
     items: Vec<AnyElement>,
@@ -148,12 +149,18 @@ impl Select {
             is_open: false,
             anim_progress: 1.0,
             open_upwards: false,
+            disabled: false,
             width: 240.0,
             max_menu_height: 220.0,
             items: Vec::new(),
             on_toggle: None,
             bounds_cell: None,
         }
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
     }
 
     pub fn selected_label(mut self, label: impl Into<SharedString>) -> Self {
@@ -283,21 +290,28 @@ impl RenderOnce for Select {
             .transitions(|t| {
                 t.bg(millis(160).with_easing(ease_in_out))
                     .border_color(millis(160).with_easing(ease_in_out))
-            })
-            .hover(|s| {
-                if !self.is_open {
-                    s.border_color(theme.accent().opacity(0.7))
-                        .bg(theme.surface().opacity(0.5))
-                } else {
-                    s
-                }
-            })
-            .cursor_pointer();
-
-        if let Some(on_toggle) = self.on_toggle {
-            trigger = trigger.on_click(move |evt, window, app| {
-                on_toggle(evt, window, app);
+                    .opacity(millis(160).with_easing(ease_in_out))
             });
+
+        if self.disabled {
+            trigger = trigger.opacity(0.5);
+        } else {
+            trigger = trigger
+                .hover(|s| {
+                    if !self.is_open {
+                        s.border_color(theme.accent().opacity(0.7))
+                            .bg(theme.surface().opacity(0.5))
+                    } else {
+                        s
+                    }
+                })
+                .cursor_pointer();
+
+            if let Some(on_toggle) = self.on_toggle {
+                trigger = trigger.on_click(move |evt, window, app| {
+                    on_toggle(evt, window, app);
+                });
+            }
         }
 
         if let Some(cell) = self.bounds_cell {

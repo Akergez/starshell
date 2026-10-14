@@ -455,9 +455,15 @@ pub fn render_search_results(
         matched_rows.push(row);
     }
 
+    let display_query = if query.chars().count() > 30 {
+        format!("{}…", query.chars().take(30).collect::<String>())
+    } else {
+        query.to_string()
+    };
+
     if matched_rows.is_empty() {
         let no_sub = text("settings.search_no_results_subtitle", cx)
-            .replace("{query}", query);
+            .replace("{query}", &display_query);
 
         div()
             .flex()
@@ -496,6 +502,8 @@ pub fn render_search_results(
                     .text_color(theme.foreground_muted())
                     .text_center()
                     .max_w(px(380.0))
+                    .overflow_hidden()
+                    .text_ellipsis()
                     .child(no_sub),
             )
             .into_any_element()
@@ -503,7 +511,7 @@ pub fn render_search_results(
         let count_str = matched_rows.len().to_string();
         let sub_text = text("settings.search_results_subtitle", cx)
             .replace("{count}", &count_str)
-            .replace("{query}", query);
+            .replace("{query}", &display_query);
 
         let mut card_el = card(theme);
         for (idx, row) in matched_rows.into_iter().enumerate() {

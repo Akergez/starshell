@@ -7,6 +7,7 @@ use gpui::{
     AnyElement, Context, IntoElement, MotionDurationExt, StyledImage, div, ease_in_out, img,
     prelude::*, px, svg,
 };
+use ui::components::Input;
 use ui::theme::Theme;
 
 pub const WIDTH: f32 = 480.0;
@@ -161,40 +162,25 @@ pub(crate) fn render(
                         .text_color(theme.foreground_muted()),
                 ),
         );
-    let query = if module.model.query.is_empty() {
-        module.text("clipboard.search_placeholder", cx)
-    } else {
-        module.model.query.clone()
-    };
-    let search = div()
-        .h(px(HEADER_HEIGHT))
-        .flex_1()
-        .min_w_0()
-        .px(px(12.0))
-        .flex()
-        .items_center()
-        .gap(px(8.0))
+    let search = Input::from_state("clipboard-search", &module.search_input)
+        .placeholder(module.text("clipboard.search_placeholder", cx))
+        .cleanable(true)
+        .h_px(HEADER_HEIGHT)
+        .w_full()
         .rounded_full()
         .bg(style::surface(theme))
-        .child(
+        .border_color(style::border(theme))
+        .focused_border_color(theme.accent())
+        .prefix(
             svg()
                 .path("search.svg")
                 .size(px(14.0))
                 .text_color(theme.foreground_muted()),
         )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_size(px(13.0))
-                .text_ellipsis()
-                .text_color(if module.model.query.is_empty() {
-                    theme.foreground_muted()
-                } else {
-                    theme.foreground()
-                })
-                .child(query),
-        );
+        .on_clear(cx.listener(|this, _, _, cx| {
+            this.search_input.clear();
+            this.search(String::new(), cx);
+        }));
     header = header.child(search).child(actions);
     let mut gallery = div()
         .id("clipboard-gallery")
