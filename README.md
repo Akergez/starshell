@@ -13,6 +13,7 @@
 <div align="center">
 
 # Capsule
+
 A Wayland desktop shell built with GPUI (the Zed UI framework), inspired by Dragon Ball's Capsule Corp.
 </div>
 
