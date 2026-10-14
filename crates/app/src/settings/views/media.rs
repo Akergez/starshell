@@ -7,7 +7,7 @@ use gpui::{
     MouseUpEvent, ParentElement, Styled, Window, div, prelude::*, px, svg,
 };
 use services::AppState;
-use ui::components::Slider;
+use ui::components::{IconButton, Slider};
 use ui::{theme::Theme, tracker::DimensionTracker};
 
 fn text(key: &str, cx: &App) -> String {
@@ -455,21 +455,18 @@ impl SettingsView for MediaView {
                             .child(p_name),
                     )
                     .child(
-                        style::circle_button(
-                            ElementId::Name(format!("remove-player-{}", idx).into()),
-                            "close.svg",
-                            22.0,
-                            &theme,
-                        )
-                        .on_click(cx.listener(move |_this, _, _, cx| {
-                            if cx.has_global::<AppState>() {
-                                let _ = cx.global::<AppState>().config.update(|cfg| {
-                                    if idx < cfg.mpris.players.len() {
-                                        cfg.mpris.players.remove(idx);
-                                    }
-                                });
-                            }
-                        })),
+                        IconButton::new(format!("remove-player-{}", idx), "close.svg")
+                            .size(22.0)
+                            .icon_size(10.0)
+                            .on_click(cx.listener(move |_this, _, _, cx| {
+                                if cx.has_global::<AppState>() {
+                                    let _ = cx.global::<AppState>().config.update(|cfg| {
+                                        if idx < cfg.mpris.players.len() {
+                                            cfg.mpris.players.remove(idx);
+                                        }
+                                    });
+                                }
+                            })),
                     ),
             );
             }

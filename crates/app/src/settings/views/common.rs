@@ -1,8 +1,8 @@
 use gpui::{
-    AnyElement, App, Bounds, Div, DurationWithEasing, ElementId, FontWeight, IntoElement,
-    ParentElement, Pixels, Styled, Window, div, ease_in_out, millis, prelude::*, px, svg,
+    AnyElement, App, Bounds, Div, ElementId, FontWeight, IntoElement,
+    ParentElement, Pixels, Styled, Window, div, prelude::*, px, svg,
 };
-use ui::components::{Slider, Switch};
+use ui::components::{Button, ButtonSize, ButtonVariant, Slider, Switch};
 use ui::theme::Theme;
 use ui::tracker::DimensionTracker;
 
@@ -260,44 +260,20 @@ pub fn pill_button(
     id: ElementId,
     label: &str,
     is_selected: bool,
-    theme: &Theme,
+    _theme: &Theme,
     on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
-    div()
-        .id(id)
-        .px(px(14.0))
-        .py(px(6.0))
-        .rounded_full()
-        .bg(if is_selected {
-            theme.accent()
+    Button::new(id)
+        .label(label.to_string())
+        .selected(is_selected)
+        .variant(if is_selected {
+            ButtonVariant::Primary
         } else {
-            style::surface(theme)
+            ButtonVariant::Secondary
         })
-        .hover(|s| {
-            if !is_selected {
-                s.bg(style::hover(theme))
-            } else {
-                s
-            }
-        })
-        .text_color(if is_selected {
-            style::on_accent(theme)
-        } else {
-            theme.foreground()
-        })
-        .transitions(|t| {
-            t.bg(millis(160).with_easing(ease_in_out))
-                .text_color(millis(160).with_easing(ease_in_out))
-        })
-        .text_size(px(13.0))
-        .font_weight(if is_selected {
-            FontWeight::SEMIBOLD
-        } else {
-            FontWeight::MEDIUM
-        })
-        .cursor_pointer()
+        .size(ButtonSize::Sm)
+        .pill(true)
         .on_click(on_click)
-        .child(label.to_string())
         .into_any_element()
 }
 

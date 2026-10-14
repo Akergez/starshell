@@ -6,6 +6,7 @@ use gpui::{
 };
 use services::{AppState, NotificationItem, NotificationStore};
 use std::time::Duration;
+use ui::components::InputState;
 use ui::theme::Theme;
 
 pub(crate) struct NotificationModule {
@@ -25,7 +26,7 @@ pub(crate) struct NotificationModule {
 
 pub(crate) struct Reply {
     pub id: u32,
-    pub text: String,
+    pub input: InputState,
     pub pending: bool,
     pub failed: bool,
 }
@@ -176,7 +177,7 @@ impl NotificationModule {
         }
         self.reply = Some(Reply {
             id,
-            text: String::new(),
+            input: InputState::new("").with_focused(true).with_max_len(250),
             pending: false,
             failed: false,
         });
@@ -203,12 +204,12 @@ impl NotificationModule {
         let Some(reply) = self
             .reply
             .as_mut()
-            .filter(|reply| !reply.pending && !reply.text.trim().is_empty())
+            .filter(|reply| !reply.pending && !reply.input.is_empty())
         else {
             return;
         };
         let id = reply.id;
-        let text = reply.text.clone();
+        let text = reply.input.text();
         reply.pending = true;
         reply.failed = false;
         let (sender, receiver) = tokio::sync::oneshot::channel();
@@ -252,32 +253,12 @@ impl NotificationModule {
         let Some(reply) = self.reply.as_mut().filter(|reply| !reply.pending) else {
             return;
         };
-        let modifiers = &event.keystroke.modifiers;
-        if modifiers.control || modifiers.platform {
-            if key == "v" {
-                if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                    reply
-                        .text
-                        .extend(text.chars().filter(|ch| !ch.is_control()));
-                }
-            } else if key == "backspace" {
-                reply.text.clear();
-            }
-        } else if key == "backspace" {
-            reply.text.pop();
-        } else if key == "space" {
-            reply.text.push(' ');
-        } else if !modifiers.alt
-            && let Some(text) = &event.keystroke.key_char
-        {
-            reply
-                .text
-                .extend(text.chars().filter(|ch| !ch.is_control()));
+        if reply.input.handle_key_down(event, cx) {
+            reply.failed = false;
+            self.update_popup_height(cx);
+            cx.stop_propagation();
+            cx.notify();
         }
-        reply.failed = false;
-        self.update_popup_height(cx);
-        cx.stop_propagation();
-        cx.notify();
     }
 }
 

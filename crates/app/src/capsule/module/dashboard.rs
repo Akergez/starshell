@@ -149,7 +149,7 @@ impl DashboardModule {
                 .is_some_and(|ssid| *ssid == next.network.wifi_ssid)
             {
                 self.navigation.selected_ssid = None;
-                self.navigation.password.clear();
+                self.navigation.password_input.clear();
             }
             self.snapshot = next;
             self.snapshot_at = Instant::now();

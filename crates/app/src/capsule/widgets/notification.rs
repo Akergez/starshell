@@ -3,6 +3,7 @@ use crate::capsule::module::{CapsuleModuleEvent, notification::NotificationModul
 use gpui::{AnyElement, Context, FontWeight, IntoElement, div, img, prelude::*, px, svg};
 use services::{NotificationItem, NotificationStore};
 use std::path::PathBuf;
+use ui::components::{Badge, BadgeVariant, Button, ButtonSize, ButtonVariant, Chip, IconButton, Input};
 use ui::theme::Theme;
 
 pub const WIDTH: f32 = 440.0;
@@ -161,12 +162,11 @@ pub fn render(
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .child(module.text("dashboard.notifications_title", cx)),
                         )
-                        .child(style::chip(
-                            "notification-count",
-                            module.items.len().to_string(),
-                            false,
-                            theme,
-                        )),
+                        .child(
+                            Badge::new(module.items.len().to_string())
+                                .id("notification-count")
+                                .variant(BadgeVariant::Neutral),
+                        ),
                 )
                 .child(
                     div()
@@ -174,21 +174,18 @@ pub fn render(
                         .gap(px(6.0))
                         .when(!module.items.is_empty(), |s| {
                             s.child(
-                                style::circle_button(
-                                    "notification-clear",
-                                    "trash.svg",
-                                    30.0,
-                                    theme,
-                                )
-                                .on_click(cx.listener(
-                                    |_, _, _, _| {
+                                IconButton::new("notification-clear", "trash.svg")
+                                    .size(30.0)
+                                    .tooltip(module.text("dashboard.clear_all", cx))
+                                    .on_click(cx.listener(|_, _, _, _| {
                                         NotificationStore::global().clear_all_notifications()
-                                    },
-                                )),
+                                    })),
                             )
                         })
                         .child(
-                            style::circle_button("notification-close", "close.svg", 30.0, theme)
+                            IconButton::new("notification-close", "close.svg")
+                                .size(30.0)
+                                .tooltip(module.text("common.close", cx))
                                 .on_click(
                                     cx.listener(|_, _, _, cx| cx.emit(CapsuleModuleEvent::Close)),
                                 ),
@@ -350,16 +347,12 @@ fn card(
                         .child(item.app_name.clone()),
                 )
                 .child(
-                    style::circle_button(
-                        format!("notification-dismiss-{id}"),
-                        "close.svg",
-                        28.0,
-                        theme,
-                    )
-                    .on_click(cx.listener(move |module, _, _, cx| {
-                        cx.stop_propagation();
-                        module.dismiss(id);
-                    })),
+                    IconButton::new(format!("notification-dismiss-{id}"), "close.svg")
+                        .size(28.0)
+                        .on_click(cx.listener(move |module, _, _, cx| {
+                            cx.stop_propagation();
+                            module.dismiss(id);
+                        })),
                 ),
         )
         .child(content);
@@ -385,26 +378,18 @@ fn card(
         let label = action_label(key, label, cx);
         let key = key.clone();
         actions = actions.child(
-            style::chip(
-                format!("notification-action-{id}-{key}"),
-                label,
-                false,
-                theme,
-            )
-            .max_w_full()
-            .text_ellipsis()
-            .overflow_hidden()
-            .on_click(cx.listener(move |module, _, window, cx| {
-                cx.stop_propagation();
-                module.action(id, key.clone(), window, cx);
-            })),
+            Chip::new(format!("notification-action-{id}-{key}"), label)
+                .on_click(cx.listener(move |module, _, window, cx| {
+                    cx.stop_propagation();
+                    module.action(id, key.clone(), window, cx);
+                })),
         );
     }
     if has_actions {
         row = row.child(actions);
     }
     if let Some(reply) = module.reply.as_ref().filter(|reply| reply.id == id) {
-        let enabled = !reply.pending && !reply.text.trim().is_empty();
+        let enabled = !reply.pending && !reply.input.is_empty();
         row = row.child(
             div()
                 .flex_shrink_0()
@@ -412,23 +397,15 @@ fn card(
                 .flex_col()
                 .gap(px(6.0))
                 .child(
-                    div()
-                        .h(px(36.0))
-                        .px(px(12.0))
-                        .rounded(px(style::INNER_RADIUS))
-                        .bg(style::surface(theme))
-                        .border_1()
-                        .border_color(theme.accent())
-                        .flex()
-                        .items_center()
-                        .overflow_hidden()
-                        .child(div().text_size(px(13.0)).text_ellipsis().child(
-                            if reply.text.is_empty() {
-                                module.text("notifications_module.reply_placeholder", cx)
-                            } else {
-                                reply.text.clone()
-                            },
-                        )),
+                    Input::from_state(
+                        format!("notification-reply-input-{id}"),
+                        &reply.input,
+                    )
+                    .placeholder(module.text("notifications_module.reply_placeholder", cx))
+                    .h_px(36.0)
+                    .rounded(px(style::INNER_RADIUS))
+                    .bg(style::surface(theme))
+                    .focused(true),
                 )
                 .child(
                     div()
@@ -437,29 +414,26 @@ fn card(
                         .items_center()
                         .justify_between()
                         .child(
-                            style::chip(
-                                format!("notification-reply-cancel-{id}"),
-                                module.text("notifications_module.cancel", cx),
-                                false,
-                                theme,
-                            )
-                            .on_click(cx.listener(|module, _, _, cx| module.cancel_reply(cx))),
+                            Button::new(format!("notification-reply-cancel-{id}"))
+                                .label(module.text("notifications_module.cancel", cx))
+                                .variant(ButtonVariant::Secondary)
+                                .size(ButtonSize::Sm)
+                                .on_click(cx.listener(|module, _, _, cx| module.cancel_reply(cx))),
                         )
                         .child(
-                            style::primary_button(
-                                format!("notification-reply-send-{id}"),
-                                module.text(
+                            Button::new(format!("notification-reply-send-{id}"))
+                                .label(module.text(
                                     if reply.pending {
                                         "notifications_module.sending"
                                     } else {
                                         "notifications_module.send"
                                     },
                                     cx,
-                                ),
-                                enabled,
-                                theme,
-                            )
-                            .on_click(cx.listener(|module, _, _, cx| module.send_reply(cx))),
+                                ))
+                                .variant(ButtonVariant::Primary)
+                                .size(ButtonSize::Sm)
+                                .disabled(!enabled)
+                                .on_click(cx.listener(|module, _, _, cx| module.send_reply(cx))),
                         ),
                 )
                 .when(reply.failed, |s| {

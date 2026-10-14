@@ -47,26 +47,8 @@ impl DashboardModule {
             "enter" if self.navigation.selected_ssid.is_some() => {
                 self.dispatch(DashboardAction::ConnectWifi, cx)
             }
-            "backspace" if self.navigation.selected_ssid.is_some() => {
-                self.navigation.password.pop();
-                cx.notify();
-            }
-            "v" if self.navigation.selected_ssid.is_some() && event.keystroke.modifiers.control => {
-                if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                    self.navigation
-                        .password
-                        .extend(text.chars().filter(|c| !c.is_control()));
-                    cx.notify();
-                }
-            }
-            _ if self.navigation.selected_ssid.is_some()
-                && !event.keystroke.modifiers.control
-                && !event.keystroke.modifiers.alt =>
-            {
-                if let Some(text) = &event.keystroke.key_char {
-                    self.navigation
-                        .password
-                        .extend(text.chars().filter(|c| !c.is_control()));
+            _ if self.navigation.selected_ssid.is_some() => {
+                if self.navigation.password_input.handle_key_down(event, cx) {
                     cx.notify();
                 }
             }

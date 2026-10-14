@@ -36,16 +36,17 @@ impl DashboardModule {
                         state.network.connect_wifi(&ssid, None);
                     } else {
                         self.navigation.selected_ssid = Some(ssid);
-                        self.navigation.password.clear();
+                        self.navigation.password_input.clear();
                     }
                 }
             }
             DashboardAction::ConnectWifi => {
                 if let Some(ssid) = &self.navigation.selected_ssid {
+                    let pwd = self.navigation.password_input.text();
                     state
                         .network
-                        .connect_wifi(ssid, Some(&self.navigation.password));
-                    self.navigation.password.clear();
+                        .connect_wifi(ssid, Some(&pwd));
+                    self.navigation.password_input.clear();
                 }
             }
             DashboardAction::BluetoothDevice(mac) => {

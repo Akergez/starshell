@@ -5,6 +5,7 @@ use crate::capsule::widgets::style;
 use gpui::{
     AnyElement, ColorExt, Context, IntoElement, StyledImage, div, img, prelude::*, px, svg,
 };
+use ui::components::{Button, ButtonVariant};
 use ui::theme::Theme;
 
 pub const WIDTH: f32 = 560.0;
@@ -85,14 +86,14 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
             div()
                 .w(px(20.0))
                 .h_full()
-                .rounded(px(5.0))
+                .rounded(px(6.0))
                 .bg(item_theme.surface())
                 .p(px(3.0))
                 .flex()
                 .flex_col()
                 .items_center()
                 .gap(px(3.0))
-                .child(div().size(px(5.0)).rounded_full().bg(item_theme.accent()))
+                .child(div().size(px(6.0)).rounded_full().bg(item_theme.accent()))
                 .child(
                     div()
                         .size(px(4.0))
@@ -123,7 +124,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                     div()
                         .w_full()
                         .h(px(12.0))
-                        .rounded(px(3.0))
+                        .rounded(px(4.0))
                         .bg(item_theme.surface())
                         .flex()
                         .items_center()
@@ -140,7 +141,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                     div()
                         .w_full()
                         .h(px(12.0))
-                        .rounded(px(3.0))
+                        .rounded(px(4.0))
                         .bg(item_theme.surface())
                         .flex()
                         .items_center()
@@ -157,12 +158,12 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                     div()
                         .w_full()
                         .flex_1()
-                        .rounded(px(5.0))
+                        .rounded(px(6.0))
                         .bg(item_theme.surface())
                         .p(px(4.0))
                         .flex()
                         .items_center()
-                        .gap(px(5.0))
+                        .gap(px(6.0))
                         .child(div().size(px(22.0)).rounded_full().bg(item_theme.accent()))
                         .child(
                             div()
@@ -252,13 +253,10 @@ pub(crate) fn render(
                     .child(module.text("settings.themes_locked_hint", cx)),
             )
             .child(
-                style::primary_button(
-                    "appearance-lock-back",
-                    module.text("common.close", cx),
-                    true,
-                    theme,
-                )
-                .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
+                Button::new("appearance-lock-back")
+                    .label(module.text("common.close", cx))
+                    .variant(ButtonVariant::Primary)
+                    .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
             );
     }
     let count = module.count();
@@ -502,9 +500,8 @@ pub(crate) fn render(
                 )
                 .child(
                     div().w(px(80.0)).flex().justify_end().child(
-                        style::primary_button(
-                            "appearance-apply",
-                            module.text(
+                        Button::new("appearance-apply")
+                            .label(module.text(
                                 if module.pending {
                                     "dashboard_new.pending"
                                 } else if applied {
@@ -513,11 +510,10 @@ pub(crate) fn render(
                                     "dashboard_new.apply"
                                 },
                                 cx,
-                            ),
-                            enabled,
-                            theme,
-                        )
-                        .on_click(cx.listener(|module, _, _, cx| module.apply(cx))),
+                            ))
+                            .variant(ButtonVariant::Primary)
+                            .disabled(!enabled)
+                            .on_click(cx.listener(|module, _, _, cx| module.apply(cx))),
                     ),
                 ),
         )

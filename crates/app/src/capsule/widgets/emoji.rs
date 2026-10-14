@@ -8,7 +8,7 @@ use crate::capsule::module::{
 };
 use gpui::{Context, IntoElement, div, prelude::*, px, svg};
 use services::AppState;
-use ui::components::Input;
+use ui::components::{IconButton, Input};
 use ui::theme::Theme;
 
 pub const WIDTH: f32 = 440.0;
@@ -218,7 +218,9 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
                 }),
         )
         .child(
-            style::circle_button("emoji-page-previous", "chevron-left.svg", 26.0, &theme)
+            IconButton::new("emoji-page-previous", "chevron-left.svg")
+                .size(26.0)
+                .icon_size(12.0)
                 .on_click(cx.listener(|module, _, _, cx| module.navigate("pageup", cx))),
         )
         .child(
@@ -232,7 +234,9 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
                 )),
         )
         .child(
-            style::circle_button("emoji-page-next", "chevron-right.svg", 26.0, &theme)
+            IconButton::new("emoji-page-next", "chevron-right.svg")
+                .size(26.0)
+                .icon_size(12.0)
                 .on_click(cx.listener(|module, _, _, cx| module.navigate("pagedown", cx))),
         );
     div()
@@ -251,7 +255,9 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
                 .gap(px(8.0))
                 .child(search)
                 .child(
-                    style::circle_button("emoji-close", "close.svg", 30.0, &theme)
+                    IconButton::new("emoji-close", "close.svg")
+                        .size(30.0)
+                        .tooltip(language.get("common.close"))
                         .on_click(cx.listener(|_, _, _, cx| cx.emit(CapsuleModuleEvent::Close))),
                 ),
         )

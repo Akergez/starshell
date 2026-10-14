@@ -1,7 +1,7 @@
 use gpui::{
-    ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, prelude::*, px, svg,
+    ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, px, svg,
 };
-use ui::components::Input;
+use ui::components::{IconButton, Input};
 use ui::theme::Theme;
 
 use crate::capsule::widgets::style;
@@ -93,8 +93,13 @@ pub fn render_header(
                 .child(search_input),
         )
         .child(
-            style::circle_button("settings-close-btn", "close.svg", 30.0, theme)
-                .flex_shrink_0()
+            IconButton::new("settings-close-btn", "close.svg")
+                .size(30.0)
+                .tooltip(if cx.has_global::<services::AppState>() {
+                    cx.global::<services::AppState>().language.get("common.close")
+                } else {
+                    "Cerrar".to_string()
+                })
                 .on_click(cx.listener(|this, _, _, cx| this.request_close(cx))),
         )
         .into_any_element()

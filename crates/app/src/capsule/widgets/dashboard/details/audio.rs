@@ -3,7 +3,10 @@ use super::empty;
 use super::list;
 use crate::capsule::module::dashboard::DashboardModule;
 use crate::capsule::widgets::style;
-use gpui::{AnyElement, ColorExt, Context, IntoElement, div, prelude::*, px, svg};
+use gpui::{
+    AnyElement, ColorExt, Context, IntoElement, MotionDurationExt, div, ease_in_out, millis,
+    prelude::*, px, svg,
+};
 use ui::theme::Theme;
 
 pub(super) fn audio(
@@ -56,6 +59,10 @@ pub(super) fn audio(
                     theme.accent().opacity(0.4)
                 } else {
                     style::border(theme)
+                })
+                .transitions(|t| {
+                    t.bg(millis(140).with_easing(ease_in_out))
+                        .border_color(millis(140).with_easing(ease_in_out))
                 })
                 .cursor_pointer()
                 .hover(move |s| s.bg(hover))

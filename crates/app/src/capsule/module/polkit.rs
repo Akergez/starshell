@@ -5,11 +5,12 @@ use gpui::{
     Window, prelude::*,
 };
 use services::{AppState, PolkitAuthRequest};
+use ui::components::InputState;
 use ui::theme::Theme;
 
 pub(crate) struct PolkitModule {
     pub request: Option<PolkitAuthRequest>,
-    pub password: String,
+    pub password_input: InputState,
     pub error: Option<String>,
     pub authenticating: bool,
     focus: FocusHandle,
@@ -36,7 +37,7 @@ impl PolkitModule {
         });
         Self {
             request: None,
-            password: String::new(),
+            password_input: InputState::new("").with_masked(true).with_focused(true),
             error: None,
             authenticating: false,
             focus: cx.focus_handle(),
@@ -88,7 +89,7 @@ impl PolkitModule {
                 }
                 self.request = Some(request);
                 self.responder = Some(responder);
-                self.password.clear();
+                self.password_input.clear();
                 self.error = None;
                 cx.emit(CapsuleModuleEvent::Open(CapsuleModuleId::Polkit));
                 cx.notify();
@@ -110,7 +111,7 @@ impl PolkitModule {
             let _ = responder.send(result);
         }
         self.request = None;
-        self.password.clear();
+        self.password_input.clear();
         self.error = None;
         self.authenticating = false;
     }
@@ -125,7 +126,7 @@ impl PolkitModule {
     }
 
     pub fn submit(&mut self, cx: &mut Context<Self>) {
-        if self.authenticating || self.password.is_empty() {
+        if self.authenticating || self.password_input.is_empty() {
             return;
         }
         let Some(request) = &self.request else {
@@ -134,7 +135,8 @@ impl PolkitModule {
         let user = request.user_name.clone();
         let cookie = request.cookie.clone();
         let response_cookie = cookie.clone();
-        let password = std::mem::take(&mut self.password);
+        let password = self.password_input.text();
+        self.password_input.clear();
         let timeout_error = self.text("polkit.timeout", cx);
         let (sender, receiver) = tokio::sync::oneshot::channel();
         self.authenticating = true;
@@ -202,44 +204,20 @@ impl PolkitModule {
         if self.authenticating {
             return;
         }
-        let control = event.keystroke.modifiers.control || event.keystroke.modifiers.platform;
-        if control {
-            match key {
-                "v" => {
-                    if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-                        append_password(&mut self.password, &text);
-                    }
-                }
-                "u" | "w" => self.password.clear(),
-                _ => return,
-            }
-        } else if !event.keystroke.modifiers.alt {
-            match key {
-                "enter" => {
-                    self.submit(cx);
-                    return;
-                }
-                "backspace" => {
-                    self.password.pop();
-                }
-                "space" => self.password.push(' '),
-                _ => {
-                    if let Some(text) = &event.keystroke.key_char {
-                        append_password(&mut self.password, text);
-                    } else {
-                        return;
-                    }
-                }
-            }
-        } else {
+        if key == "enter" {
+            self.submit(cx);
+            cx.stop_propagation();
             return;
         }
-        self.clear_error(cx);
-        cx.notify();
-        cx.stop_propagation();
+        if self.password_input.handle_key_down(event, cx) {
+            self.clear_error(cx);
+            cx.notify();
+            cx.stop_propagation();
+        }
     }
 }
 
+#[cfg(test)]
 fn append_password(password: &mut String, text: &str) {
     password.extend(text.chars().filter(|character| !character.is_control()));
 }

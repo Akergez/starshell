@@ -2,6 +2,7 @@ use super::style;
 use crate::capsule::module::polkit::PolkitModule;
 use gpui::{AnyElement, Context, FocusHandle, IntoElement, div, prelude::*, px, svg};
 use services::AppState;
+use ui::components::{Button, ButtonVariant, Input};
 use ui::theme::Theme;
 
 pub const WIDTH: f32 = 432.0;
@@ -43,7 +44,7 @@ pub(crate) fn render(
     };
     let message_height = message_lines(&request.message) * 17.0;
     let message_card_height = 34.0 + message_height;
-    let enabled = !module.authenticating && !module.password.is_empty();
+    let enabled = !module.authenticating && !module.password_input.is_empty();
     let placeholder = module.text(
         if module.authenticating {
             "polkit.verifying"
@@ -52,49 +53,29 @@ pub(crate) fn render(
         },
         cx,
     );
-    let field = div()
-        .id("polkit-password")
-        .w_full()
-        .h(px(42.0))
-        .flex_shrink_0()
-        .px(px(14.0))
+    let field = Input::from_state("polkit-password", &module.password_input)
+        .placeholder(placeholder)
+        .masked(true)
+        .focused(true)
+        .disabled(module.authenticating)
+        .error(module.error.is_some())
+        .prefix(
+            svg()
+                .path("lock.svg")
+                .size(px(18.0))
+                .flex_shrink_0()
+                .text_color(theme.foreground_muted())
+                .into_any_element(),
+        )
+        .h_px(42.0)
         .rounded_full()
         .bg(style::background(&theme))
-        .border_1()
         .border_color(if module.error.is_some() {
             theme.red()
         } else {
             style::tint(style::border(&theme), theme.accent(), 0.35)
         })
-        .flex()
-        .items_center()
-        .gap(px(10.0))
-        .on_click(cx.listener(|this, _, window, cx| window.focus(&this.focus_handle(), cx)))
-        .child(
-            svg()
-                .path("lock.svg")
-                .size(px(18.0))
-                .flex_shrink_0()
-                .text_color(theme.foreground_muted()),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .overflow_hidden()
-                .whitespace_nowrap()
-                .text_size(px(14.0))
-                .text_color(if module.password.is_empty() {
-                    theme.foreground_muted()
-                } else {
-                    theme.foreground()
-                })
-                .child(if module.password.is_empty() {
-                    placeholder
-                } else {
-                    "•".repeat(module.password.chars().count().min(32))
-                }),
-        );
+        .on_click(cx.listener(|this, _, window, cx| window.focus(&this.focus_handle(), cx)));
     let mut feedback = div()
         .id("polkit-feedback")
         .w_full()
@@ -237,40 +218,26 @@ pub(crate) fn render(
                 .justify_end()
                 .gap(px(8.0))
                 .child(
-                    div()
-                        .id("polkit-cancel")
-                        .h(px(32.0))
-                        .px(px(18.0))
-                        .rounded_full()
-                        .bg(style::surface(&theme))
-                        .text_size(px(13.0))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor_pointer()
-                        .hover(|s| s.bg(style::hover(&theme)))
-                        .on_click(cx.listener(|this, _, _, cx| this.cancel(cx)))
-                        .child(module.text("common.cancel", cx)),
+                    Button::new("polkit-cancel")
+                        .label(module.text("common.cancel", cx))
+                        .variant(ButtonVariant::Secondary)
+                        .padding_x(18.0)
+                        .on_click(cx.listener(|this, _, _, cx| this.cancel(cx))),
                 )
                 .child(
-                    style::primary_button(
-                        "polkit-authenticate",
-                        module.text(
+                    Button::new("polkit-authenticate")
+                        .label(module.text(
                             if module.authenticating {
                                 "polkit.verifying"
                             } else {
                                 "common.authenticate"
                             },
                             cx,
-                        ),
-                        enabled,
-                        &theme,
-                    )
-                    .h(px(32.0))
-                    .text_size(px(13.0))
-                    .when(enabled, |s| {
-                        s.on_click(cx.listener(|this, _, _, cx| this.submit(cx)))
-                    }),
+                        ))
+                        .variant(ButtonVariant::Primary)
+                        .disabled(!enabled)
+                        .padding_x(18.0)
+                        .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                 ),
         )
         .into_any_element()

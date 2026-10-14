@@ -4,6 +4,7 @@ use super::{error, list};
 use crate::capsule::module::dashboard::DashboardModule;
 use crate::capsule::widgets::style;
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
+use ui::components::Input;
 use ui::theme::Theme;
 pub(super) fn wifi(
     module: &DashboardModule,
@@ -79,29 +80,24 @@ pub(super) fn wifi(
             cx,
         ));
         if module.navigation.selected_ssid.as_deref() == Some(&ap.ssid) {
+            let password_input = Input::from_state(
+                "dashboard-wifi-password",
+                &module.navigation.password_input,
+            )
+            .placeholder(module.text("quick_settings.password_placeholder", cx))
+            .masked(true)
+            .focused(true)
+            .h_px(38.0)
+            .flex_1(true)
+            .rounded(px(10.0))
+            .bg(style::surface(theme));
+
             content = content.child(
                 div()
                     .flex()
                     .items_center()
                     .gap(px(8.0))
-                    .child(
-                        div()
-                            .id("dashboard-wifi-password")
-                            .flex_1()
-                            .min_h(px(40.0))
-                            .p(px(10.0))
-                            .rounded(px(10.0))
-                            .bg(style::surface(theme))
-                            .cursor_text()
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                window.focus(&this.focus_handle(), cx)
-                            }))
-                            .child(if module.navigation.password.is_empty() {
-                                module.text("quick_settings.password_placeholder", cx)
-                            } else {
-                                "•".repeat(module.navigation.password.chars().count())
-                            }),
-                    )
+                    .child(password_input)
                     .child(button(
                         "dashboard-wifi-connect",
                         module.text("quick_settings.connect", cx),

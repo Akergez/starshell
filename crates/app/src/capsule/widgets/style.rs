@@ -158,29 +158,7 @@ pub(crate) fn card(theme: &Theme, radius: f32) -> gpui::Div {
 }
 
 pub(crate) fn on_accent(theme: &Theme) -> Hsla {
-    fn luminance(color: Hsla) -> f32 {
-        let color = gpui::hsla_to_rgba(color);
-        let linear = |channel: f32| {
-            if channel <= 0.04045 {
-                channel / 12.92
-            } else {
-                ((channel + 0.055) / 1.055).powf(2.4)
-            }
-        };
-        0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue)
-    }
-    let accent = luminance(theme.accent());
-    let foreground = theme.foreground();
-    let background = theme.background();
-    let contrast = |color| {
-        let value = luminance(color);
-        (accent.max(value) + 0.05) / (accent.min(value) + 0.05)
-    };
-    if contrast(background) > contrast(foreground) {
-        opaque(background)
-    } else {
-        opaque(foreground)
-    }
+    theme.on_accent()
 }
 
 pub(crate) const CARD_RADIUS: f32 = 16.0;

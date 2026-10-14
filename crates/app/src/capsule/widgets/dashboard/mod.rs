@@ -7,7 +7,7 @@ mod notifications;
 use crate::capsule::module::dashboard::DashboardModule;
 use gpui::{
     AnyElement, ColorExt, Context, IntoElement, MotionDurationExt, Pixels, Size, div, ease_in_out,
-    prelude::*, px, size, svg,
+    millis, prelude::*, px, size, svg,
 };
 use ui::theme::Theme;
 
@@ -154,6 +154,7 @@ pub(crate) fn icon_action(
         .justify_center()
         .rounded(px(8.0))
         .opacity(if enabled { 1.0 } else { 0.35 })
+        .transitions(|t| t.bg(millis(120).with_easing(ease_in_out)))
         .when(enabled, |s| {
             s.cursor_pointer()
                 .hover(move |s| s.bg(hover))
