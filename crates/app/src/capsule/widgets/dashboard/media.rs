@@ -65,7 +65,7 @@ pub fn render(
     let phase = module.wave_phase;
     let amplitude = if track.is_playing { 3.0 } else { 0.0 };
     let active = theme.accent();
-    let inactive = theme.foreground_muted().opacity(0.3);
+    let inactive = theme.text_muted().opacity(0.3);
     let bounds_tracker = module.seek_bounds.clone();
     let progress = div()
         .id("dashboard-seek")
@@ -173,7 +173,7 @@ pub fn render(
                     .child(
                         div()
                             .text_size(px(11.0))
-                            .text_color(theme.foreground_muted())
+                            .text_color(theme.text_muted())
                             .whitespace_nowrap()
                             .text_ellipsis()
                             .child(track.artist.clone()),

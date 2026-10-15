@@ -295,7 +295,7 @@ impl Render for LockScreen {
                         .px(px(6.0))
                         .py(px(2.0))
                         .rounded(px(6.0))
-                        .bg(theme.green().opacity(0.85))
+                        .bg(theme.success().opacity(0.85))
                         .child(
                             div()
                                 .font_family(theme.font_family())
@@ -325,7 +325,7 @@ impl Render for LockScreen {
                     svg()
                         .path(icon)
                         .size(px(15.0))
-                        .text_color(theme.foreground()),
+                        .text_color(theme.text()),
                 )
             });
 
@@ -380,14 +380,14 @@ impl Render for LockScreen {
                                 .w(px(46.0))
                                 .h(px(46.0))
                                 .rounded_full()
-                                .bg(theme.surface().opacity(0.45))
+                                .bg(theme.elevated().opacity(0.45))
                                 .border_1()
-                                .border_color(theme.surface().opacity(0.35))
+                                .border_color(theme.elevated().opacity(0.35))
                                 .child(
                                     svg()
                                         .path("user.svg")
                                         .size(px(22.0))
-                                        .text_color(theme.foreground().opacity(0.95)),
+                                        .text_color(theme.text().opacity(0.95)),
                                 ),
                         )
                         .child(
@@ -395,7 +395,7 @@ impl Render for LockScreen {
                                 .font_family(theme.font_family())
                                 .font_weight(gpui::FontWeight::MEDIUM)
                                 .text_size(px(14.0))
-                                .text_color(theme.foreground().opacity(0.9))
+                                .text_color(theme.text().opacity(0.9))
                                 .child(self.username.clone()),
                         )
                         .child(render_auth_form(

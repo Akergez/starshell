@@ -1,10 +1,9 @@
 use gpui::{
-    AnyElement, App, Context, ElementId, IntoElement, MouseMoveEvent, MouseUpEvent,
+    AnyElement, App, Context, ElementId, IntoElement,
     ParentElement, Styled, Window, div, px,
 };
 use services::AppState;
 use ui::theme::Theme;
-use ui::tracker::DimensionTracker;
 
 use super::common::{card, control_row, heading, hero_header, pill_button, row_divider, slider_row, toggle_row};
 use super::SettingsView;
@@ -18,56 +17,28 @@ fn text(key: &str, cx: &App) -> String {
     }
 }
 
-pub struct LockScreenView {
-    timeout_tracker: DimensionTracker,
-    dragging_timeout: bool,
-}
+pub struct LockScreenView;
 
 impl LockScreenView {
     pub fn new() -> Self {
-        Self {
-            timeout_tracker: DimensionTracker::new(),
-            dragging_timeout: false,
-        }
+        Self
     }
 
-    fn update_timeout(&mut self, x: f32, cx: &mut Context<Settings>) {
-        let left = self.timeout_tracker.left();
-        let width = self.timeout_tracker.width(0.0);
-        if width > 0.0 {
-            let frac = ((x - left) / width).clamp(0.0, 1.0);
-            let mins = (frac * 60.0).round().clamp(0.0, 60.0);
-            let secs = (mins * 60.0) as u64;
-
-            if cx.has_global::<AppState>() {
-                let _ = cx.global::<AppState>().config.update(|cfg| {
-                    cfg.lockscreen.idle_timeout = secs;
-                });
-            }
-            cx.notify();
+    fn update_timeout(fraction: f32, cx: &mut Context<Settings>) {
+        let minutes = (fraction * 60.0).round().clamp(0.0, 60.0);
+        let seconds = (minutes * 60.0) as u64;
+        if cx.has_global::<AppState>() {
+            let _ = cx.global::<AppState>().config.update(|cfg| {
+                cfg.lockscreen.idle_timeout = seconds;
+            });
         }
+        cx.notify();
     }
 }
 
 impl SettingsView for LockScreenView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
-    }
-
-    fn handle_mouse_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Settings>) -> bool {
-        if self.dragging_timeout {
-            self.update_timeout(event.position.x.into(), cx);
-            return true;
-        }
-        false
-    }
-
-    fn handle_mouse_up(&mut self, _event: &MouseUpEvent, _cx: &mut Context<Settings>) -> bool {
-        if self.dragging_timeout {
-            self.dragging_timeout = false;
-            return true;
-        }
-        false
     }
 
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Settings>) -> AnyElement {
@@ -120,21 +91,13 @@ impl SettingsView for LockScreenView {
                         &text("settings.idle_timeout_title", cx),
                         &display_timeout,
                         timeout_pct,
-                        &self.timeout_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<LockScreenView>() {
-                                view.dragging_timeout = true;
-                                view.update_timeout(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<LockScreenView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        {
+                            let listener = cx.listener(|_, fraction: &f32, _, cx| {
+                                Self::update_timeout(*fraction, cx)
+                            });
+                            move |fraction, window, cx| listener(&fraction, window, cx)
+                        },
                     ))
                     .child(row_divider(&theme))
                     .child(toggle_row(

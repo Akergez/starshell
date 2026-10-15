@@ -1,7 +1,7 @@
 use crate::theme::Theme;
 use gpui::{
-    AnyView, App, AppContext, ColorExt, Context, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, div, prelude::FluentBuilder, px,
+    AnyView, App, AppContext, ColorExt, Context, IntoElement, ParentElement, Render, SharedString,
+    Styled, Window, div, prelude::FluentBuilder, px,
 };
 
 pub struct TooltipView {
@@ -16,11 +16,11 @@ impl Render for TooltipView {
             .px(px(8.0))
             .py(px(4.0))
             .rounded(px(6.0))
-            .bg(theme.surface())
+            .bg(theme.elevated())
             .border_1()
-            .border_color(theme.surface().opacity(0.4))
+            .border_color(theme.elevated().opacity(0.4))
             .text_size(px(11.0))
-            .text_color(theme.foreground())
+            .text_color(theme.text())
             .font_family(theme.font_family())
             .flex()
             .items_center()
@@ -33,7 +33,7 @@ impl Render for TooltipView {
                         .py(px(1.0))
                         .rounded(px(4.0))
                         .bg(theme.background())
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .text_size(px(10.0))
                         .child(sc),
                 )

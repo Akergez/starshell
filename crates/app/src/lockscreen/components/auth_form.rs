@@ -44,14 +44,14 @@ pub fn render_auth_form(
         .max_w_px(200.0)
         .h_px(34.0)
         .rounded_full()
-        .bg(theme.surface().opacity(0.35))
+        .bg(theme.elevated().opacity(0.35))
         .border_color(if auth_failed {
-            theme.red()
+            theme.error()
         } else {
-            theme.surface().opacity(0.35)
+            theme.elevated().opacity(0.35)
         })
         .focused_border_color(if auth_failed {
-            theme.red()
+            theme.error()
         } else {
             theme.accent()
         })

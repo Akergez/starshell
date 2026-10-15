@@ -121,10 +121,10 @@ impl RenderOnce for Chip {
             )
         } else {
             (
-                theme.surface().opacity(0.35),
-                theme.surface().opacity(0.6),
-                theme.foreground(),
-                theme.surface().opacity(0.25),
+                theme.elevated().opacity(0.35),
+                theme.elevated().opacity(0.6),
+                theme.text(),
+                theme.elevated().opacity(0.25),
             )
         };
 

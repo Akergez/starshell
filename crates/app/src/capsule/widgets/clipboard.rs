@@ -65,7 +65,7 @@ fn action(
         .child(svg().path(icon).size(px(13.0)).text_color(if highlighted {
             theme.accent()
         } else {
-            theme.foreground_muted()
+            theme.text_muted()
         }))
 }
 
@@ -120,7 +120,7 @@ pub(crate) fn render(
                 .text_color(if active {
                     style::on_accent(theme)
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 })
                 .on_click(cx.listener(move |module, _, _, cx| module.switch_tab(tab, cx)))
                 .child(div().text_size(px(12.0)).child(module.text(label, cx))),
@@ -159,7 +159,7 @@ pub(crate) fn render(
                     svg()
                         .path("close.svg")
                         .size(px(13.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 ),
         );
     let search = Input::from_state("clipboard-search", &module.search_input)
@@ -175,7 +175,7 @@ pub(crate) fn render(
             svg()
                 .path("search.svg")
                 .size(px(14.0))
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
         .on_clear(cx.listener(|this, _, _, cx| {
             this.search_input.clear();
@@ -196,7 +196,7 @@ pub(crate) fn render(
         gallery = gallery.items_center().justify_center().child(
             div()
                 .text_size(px(12.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .child(module.text(
                     if module.loading {
                         "dashboard_new.loading"
@@ -239,7 +239,7 @@ pub(crate) fn render(
                                     .flex_shrink_0()
                                     .rounded_tl(preview_radius)
                                     .rounded_tr(preview_radius)
-                                    .bg(theme.surface())
+                                    .bg(theme.elevated())
                                     .flex()
                                     .items_center()
                                     .justify_center()
@@ -259,7 +259,7 @@ pub(crate) fn render(
                                             svg()
                                                 .path("wallpaper.svg")
                                                 .size(px(24.0))
-                                                .text_color(theme.foreground_muted()),
+                                                .text_color(theme.text_muted()),
                                         )
                                     }),
                             )
@@ -276,7 +276,7 @@ pub(crate) fn render(
                                             .path("wallpaper.svg")
                                             .size(px(12.0))
                                             .flex_shrink_0()
-                                            .text_color(theme.foreground_muted()),
+                                            .text_color(theme.text_muted()),
                                     )
                                     .child(
                                         div()
@@ -310,13 +310,13 @@ pub(crate) fn render(
                                         svg()
                                             .path("file-text.svg")
                                             .size(px(13.0))
-                                            .text_color(theme.foreground_muted()),
+                                            .text_color(theme.text_muted()),
                                     )
                                     .child(
                                         div()
                                             .flex_1()
                                             .text_size(px(10.0))
-                                            .text_color(theme.foreground_muted())
+                                            .text_color(theme.text_muted())
                                             .child(format!("{:02}", index + 1)),
                                     )
                                     .child(action(
@@ -457,7 +457,7 @@ pub(crate) fn render(
         .flex_col()
         .gap(px(GAP))
         .font_family(theme.font_family())
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .child(header)
         .child(tabs)
         .child(gallery)
@@ -476,16 +476,16 @@ pub(crate) fn render(
                         .text_size(px(10.0))
                         .text_ellipsis()
                         .text_color(if module.error.is_some() {
-                            theme.red()
+                            theme.error()
                         } else {
-                            theme.foreground_muted()
+                            theme.text_muted()
                         })
                         .child(footer),
                 )
                 .child(
                     div()
                         .text_size(px(10.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(module.model.filtered.len().to_string()),
                 ),
         )

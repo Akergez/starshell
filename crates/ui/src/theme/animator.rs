@@ -63,6 +63,17 @@ impl ThemeAnimator {
         theme.accent_color = mix(&self.start.accent_color, &self.target.accent_color);
         theme.red_color = mix(&self.start.red_color, &self.target.red_color);
         theme.green_color = mix(&self.start.green_color, &self.target.green_color);
+        let mix_optional = |start: &Option<Color>, target: &Option<Color>| match (start, target) {
+            (Some(start), Some(target)) => Some(interpolate(start, target, progress)),
+            _ => target.clone(),
+        };
+        theme.warning_color = mix_optional(&self.start.warning_color, &self.target.warning_color);
+        theme.hover_color = mix_optional(&self.start.hover_color, &self.target.hover_color);
+        theme.border_color = mix_optional(&self.start.border_color, &self.target.border_color);
+        theme.selection_color =
+            mix_optional(&self.start.selection_color, &self.target.selection_color);
+        theme.on_accent_color =
+            mix_optional(&self.start.on_accent_color, &self.target.on_accent_color);
         theme.light_mode_mix = Some(
             self.start.light_mix() + (self.target.light_mix() - self.start.light_mix()) * progress,
         );

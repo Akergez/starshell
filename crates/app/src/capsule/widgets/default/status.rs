@@ -44,8 +44,8 @@ pub fn render_status(status: &StatusSnapshot, theme: &Theme) -> impl IntoElement
     };
     let battery_color = match battery {
         Some(value) if value.is_charging => theme.accent(),
-        Some(value) if value.percentage <= 15 => theme.red(),
-        _ => theme.foreground(),
+        Some(value) if value.percentage <= 15 => theme.error(),
+        _ => theme.text(),
     };
     div()
         .w(px(STATUS_WIDTH))
@@ -59,9 +59,9 @@ pub fn render_status(status: &StatusSnapshot, theme: &Theme) -> impl IntoElement
                 .path(status.network_icon)
                 .size(px(15.0))
                 .text_color(if status.connected {
-                    theme.foreground()
+                    theme.text()
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 }),
         )
         .when(battery.is_some(), |row| {

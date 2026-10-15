@@ -69,7 +69,7 @@ fn control(
             svg()
                 .path(icon)
                 .size(px(14.0))
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
 }
 
@@ -87,7 +87,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                 .w(px(20.0))
                 .h_full()
                 .rounded(px(6.0))
-                .bg(item_theme.surface())
+                .bg(item_theme.elevated())
                 .p(px(3.0))
                 .flex()
                 .flex_col()
@@ -98,19 +98,19 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                     div()
                         .size(px(4.0))
                         .rounded_full()
-                        .bg(item_theme.foreground_muted().opacity(0.4)),
+                        .bg(item_theme.text_muted().opacity(0.4)),
                 )
                 .child(
                     div()
                         .size(px(4.0))
                         .rounded_full()
-                        .bg(item_theme.foreground_muted().opacity(0.4)),
+                        .bg(item_theme.text_muted().opacity(0.4)),
                 )
                 .child(
                     div()
                         .size(px(4.0))
                         .rounded_full()
-                        .bg(item_theme.foreground_muted().opacity(0.4)),
+                        .bg(item_theme.text_muted().opacity(0.4)),
                 ),
         )
         .child(
@@ -125,7 +125,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                         .w_full()
                         .h(px(12.0))
                         .rounded(px(4.0))
-                        .bg(item_theme.surface())
+                        .bg(item_theme.elevated())
                         .flex()
                         .items_center()
                         .px(px(4.0))
@@ -142,7 +142,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                         .w_full()
                         .h(px(12.0))
                         .rounded(px(4.0))
-                        .bg(item_theme.surface())
+                        .bg(item_theme.elevated())
                         .flex()
                         .items_center()
                         .px(px(4.0))
@@ -151,7 +151,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                                 .w(px(30.0))
                                 .h(px(3.0))
                                 .rounded_full()
-                                .bg(item_theme.foreground_muted().opacity(0.4)),
+                                .bg(item_theme.text_muted().opacity(0.4)),
                         ),
                 )
                 .child(
@@ -159,7 +159,7 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                         .w_full()
                         .flex_1()
                         .rounded(px(6.0))
-                        .bg(item_theme.surface())
+                        .bg(item_theme.elevated())
                         .p(px(4.0))
                         .flex()
                         .items_center()
@@ -176,14 +176,14 @@ fn render_theme_preview(item_theme: &Theme) -> AnyElement {
                                         .w_full()
                                         .h(px(4.0))
                                         .rounded_full()
-                                        .bg(item_theme.foreground().opacity(0.8)),
+                                        .bg(item_theme.text().opacity(0.8)),
                                 )
                                 .child(
                                     div()
                                         .w(px(24.0))
                                         .h(px(3.0))
                                         .rounded_full()
-                                        .bg(item_theme.foreground_muted().opacity(0.4)),
+                                        .bg(item_theme.text_muted().opacity(0.4)),
                                 ),
                         ),
                 ),
@@ -202,7 +202,7 @@ fn render_wallpaper_preview(thumbnail: Option<&PathBuf>, theme: &Theme) -> AnyEl
         div()
             .size_full()
             .rounded(px(style::CARD_RADIUS))
-            .bg(theme.surface())
+            .bg(theme.elevated())
             .flex()
             .items_center()
             .justify_center()
@@ -210,7 +210,7 @@ fn render_wallpaper_preview(thumbnail: Option<&PathBuf>, theme: &Theme) -> AnyEl
                 svg()
                     .path("image.svg")
                     .size(px(28.0))
-                    .text_color(theme.foreground_muted()),
+                    .text_color(theme.text_muted()),
             )
             .into_any_element()
     }
@@ -232,12 +232,12 @@ pub(crate) fn render(
             .justify_center()
             .gap(px(12.0))
             .font_family(theme.font_family())
-            .text_color(theme.foreground())
+            .text_color(theme.text())
             .child(
                 svg()
                     .path("lock.svg")
                     .size(px(30.0))
-                    .text_color(theme.foreground_muted()),
+                    .text_color(theme.text_muted()),
             )
             .child(
                 div()
@@ -248,7 +248,7 @@ pub(crate) fn render(
             .child(
                 div()
                     .text_size(px(12.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .text_center()
                     .child(module.text("settings.themes_locked_hint", cx)),
             )
@@ -285,7 +285,7 @@ pub(crate) fn render(
         carousel = carousel.flex().items_center().justify_center().child(
             div()
                 .text_size(px(12.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .child(module.text(key, cx)),
         );
     }
@@ -341,7 +341,7 @@ pub(crate) fn render(
                     .border_color(if index == selected {
                         theme.accent()
                     } else {
-                        theme.foreground().opacity(0.1)
+                        theme.text().opacity(0.1)
                     })
                     .opacity(props.opacity)
                     .cursor_pointer()
@@ -379,9 +379,9 @@ pub(crate) fn render(
                         gpui::FontWeight::NORMAL
                     })
                     .text_color(if index == selected {
-                        theme.foreground()
+                        theme.text()
                     } else {
-                        theme.foreground_muted()
+                        theme.text_muted()
                     })
                     .opacity(props.opacity)
                     .child(name),
@@ -412,7 +412,7 @@ pub(crate) fn render(
                 .left_0()
                 .w_full()
                 .text_size(px(11.0))
-                .text_color(theme.red())
+                .text_color(theme.error())
                 .text_ellipsis()
                 .child(error.clone()),
         )
@@ -438,7 +438,7 @@ pub(crate) fn render(
         .flex_col()
         .justify_between()
         .font_family(theme.font_family())
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .child(
             div()
                 .h(px(28.0))
@@ -458,13 +458,13 @@ pub(crate) fn render(
                                     AppearanceKind::Wallpapers => "image.svg",
                                 })
                                 .size(px(18.0))
-                                .text_color(theme.foreground()),
+                                .text_color(theme.text()),
                         )
                         .child(
                             div()
                                 .text_size(px(14.0))
                                 .font_weight(gpui::FontWeight::MEDIUM)
-                                .text_color(theme.foreground())
+                                .text_color(theme.text())
                                 .child(title),
                         ),
                 )
@@ -491,7 +491,7 @@ pub(crate) fn render(
                         .flex_1()
                         .text_center()
                         .text_size(px(12.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(format!(
                             "{} / {}",
                             if count == 0 { 0 } else { selected + 1 },

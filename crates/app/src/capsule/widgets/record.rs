@@ -69,7 +69,7 @@ fn controls(
                         .size(px(10.0))
                         .flex_shrink_0()
                         .rounded_full()
-                        .bg(theme.red()),
+                        .bg(theme.error()),
                 )
                 .child(
                     div()
@@ -88,9 +88,9 @@ fn controls(
                     .flex_shrink_0()
                     .rounded_full()
                     .bg(if paused {
-                        theme.foreground_muted()
+                        theme.text_muted()
                     } else {
-                        theme.red()
+                        theme.error()
                     }),
             )
             .child(
@@ -105,7 +105,7 @@ fn controls(
                     .flex_1()
                     .min_w_0()
                     .text_size(px(11.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .text_ellipsis()
                     .when(
                         paused || presentation.pending == Some(PendingAction::Stop),
@@ -136,7 +136,7 @@ fn controls(
                         svg()
                             .path(if paused { "play.svg" } else { "pause.svg" })
                             .size(px(13.0))
-                            .text_color(theme.foreground()),
+                            .text_color(theme.text()),
                     ),
             )
             .child(
@@ -163,7 +163,7 @@ fn controls(
                         svg()
                             .path("square.svg")
                             .size(px(13.0))
-                            .text_color(theme.red()),
+                            .text_color(theme.error()),
                     ),
             );
     }
@@ -225,7 +225,7 @@ pub fn render(module: &RecordModule, cx: &mut Context<RecordModule>) -> gpui::St
                     .overflow_hidden()
                     .text_size(px(11.0))
                     .line_height(px(16.0))
-                    .text_color(theme.red())
+                    .text_color(theme.error())
                     .child(error.clone()),
             )
         })

@@ -15,7 +15,7 @@ fn control(
     theme: &Theme,
     cx: &mut Context<DashboardModule>,
 ) -> impl IntoElement {
-    let hover = theme.surface();
+    let hover = theme.elevated();
     div()
         .id(id)
         .size(px(28.0))
@@ -44,7 +44,7 @@ fn control(
             svg()
                 .path(icon)
                 .size(px(14.0))
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
 }
 
@@ -71,7 +71,7 @@ pub fn render(height: gpui::Pixels, cx: &mut Context<DashboardModule>) -> impl I
                 .flex_1()
                 .text_center()
                 .text_size(px(11.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .child(label),
         );
     }
@@ -99,7 +99,7 @@ pub fn render(height: gpui::Pixels, cx: &mut Context<DashboardModule>) -> impl I
                     .text_color(if selected {
                         style::on_accent(&theme)
                     } else {
-                        theme.foreground()
+                        theme.text()
                     })
                     .child(date.map(|date| date.day().to_string()).unwrap_or_default()),
             );
@@ -115,7 +115,7 @@ pub fn render(height: gpui::Pixels, cx: &mut Context<DashboardModule>) -> impl I
         .gap(px(12.0))
         .font_family(theme.font_family())
         .text_size(px(13.0))
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .overflow_hidden()
         .child(
             div()

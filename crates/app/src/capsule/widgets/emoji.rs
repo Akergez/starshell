@@ -47,7 +47,7 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
             svg()
                 .path("search.svg")
                 .size(px(16.0))
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
         .on_clear(cx.listener(|module, _, _, cx| {
             module.search_input.clear();
@@ -72,7 +72,7 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
                             .text_color(if selected {
                                 style::on_accent(&theme)
                             } else {
-                                theme.foreground_muted()
+                                theme.text_muted()
                             })
                             .into_any_element()
                     } else {
@@ -121,12 +121,12 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
                 svg()
                     .path("search.svg")
                     .size(px(26.0))
-                    .text_color(theme.foreground_muted()),
+                    .text_color(theme.text_muted()),
             )
             .child(
                 div()
                     .text_size(px(13.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .child(empty),
             );
     } else {
@@ -212,7 +212,7 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
                                 .min_w_0()
                                 .text_size(px(11.0))
                                 .text_ellipsis()
-                                .text_color(theme.foreground_muted())
+                                .text_color(theme.text_muted())
                                 .child(item.name.clone()),
                         )
                 }),
@@ -226,7 +226,7 @@ pub fn render(module: &EmojiModule, cx: &mut Context<EmojiModule>) -> gpui::Stat
         .child(
             div()
                 .text_size(px(11.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .child(format!(
                     "{}/{}",
                     module.model.page() + 1,

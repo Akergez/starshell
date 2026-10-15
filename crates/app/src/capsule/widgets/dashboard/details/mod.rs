@@ -53,7 +53,7 @@ pub(crate) fn render_satellite(
                 .p(px(16.0))
                 .gap(px(12.0))
                 .font_family(theme.font_family())
-                .text_color(theme.foreground())
+                .text_color(theme.text())
                 .text_size(px(13.0))
                 .child(
                     div()

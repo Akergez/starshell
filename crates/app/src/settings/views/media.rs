@@ -3,12 +3,11 @@ use super::SettingsView;
 use crate::capsule::widgets::style;
 use crate::settings::Settings;
 use gpui::{
-    AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, MouseMoveEvent,
-    MouseUpEvent, ParentElement, Styled, Window, div, prelude::*, px, svg,
+    AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled, Window, div, prelude::*, px, svg,
 };
 use services::AppState;
-use ui::components::{IconButton, Slider};
-use ui::{theme::Theme, tracker::DimensionTracker};
+use ui::components::{IconButton, Slider, SliderRow};
+use ui::theme::Theme;
 
 fn text(key: &str, cx: &App) -> String {
     if cx.has_global::<AppState>() {
@@ -19,10 +18,6 @@ fn text(key: &str, cx: &App) -> String {
 }
 
 pub struct MediaView {
-    output_bounds: DimensionTracker,
-    dragging_output: bool,
-    input_bounds: DimensionTracker,
-    dragging_input: bool,
     show_output_devices: bool,
     show_input_devices: bool,
     new_player_input: String,
@@ -32,10 +27,6 @@ pub struct MediaView {
 impl MediaView {
     pub fn new() -> Self {
         Self {
-            output_bounds: DimensionTracker::new(),
-            dragging_output: false,
-            input_bounds: DimensionTracker::new(),
-            dragging_input: false,
             show_output_devices: false,
             show_input_devices: false,
             new_player_input: String::new(),
@@ -43,65 +34,29 @@ impl MediaView {
         }
     }
 
-    fn slider_fraction(x: f32, tracker: &DimensionTracker) -> Option<f32> {
-        let left = tracker.left();
-        let width = tracker.width(0.0);
-        (width > 0.0).then(|| ((x - left) / width).clamp(0.0, 1.0))
-    }
-
-    pub fn update_output_volume(&mut self, x: f32, cx: &mut Context<Settings>) {
-        if let Some(fraction) = Self::slider_fraction(x, &self.output_bounds) {
-            let val = (fraction * 100.0).round() as u32;
+    fn volume_listener(
+        input: bool,
+        cx: &mut Context<Settings>,
+    ) -> impl Fn(f32, &mut Window, &mut App) + 'static {
+        let listener = cx.listener(move |_, fraction: &f32, _, cx| {
+            let value = (fraction * 100.0).round() as u32;
             if cx.has_global::<AppState>() {
-                cx.global::<AppState>().system.set_volume_fast(val);
+                let system = &cx.global::<AppState>().system;
+                if input {
+                    system.set_input_volume_fast(value);
+                } else {
+                    system.set_volume_fast(value);
+                }
             }
             cx.notify();
-        }
-    }
-
-    pub fn update_input_volume(&mut self, x: f32, cx: &mut Context<Settings>) {
-        if let Some(fraction) = Self::slider_fraction(x, &self.input_bounds) {
-            let val = (fraction * 100.0).round() as u32;
-            if cx.has_global::<AppState>() {
-                cx.global::<AppState>().system.set_input_volume_fast(val);
-            }
-            cx.notify();
-        }
+        });
+        move |fraction, window, cx| listener(&fraction, window, cx)
     }
 }
 
 impl SettingsView for MediaView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
-    }
-
-    fn handle_mouse_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Settings>) -> bool {
-        let x: f32 = event.position.x.into();
-        if self.dragging_output {
-            self.update_output_volume(x, cx);
-            return true;
-        }
-        if self.dragging_input {
-            self.update_input_volume(x, cx);
-            return true;
-        }
-        false
-    }
-
-    fn handle_mouse_up(&mut self, _event: &MouseUpEvent, cx: &mut Context<Settings>) -> bool {
-        let was_dragging = self.dragging_output || self.dragging_input;
-        if was_dragging {
-            self.dragging_output = false;
-            self.dragging_input = false;
-            if cx.has_global::<AppState>() {
-                let sys = cx.global::<AppState>().system.clone();
-                services::spawn_tokio(async move {
-                    let _ = sys.refresh().await;
-                });
-            }
-            return true;
-        }
-        false
     }
 
     fn handle_key_down(
@@ -180,59 +135,56 @@ impl SettingsView for MediaView {
         let in_muted = status.is_input_muted;
 
         let active_color = if out_muted {
-            theme.foreground_muted()
+            theme.text_muted()
         } else {
             theme.accent()
         };
         let in_active_color = if in_muted {
-            theme.foreground_muted()
+            theme.text_muted()
         } else {
             theme.accent()
         };
 
         // 1. Output Volume Drag Bar (Capsule Dashboard Style)
-        let output_drag_bar = Slider::new("settings-output-slider")
-            .fraction(out_fraction)
-            .height(32.0)
-            .icon(if out_muted { "volume-x.svg" } else { "volume-2.svg" })
-            .label(format!("{out_vol}%"))
-            .track_bounds(&self.output_bounds)
-            .active_color(active_color)
-            .on_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                if let Some(media) = this.view_as_mut::<MediaView>() {
-                    media.dragging_output = true;
-                    media.update_output_volume(event.position.x.into(), cx);
-                }
-            }))
-            .on_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                if let Some(media) = this.view_as_mut::<MediaView>() {
-                    if media.handle_mouse_up(event, cx) {
-                        cx.notify();
-                    }
-                }
-            }));
+        let output_drag_bar = SliderRow::new(
+            SliderRow::mute_button(
+                "settings-output-mute",
+                &theme,
+                if out_muted { "volume-x.svg" } else { "volume-2.svg" },
+                out_muted,
+            )
+            .on_click(|_, _, cx| {
+                let system = cx.global::<AppState>().system.clone();
+                services::spawn_tokio(async move {
+                    let _ = system.toggle_mute().await;
+                });
+            }),
+            text("settings.output_volume", cx),
+            Slider::new("settings-output-slider")
+                .color(active_color)
+                .on_change(Self::volume_listener(false, cx)),
+            out_fraction,
+        );
 
-        // 2. Input Volume Drag Bar (Capsule Dashboard Style)
-        let input_drag_bar = Slider::new("settings-input-slider")
-            .fraction(in_fraction)
-            .height(32.0)
-            .icon(if in_muted { "mic-off.svg" } else { "mic.svg" })
-            .label(format!("{in_vol}%"))
-            .track_bounds(&self.input_bounds)
-            .active_color(in_active_color)
-            .on_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                if let Some(media) = this.view_as_mut::<MediaView>() {
-                    media.dragging_input = true;
-                    media.update_input_volume(event.position.x.into(), cx);
-                }
-            }))
-            .on_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                if let Some(media) = this.view_as_mut::<MediaView>() {
-                    if media.handle_mouse_up(event, cx) {
-                        cx.notify();
-                    }
-                }
-            }));
+        let input_drag_bar = SliderRow::new(
+            SliderRow::mute_button(
+                "settings-input-mute",
+                &theme,
+                if in_muted { "mic-off.svg" } else { "mic.svg" },
+                in_muted,
+            )
+            .on_click(|_, _, cx| {
+                let system = cx.global::<AppState>().system.clone();
+                services::spawn_tokio(async move {
+                    let _ = system.toggle_input_mute().await;
+                });
+            }),
+            text("settings.input_volume", cx),
+            Slider::new("settings-input-slider")
+                .color(in_active_color)
+                .on_change(Self::volume_listener(true, cx)),
+            in_fraction,
+        );
 
         // Output devices list (Capsule native style)
         let show_out_devices = self.show_output_devices;
@@ -241,7 +193,7 @@ impl SettingsView for MediaView {
             out_devices_list = out_devices_list.child(
                 div()
                     .text_size(px(12.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .p(px(8.0))
                     .child(text("settings.no_audio_output_devices", cx)),
             );
@@ -308,7 +260,7 @@ impl SettingsView for MediaView {
                                     if is_selected {
                                         theme.accent()
                                     } else {
-                                        theme.foreground_muted()
+                                        theme.text_muted()
                                     },
                                 )),
                         )
@@ -329,7 +281,7 @@ impl SettingsView for MediaView {
                                 .child(
                                     div()
                                         .text_size(px(11.0))
-                                        .text_color(theme.foreground_muted())
+                                        .text_color(theme.text_muted())
                                         .text_ellipsis()
                                         .child(sink.name.clone()),
                                 ),
@@ -345,7 +297,7 @@ impl SettingsView for MediaView {
             in_devices_list = in_devices_list.child(
                 div()
                     .text_size(px(12.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .p(px(8.0))
                     .child(text("settings.no_audio_input_devices", cx)),
             );
@@ -396,7 +348,7 @@ impl SettingsView for MediaView {
                                     if is_selected {
                                         theme.accent()
                                     } else {
-                                        theme.foreground_muted()
+                                        theme.text_muted()
                                     },
                                 )),
                         )
@@ -417,7 +369,7 @@ impl SettingsView for MediaView {
                                 .child(
                                     div()
                                         .text_size(px(11.0))
-                                        .text_color(theme.foreground_muted())
+                                        .text_color(theme.text_muted())
                                         .text_ellipsis()
                                         .child(source.name.clone()),
                                 ),
@@ -432,7 +384,7 @@ impl SettingsView for MediaView {
             players_list = players_list.child(
                 div()
                     .text_size(px(12.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .p(px(8.0))
                     .child(text("settings.music_players_empty", cx)),
             );
@@ -513,7 +465,7 @@ impl SettingsView for MediaView {
                                     .child(
                                         div()
                                             .text_size(px(12.0))
-                                            .text_color(theme.foreground_muted())
+                                            .text_color(theme.text_muted())
                                             .child(text("settings.output_volume_subtitle", cx)),
                                     ),
                             )
@@ -581,7 +533,7 @@ impl SettingsView for MediaView {
                                     .child(
                                         div()
                                             .text_size(px(12.0))
-                                            .text_color(theme.foreground_muted())
+                                            .text_color(theme.text_muted())
                                             .child(text("settings.input_volume_subtitle", cx)),
                                     ),
                             )
@@ -665,7 +617,7 @@ impl SettingsView for MediaView {
                                     .child(
                                         div()
                                             .text_size(px(12.0))
-                                            .text_color(theme.foreground_muted())
+                                            .text_color(theme.text_muted())
                                             .child(text("settings.music_players_subtitle", cx)),
                                     ),
                             )
@@ -711,9 +663,9 @@ impl SettingsView for MediaView {
                                 .border_color(theme.accent())
                                 .text_size(px(13.0))
                                 .text_color(if self.new_player_input.is_empty() {
-                                    theme.foreground_muted()
+                                    theme.text_muted()
                                 } else {
-                                    theme.foreground()
+                                    theme.text()
                                 })
                                 .child(text_val.to_string()),
                         )

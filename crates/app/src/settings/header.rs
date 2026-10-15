@@ -32,7 +32,7 @@ pub fn render_header(
                 .bg(style::raised(theme))
                 .text_size(px(11.0))
                 .font_weight(FontWeight::MEDIUM)
-                .text_color(theme.foreground_muted().opacity(0.7))
+                .text_color(theme.text_muted().opacity(0.7))
                 .child("Ctrl+F")
                 .into_any_element(),
         )
@@ -57,7 +57,7 @@ pub fn render_header(
                 .text_color(if is_searching {
                     theme.accent()
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 }),
         )
         .on_click(cx.listener(|this, _, window, cx| {

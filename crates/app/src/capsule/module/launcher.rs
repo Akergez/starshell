@@ -192,7 +192,7 @@ impl Render for LauncherModule {
                 .items_center()
                 .justify_center()
                 .text_size(px(13.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .child(no_apps)
                 .into_any_element()
         } else {
@@ -219,9 +219,9 @@ impl Render for LauncherModule {
                     .flex_shrink_0()
                     .text_size(px(10.0))
                     .text_color(if self.launch_error.is_some() {
-                        theme.red()
+                        theme.error()
                     } else {
-                        theme.foreground_muted()
+                        theme.text_muted()
                     })
                     .child(self.launch_error.clone().unwrap_or(hints)),
             )

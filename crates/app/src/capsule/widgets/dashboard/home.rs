@@ -73,7 +73,7 @@ fn connectivity(
                 .child(svg().path(icon).size(px(20.0)).text_color(if enabled {
                     style::on_accent(theme)
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 })),
         )
         .child(
@@ -93,7 +93,7 @@ fn connectivity(
                 .child(
                     div()
                         .text_size(px(12.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .text_ellipsis()
                         .child(subtitle),
                 ),
@@ -104,7 +104,7 @@ fn connectivity(
                     .path("chevron-right.svg")
                     .size(px(14.0))
                     .flex_shrink_0()
-                    .text_color(theme.foreground_muted()),
+                    .text_color(theme.text_muted()),
             )
         })
         .into_any_element()
@@ -131,45 +131,39 @@ fn slider(
         module.volume_bounds.clone()
     };
     let active = if !brightness && module.snapshot.audio.is_muted {
-        theme.foreground_muted()
+        theme.text_muted()
     } else {
         theme.accent()
     };
-    let track_color = style::background(theme);
     let hover = style::hover(theme);
     let track = Slider::new(if brightness {
         "dashboard-brightness-slider"
     } else {
         "dashboard-volume-slider"
     })
-    .fraction(fraction)
-    .height(32.0)
-    .flex_1(true)
-    .icon(if brightness {
-        "sun.svg"
-    } else if module.snapshot.audio.is_muted {
-        "volume-x.svg"
-    } else {
-        "volume-2.svg"
+    .value(fraction)
+    .color(active)
+    .on_change({
+        let listener = cx.listener(move |this, fraction: &f32, _, cx| {
+            let x = tracker.left() + fraction * tracker.width(0.0);
+            if brightness {
+                this.start_brightness(x, cx);
+            } else {
+                this.start_volume(x, cx);
+            }
+        });
+        move |fraction, window, cx| listener(&fraction, window, cx)
     })
-    .icon_size(20.0)
-    .track_bounds(&tracker)
-    .track_color(track_color)
-    .active_color(active)
-    .on_mouse_down(cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
-        if brightness {
-            this.start_brightness(event.position.x.into(), cx);
-        } else {
-            this.start_volume(event.position.x.into(), cx);
-        }
-    }))
-    .on_mouse_up(cx.listener(move |this, _, _, cx| {
-        if brightness {
-            this.finish_brightness(cx);
-        } else {
-            this.finish_volume();
-        }
-    }));
+    .on_release({
+        let listener = cx.listener(move |this, _: &f32, _, cx| {
+            if brightness {
+                this.finish_brightness(cx);
+            } else {
+                this.finish_volume();
+            }
+        });
+        move |fraction, window, cx| listener(&fraction, window, cx)
+    });
     card(theme, cx)
         .id(if brightness {
             "dashboard-brightness"
@@ -217,7 +211,7 @@ fn slider(
                 .child(
                     div()
                         .text_size(px(14.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(format!("{value}%")),
                 ),
         )
@@ -250,7 +244,7 @@ fn slider(
                                 svg()
                                     .path("chevron-down.svg")
                                     .size(px(20.0))
-                                    .text_color(theme.foreground_muted()),
+                                    .text_color(theme.text_muted()),
                             ),
                     )
                 }),

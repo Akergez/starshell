@@ -58,7 +58,7 @@ pub(super) fn menu_entry(
         return div()
             .h(px(1.0))
             .w_full()
-            .bg(theme.surface())
+            .bg(theme.elevated())
             .into_any_element();
     }
     let mut content = div().flex_shrink_0().flex().flex_col().gap(px(4.0));

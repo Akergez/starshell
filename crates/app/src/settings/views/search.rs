@@ -438,14 +438,14 @@ pub fn render_search_results(
                         div()
                             .text_size(px(12.0))
                             .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.foreground())
+                            .text_color(theme.text())
                             .child(tab_label),
                     )
                     .child(
                         svg()
                             .path("chevron-right.svg")
                             .size(px(13.0))
-                            .text_color(theme.foreground_muted()),
+                            .text_color(theme.text_muted()),
                     );
 
                 control_row(&title, Some(&subtitle), nav_btn, theme)
@@ -486,20 +486,20 @@ pub fn render_search_results(
                         svg()
                             .path("search.svg")
                             .size(px(24.0))
-                            .text_color(theme.foreground_muted()),
+                            .text_color(theme.text_muted()),
                     ),
             )
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_size(px(16.0))
-                    .text_color(theme.foreground())
+                    .text_color(theme.text())
                     .child(text("settings.search_no_results_title", cx)),
             )
             .child(
                 div()
                     .text_size(px(13.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .text_center()
                     .max_w(px(380.0))
                     .overflow_hidden()

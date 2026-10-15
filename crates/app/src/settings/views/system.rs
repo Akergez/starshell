@@ -75,9 +75,9 @@ impl SettingsView for SystemView {
             .p(px(3.0))
             .gap(px(4.0))
             .rounded_full()
-            .bg(theme.surface().opacity(0.35))
+            .bg(theme.elevated().opacity(0.35))
             .border_1()
-            .border_color(theme.surface().opacity(0.25));
+            .border_color(theme.elevated().opacity(0.25));
 
         for (prof, label, icon) in profiles {
             let is_active = current_profile == prof;
@@ -103,7 +103,7 @@ impl SettingsView for SystemView {
                     })
                     .hover(|s| {
                         if !is_active {
-                            s.bg(theme.surface().opacity(0.4))
+                            s.bg(theme.elevated().opacity(0.4))
                         } else {
                             s
                         }
@@ -124,7 +124,7 @@ impl SettingsView for SystemView {
                             .text_color(if is_active {
                                 theme.background()
                             } else {
-                                theme.foreground_muted()
+                                theme.text_muted()
                             })
                             .transitions(|t| {
                                 t.text_color(millis(160).with_easing(ease_in_out))
@@ -141,7 +141,7 @@ impl SettingsView for SystemView {
                             .text_color(if is_active {
                                 theme.background()
                             } else {
-                                theme.foreground()
+                                theme.text()
                             })
                             .transitions(|t| {
                                 t.text_color(millis(160).with_easing(ease_in_out))
@@ -197,7 +197,7 @@ impl SettingsView for SystemView {
                         .text_color(if is_selected {
                             theme.accent()
                         } else {
-                            theme.foreground_muted()
+                            theme.text_muted()
                         }),
                 )
                 .on_click(cx.listener(move |this, _, _, cx| {

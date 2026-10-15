@@ -81,7 +81,7 @@ pub(super) fn audio(
                         .child(svg().path(icon).size(px(16.0)).text_color(if is_selected {
                             theme.accent()
                         } else {
-                            theme.foreground_muted()
+                            theme.text_muted()
                         })),
                 )
                 .child(
@@ -101,7 +101,7 @@ pub(super) fn audio(
                         .child(
                             div()
                                 .text_size(px(11.0))
-                                .text_color(theme.foreground_muted())
+                                .text_color(theme.text_muted())
                                 .text_ellipsis()
                                 .child(sink.name.clone()),
                         ),

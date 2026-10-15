@@ -97,7 +97,7 @@ impl Render for Capsule {
                 })
             })
             .font_family(theme.font_family())
-            .text_color(theme.foreground())
+            .text_color(theme.text())
             .when_some(self.outgoing_content.as_ref(), |s, outgoing| {
                 s.child(
                     div()

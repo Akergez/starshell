@@ -1,12 +1,11 @@
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, App, Context, Div, ElementId, FontWeight, IntoElement, MouseMoveEvent,
-    MouseUpEvent, ParentElement, Styled, Window, div, prelude::*, px, svg,
+    AnyElement, App, Context, Div, ElementId, FontWeight, IntoElement,
+    ParentElement, Styled, Window, div, prelude::*, px, svg,
 };
 use services::{AppState, CapsuleLocation, CapsuleStyle};
 use ui::theme::Theme;
-use ui::tracker::DimensionTracker;
 
 use super::common::{card, heading, hero_header, pill_button, row_divider, slider_row, toggle_row};
 use super::SettingsView;
@@ -34,21 +33,25 @@ pub enum AppearanceSlider {
     AnimDuration,
 }
 
+impl AppearanceSlider {
+    fn range(self) -> (f32, f32, f32) {
+        match self {
+            Self::IdleHeight => (16.0, 60.0, 1.0),
+            Self::MarginTop => (0.0, 40.0, 1.0),
+            Self::Gap => (0.0, 32.0, 1.0),
+            Self::CapsuleRound | Self::SatelliteRound | Self::CardsRound => (0.0, 24.0, 1.0),
+            Self::AnimDuration => (0.0, 1000.0, 25.0),
+        }
+    }
+}
+
 pub struct AppearanceView {
     pub appearance_error: Option<String>,
     pub motion_preview: Animator,
     pub(crate) orbit_preview: Preview,
     motion_preview_generation: u64,
 
-    active_slider: Option<(AppearanceSlider, DimensionTracker, f32, f32, f32)>,
 
-    idle_height_tracker: DimensionTracker,
-    margin_top_tracker: DimensionTracker,
-    gap_tracker: DimensionTracker,
-    capsule_round_tracker: DimensionTracker,
-    satellite_round_tracker: DimensionTracker,
-    cards_round_tracker: DimensionTracker,
-    anim_duration_tracker: DimensionTracker,
 }
 
 impl AppearanceView {
@@ -58,14 +61,6 @@ impl AppearanceView {
             orbit_preview: Preview::new(Default::default()),
             motion_preview: Animator::new(gpui::size(px(72.0), px(22.0)), Duration::ZERO),
             motion_preview_generation: 0,
-            active_slider: None,
-            idle_height_tracker: DimensionTracker::new(),
-            margin_top_tracker: DimensionTracker::new(),
-            gap_tracker: DimensionTracker::new(),
-            capsule_round_tracker: DimensionTracker::new(),
-            satellite_round_tracker: DimensionTracker::new(),
-            cards_round_tracker: DimensionTracker::new(),
-            anim_duration_tracker: DimensionTracker::new(),
         }
     }
 
@@ -140,31 +135,27 @@ impl AppearanceView {
         });
     }
 
-    fn update_slider_value(&mut self, x: f32, cx: &mut Context<Settings>) {
-        if let Some((slider, tracker, min, max, step)) = &self.active_slider {
-            let left = tracker.left();
-            let width = tracker.width(0.0);
-            if width > 0.0 {
-                let frac = ((x - left) / width).clamp(0.0, 1.0);
-                let raw_val = min + frac * (max - min);
-                let stepped = (raw_val / step).round() * step;
-                let val = stepped.clamp(*min, *max);
-
-                if cx.has_global::<AppState>() {
-                    let s = *slider;
-                    let _ = cx.global::<AppState>().config.update(|cfg| match s {
-                        AppearanceSlider::IdleHeight => cfg.ui.idle_height = val,
-                        AppearanceSlider::MarginTop => cfg.ui.margin_top = val,
-                        AppearanceSlider::Gap => cfg.ui.gap = val,
-                        AppearanceSlider::CapsuleRound => cfg.ui.capsule_round = val,
-                        AppearanceSlider::SatelliteRound => cfg.ui.satellite_round = val,
-                        AppearanceSlider::CardsRound => cfg.ui.cards_round = val,
-                        AppearanceSlider::AnimDuration => cfg.ui.animation_duration_ms = val as u32,
-                    });
-                }
-                cx.notify();
+    fn slider_listener(
+        slider: AppearanceSlider,
+        cx: &mut Context<Settings>,
+    ) -> impl Fn(f32, &mut Window, &mut App) + 'static {
+        let listener = cx.listener(move |_, fraction: &f32, _, cx| {
+            let (min, max, step) = slider.range();
+            let value = ((min + fraction * (max - min)) / step).round() * step;
+            if cx.has_global::<AppState>() {
+                let _ = cx.global::<AppState>().config.update(|cfg| match slider {
+                    AppearanceSlider::IdleHeight => cfg.ui.idle_height = value,
+                    AppearanceSlider::MarginTop => cfg.ui.margin_top = value,
+                    AppearanceSlider::Gap => cfg.ui.gap = value,
+                    AppearanceSlider::CapsuleRound => cfg.ui.capsule_round = value,
+                    AppearanceSlider::SatelliteRound => cfg.ui.satellite_round = value,
+                    AppearanceSlider::CardsRound => cfg.ui.cards_round = value,
+                    AppearanceSlider::AnimDuration => cfg.ui.animation_duration_ms = value as u32,
+                });
             }
-        }
+            cx.notify();
+        });
+        move |fraction, window, cx| listener(&fraction, window, cx)
     }
 }
 
@@ -197,22 +188,6 @@ fn silhouette(
 impl SettingsView for AppearanceView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
-    }
-
-    fn handle_mouse_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Settings>) -> bool {
-        if self.active_slider.is_some() {
-            self.update_slider_value(event.position.x.into(), cx);
-            return true;
-        }
-        false
-    }
-
-    fn handle_mouse_up(&mut self, _event: &MouseUpEvent, _cx: &mut Context<Settings>) -> bool {
-        if self.active_slider.is_some() {
-            self.active_slider = None;
-            return true;
-        }
-        false
     }
 
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Settings>) -> AnyElement {
@@ -395,13 +370,13 @@ impl SettingsView for AppearanceView {
                                         div()
                                             .font_weight(FontWeight::MEDIUM)
                                             .text_size(px(14.0))
-                                            .text_color(theme.foreground())
+                                            .text_color(theme.text())
                                             .child(text("settings.location", cx)),
                                     )
                                     .child(
                                         div()
                                             .text_size(px(12.0))
-                                            .text_color(theme.foreground_muted())
+                                            .text_color(theme.text_muted())
                                             .child(text("settings.location_hint", cx)),
                                     ),
                             )
@@ -485,27 +460,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.height_short", cx),
                         &format!("{:.0} px", config.ui.idle_height),
                         (config.ui.idle_height - 16.0) / (60.0 - 16.0),
-                        &self.idle_height_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::IdleHeight,
-                                    view.idle_height_tracker.clone(),
-                                    16.0,
-                                    60.0,
-                                    1.0,
-                                    ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::IdleHeight, cx),
                     ))
                     .child(row_divider(&theme))
                     .child(slider_row(
@@ -513,27 +469,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.margin_short", cx),
                         &format!("{:.0} px", config.ui.margin_top),
                         (config.ui.margin_top - 0.0) / (40.0 - 0.0),
-                        &self.margin_top_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::MarginTop,
-                                    view.margin_top_tracker.clone(),
-                                    0.0,
-                                    40.0,
-                                    1.0,
-                                ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::MarginTop, cx),
                     ))
                     .child(row_divider(&theme))
                     .child(slider_row(
@@ -541,27 +478,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.gap_short", cx),
                         &format!("{:.0} px", config.ui.gap),
                         (config.ui.gap - 0.0) / (32.0 - 0.0),
-                        &self.gap_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::Gap,
-                                    view.gap_tracker.clone(),
-                                    0.0,
-                                    32.0,
-                                    1.0,
-                                ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::Gap, cx),
                     ))
                     .child(row_divider(&theme))
                     .child(heading(&text("settings.radii_heading", cx), &theme))
@@ -570,27 +488,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.capsule_radius_short", cx),
                         &format!("{:.0} px", config.ui.capsule_round),
                         (config.ui.capsule_round - 0.0) / (24.0 - 0.0),
-                        &self.capsule_round_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::CapsuleRound,
-                                    view.capsule_round_tracker.clone(),
-                                    0.0,
-                                    24.0,
-                                    1.0,
-                                ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::CapsuleRound, cx),
                     ))
                     .child(row_divider(&theme))
                     .child(slider_row(
@@ -598,27 +497,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.satellite_radius_short", cx),
                         &format!("{:.0} px", config.ui.satellite_round),
                         (config.ui.satellite_round - 0.0) / (24.0 - 0.0),
-                        &self.satellite_round_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::SatelliteRound,
-                                    view.satellite_round_tracker.clone(),
-                                    0.0,
-                                    24.0,
-                                    1.0,
-                                ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::SatelliteRound, cx),
                     ))
                     .child(row_divider(&theme))
                     .child(slider_row(
@@ -626,27 +506,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.cards_radius_short", cx),
                         &format!("{:.0} px", config.ui.cards_round),
                         (config.ui.cards_round - 0.0) / (24.0 - 0.0),
-                        &self.cards_round_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::CardsRound,
-                                    view.cards_round_tracker.clone(),
-                                    0.0,
-                                    24.0,
-                                    1.0,
-                                ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::CardsRound, cx),
                     ))
                     .child(row_divider(&theme))
                     .child(heading(&text("settings.motion_heading", cx), &theme))
@@ -655,27 +516,8 @@ impl SettingsView for AppearanceView {
                         &text("settings.animation_short", cx),
                         &format!("{:.0} ms", config.ui.animation_duration_ms),
                         (config.ui.animation_duration_ms as f32 - 0.0) / (1000.0 - 0.0),
-                        &self.anim_duration_tracker,
                         &theme,
-                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                view.active_slider = Some((
-                                    AppearanceSlider::AnimDuration,
-                                    view.anim_duration_tracker.clone(),
-                                    0.0,
-                                    1000.0,
-                                    25.0,
-                                ));
-                                view.update_slider_value(event.position.x.into(), cx);
-                            }
-                        }),
-                        cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                            if let Some(view) = this.view_as_mut::<AppearanceView>() {
-                                if view.handle_mouse_up(event, cx) {
-                                    cx.notify();
-                                }
-                            }
-                        }),
+                        Self::slider_listener(AppearanceSlider::AnimDuration, cx),
                     )),
             )
             // Live Motion & Orbit Preview
@@ -736,7 +578,7 @@ impl SettingsView for AppearanceView {
                             .hover(|s| s.bg(style::hover(&theme)))
                             .text_size(px(13.0))
                             .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.foreground())
+                            .text_color(theme.text())
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 if let Some(view) = this.view_as_mut::<AppearanceView>() {

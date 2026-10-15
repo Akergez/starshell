@@ -43,17 +43,17 @@ pub(super) fn render(
                 OrbitId::Power => svg()
                     .path("power.svg")
                     .size(px(13.0))
-                    .text_color(theme.foreground())
+                    .text_color(theme.text())
                     .into_any_element(),
                 OrbitId::Usage => svg()
                     .path("cpu.svg")
                     .size(px(13.0))
-                    .text_color(theme.foreground())
+                    .text_color(theme.text())
                     .into_any_element(),
                 OrbitId::Shelf => svg()
                     .path("pin-tilted.svg")
                     .size(px(13.0))
-                    .text_color(theme.foreground())
+                    .text_color(theme.text())
                     .into_any_element(),
                 OrbitId::Recording if state.record_status == RecordStatus::Paused => svg()
                     .path("pause.svg")
@@ -63,7 +63,7 @@ pub(super) fn render(
                 OrbitId::Recording => div()
                     .size(px(8.0))
                     .rounded_full()
-                    .bg(theme.red())
+                    .bg(theme.error())
                     .into_any_element(),
             };
             div()
@@ -175,7 +175,7 @@ fn toggle(
                         .path(if left { "power.svg" } else { "cpu.svg" })
                         .size_full()
                         .opacity(1.0 - progress)
-                        .text_color(theme.foreground()),
+                        .text_color(theme.text()),
                 )
                 .child(
                     svg()
@@ -185,7 +185,7 @@ fn toggle(
                         .path("close.svg")
                         .size_full()
                         .opacity(progress)
-                        .text_color(theme.foreground()),
+                        .text_color(theme.text()),
                 ),
         )
 }
@@ -235,7 +235,7 @@ fn usage(
         .border_1()
         .border_color(style::border(theme))
         .overflow_hidden()
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .occlude()
         .child(toggle(OrbitId::Usage, content_opacity, bottom, theme, cx))
         .when(content_opacity > 0.0, |element| {
@@ -281,7 +281,7 @@ fn usage(
                                                         .path(icon)
                                                         .size(px(16.0))
                                                         .flex_shrink_0()
-                                                        .text_color(theme.foreground()),
+                                                        .text_color(theme.text()),
                                                 ),
                                         )
                                         .child(
@@ -373,7 +373,7 @@ fn power(
         .border_1()
         .border_color(style::border(theme))
         .overflow_hidden()
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .occlude()
         .child(toggle(OrbitId::Power, opacity, bottom, theme, cx))
         .when(opacity > 0.0, |element| {
@@ -421,7 +421,7 @@ fn power(
                                                     .path(icon)
                                                     .size(px(16.0))
                                                     .flex_shrink_0()
-                                                    .text_color(theme.foreground()),
+                                                    .text_color(theme.text()),
                                             ),
                                     )
                                     .child(label)
@@ -436,7 +436,7 @@ fn power(
                             .left(px(8.0))
                             .w(px(USAGE_PANEL_WIDTH - 16.0))
                             .text_size(px(9.0))
-                            .text_color(theme.red())
+                            .text_color(theme.error())
                             .text_ellipsis()
                             .child(error),
                     )
@@ -512,11 +512,11 @@ pub(super) fn preview(
                                         svg()
                                             .path(icon)
                                             .size(px(8.0))
-                                            .text_color(theme.foreground()),
+                                            .text_color(theme.text()),
                                     )
                                 })
                                 .when(visual.id == OrbitId::Recording, |s| {
-                                    s.child(div().size(px(4.0)).rounded_full().bg(theme.red()))
+                                    s.child(div().size(px(4.0)).rounded_full().bg(theme.error()))
                                 }),
                         )
                         .when(opacity > 0.0, |s| {
@@ -554,7 +554,7 @@ pub(super) fn preview(
                                                     svg()
                                                         .path(icon)
                                                         .size(px(10.0))
-                                                        .text_color(theme.foreground()),
+                                                        .text_color(theme.text()),
                                                 )
                                                 .child(
                                                     div()

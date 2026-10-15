@@ -96,7 +96,7 @@ pub fn render(
         .child(
             div()
                 .text_size(px(12.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .child(snapshot.date.clone()),
         );
     let mut music = div()
@@ -157,7 +157,7 @@ pub fn render(
                     .child(
                         div()
                             .text_size(px(11.0))
-                            .text_color(theme.foreground_muted())
+                            .text_color(theme.text_muted())
                             .text_ellipsis()
                             .child(track.artist.clone()),
                     ),
@@ -182,7 +182,7 @@ pub fn render(
         music = music
             .justify_center()
             .text_size(px(12.0))
-            .text_color(theme.foreground_muted())
+            .text_color(theme.text_muted())
             .child(no_media);
     }
     let center = div()
@@ -245,7 +245,7 @@ pub fn render(
         .items_center()
         .gap(px(18.0))
         .font_family(theme.font_family())
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .child(left)
         .child(center)
         .child(right)

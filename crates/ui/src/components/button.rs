@@ -1,8 +1,9 @@
-use crate::theme::Theme;
+use crate::theme::{Theme, mix};
+use crate::tokens::{IconSize, Radius, Spacing, TextSize, motion, size, units};
 use gpui::{
-    App, ClickEvent, ColorExt, DurationWithEasing, ElementId, FontWeight, InteractiveElement,
-    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
-    Window, div, ease_in_out, millis, px, svg,
+    App, ClickEvent, ColorExt, ElementId, FontWeight, Hsla, InteractiveElement, IntoElement,
+    ParentElement, Pixels, Rems, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
+    Window, div, px, svg,
 };
 
 pub type ClickListener = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -12,6 +13,7 @@ pub enum ButtonVariant {
     #[default]
     Primary,
     Secondary,
+    Outline,
     Ghost,
     Danger,
 }
@@ -27,34 +29,95 @@ pub enum ButtonSize {
 impl ButtonSize {
     pub fn height(self) -> f32 {
         match self {
-            Self::Sm => 28.0,
-            Self::Md => 34.0,
-            Self::Lg => 42.0,
+            Self::Sm => 24.0,
+            Self::Md => 28.0,
+            Self::Lg => size::CONTROL,
         }
     }
 
-    pub fn text_size(self) -> f32 {
+    pub fn text_size(self) -> TextSize {
         match self {
-            Self::Sm => 12.0,
-            Self::Md => 13.0,
-            Self::Lg => 14.5,
+            Self::Sm | Self::Md => TextSize::Small,
+            Self::Lg => TextSize::Default,
         }
     }
 
-    pub fn icon_size(self) -> f32 {
+    pub fn icon_size(self) -> IconSize {
         match self {
-            Self::Sm => 14.0,
-            Self::Md => 16.0,
-            Self::Lg => 18.0,
+            Self::Sm => IconSize::XSmall,
+            Self::Md => IconSize::Small,
+            Self::Lg => IconSize::Medium,
         }
     }
 
-    pub fn padding_x(self) -> f32 {
+    pub fn padding_x(self) -> Spacing {
         match self {
-            Self::Sm => 10.0,
-            Self::Md => 14.0,
-            Self::Lg => 18.0,
+            Self::Sm => Spacing::Medium,
+            Self::Md | Self::Lg => Spacing::Large,
         }
+    }
+}
+
+struct Colors {
+    background: Hsla,
+    hover: Hsla,
+    active: Hsla,
+    foreground: Hsla,
+    border: Hsla,
+}
+
+fn colors(theme: &Theme, variant: ButtonVariant, selected: bool) -> Colors {
+    let transparent = gpui::transparent_black();
+    let ghost = |foreground: Hsla| Colors {
+        background: transparent,
+        hover: theme.ghost_hover(),
+        active: theme.ghost_active(),
+        foreground,
+        border: transparent,
+    };
+    if selected {
+        let background = theme.element_selected();
+        return Colors {
+            background,
+            hover: mix(background, theme.text(), 0.06),
+            active: mix(background, theme.text(), 0.12),
+            foreground: theme.accent(),
+            border: transparent,
+        };
+    }
+    match variant {
+        ButtonVariant::Primary => {
+            let background = theme.accent();
+            Colors {
+                background,
+                hover: mix(background, theme.text(), 0.15),
+                active: mix(background, theme.background(), 0.15),
+                foreground: theme.on_accent(),
+                border: transparent,
+            }
+        }
+        ButtonVariant::Secondary => {
+            let background = theme.elevated();
+            Colors {
+                background,
+                hover: theme.ghost_hover(),
+                active: theme.ghost_active(),
+                foreground: theme.text(),
+                border: transparent,
+            }
+        }
+        ButtonVariant::Outline => Colors {
+            border: theme.border_variant(),
+            ..ghost(theme.text())
+        },
+        ButtonVariant::Ghost => ghost(theme.text()),
+        ButtonVariant::Danger => Colors {
+            background: theme.error().opacity(0.12),
+            hover: theme.error().opacity(0.2),
+            active: theme.error().opacity(0.28),
+            foreground: theme.error(),
+            border: transparent,
+        },
     }
 }
 
@@ -85,7 +148,7 @@ impl Button {
             right_icon: None,
             variant: ButtonVariant::Primary,
             size: ButtonSize::Md,
-            pill: true,
+            pill: false,
             selected: false,
             disabled: false,
             w_full: false,
@@ -168,121 +231,97 @@ impl Button {
 impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let h = self.height_px.unwrap_or_else(|| self.size.height());
-        let px_val = self.padding_x.unwrap_or_else(|| self.size.padding_x());
-        let font_size = self.size.text_size();
-        let icon_sz = self.size.icon_size();
+        let colors = colors(theme, self.variant, self.selected);
+        let height: gpui::AbsoluteLength = self
+            .height_px
+            .map(|height| px(height).into())
+            .unwrap_or_else(|| units(self.size.height()).into());
+        let padding_x: gpui::AbsoluteLength = self
+            .padding_x
+            .map(|padding| px(padding).into())
+            .unwrap_or_else(|| self.size.padding_x().rems().into());
+        let icon_size = self.size.icon_size().rems();
+        let (hover, active) = (colors.hover, colors.active);
 
-        let (base_bg, hover_bg, text_col, border_col) = if self.selected {
-            (
-                theme.accent(),
-                theme.accent().opacity(0.9),
-                theme.on_accent(),
-                theme.accent(),
-            )
-        } else {
-            match self.variant {
-                ButtonVariant::Primary => (
-                    theme.accent(),
-                    theme.accent().opacity(0.85),
-                    theme.on_accent(),
-                    theme.accent(),
-                ),
-                ButtonVariant::Secondary => (
-                    theme.surface().opacity(0.4),
-                    theme.surface().opacity(0.65),
-                    theme.foreground(),
-                    theme.surface().opacity(0.2),
-                ),
-                ButtonVariant::Ghost => (
-                    gpui::transparent_black(),
-                    theme.surface().opacity(0.3),
-                    theme.foreground(),
-                    gpui::transparent_black(),
-                ),
-                ButtonVariant::Danger => (
-                    theme.red().opacity(0.15),
-                    theme.red().opacity(0.25),
-                    theme.red(),
-                    theme.red().opacity(0.3),
-                ),
-            }
-        };
-
-        let mut el = div()
+        let mut element = div()
             .id(self.id)
-            .h(px(h))
-            .px(px(px_val))
+            .h(height)
+            .px(padding_x)
             .flex()
+            .flex_shrink_0()
             .items_center()
             .justify_center()
-            .gap(px(6.0))
-            .bg(base_bg)
+            .gap(Spacing::Small.rems())
+            .bg(colors.background)
             .border_1()
-            .border_color(border_col)
-            .text_color(text_col)
-            .text_size(px(font_size))
-            .font_family(theme.font_family())
+            .border_color(colors.border)
+            .text_color(colors.foreground)
+            .text_size(self.size.text_size().pixels(theme.font_size))
             .font_weight(FontWeight::MEDIUM)
-            .transitions(|t| {
-                t.bg(millis(120).with_easing(ease_in_out))
-                    .border_color(millis(120).with_easing(ease_in_out))
-                    .text_color(millis(120).with_easing(ease_in_out))
+            .transitions(|transitions| {
+                transitions
+                    .bg(motion::fast_cubic())
+                    .border_color(motion::fast_cubic())
+                    .text_color(motion::fast_cubic())
             });
 
-        if self.pill {
-            el = el.rounded_full();
+        element = if self.pill {
+            element.rounded_full()
         } else {
-            el = el.rounded(px(10.0));
-        }
+            element.rounded(Radius::Medium.rems())
+        };
 
         if self.w_full {
-            el = el.w_full();
+            element = element.w_full();
         }
 
         if let Some(tip) = self.tooltip {
-            el = el.tooltip(crate::components::tooltip::tooltip(tip));
+            element = element.tooltip(crate::components::tooltip::tooltip(tip));
         }
 
         if self.disabled {
-            el = el.opacity(0.45).cursor_not_allowed();
+            element = element.opacity(0.45).cursor_not_allowed();
         } else {
-            el = el.cursor_pointer().hover(move |s| s.bg(hover_bg));
-
+            element = element
+                .cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .active(move |style| style.bg(active));
             if let Some(on_click) = self.on_click {
-                el = el.on_click(move |evt, window, app| {
-                    on_click(evt, window, app);
-                });
+                element = element.on_click(on_click);
             }
         }
 
         if let Some(icon) = self.icon {
-            el = el.child(svg().path(icon).size(px(icon_sz)).text_color(text_col));
+            element = element.child(icon_element(icon, icon_size, colors.foreground));
         }
 
         if let Some(label) = self.label {
-            el = el.child(div().text_ellipsis().child(label));
+            element = element.child(div().min_w_0().truncate().child(label));
         }
 
         if let Some(right_icon) = self.right_icon {
-            el = el.child(
-                svg()
-                    .path(right_icon)
-                    .size(px(icon_sz))
-                    .text_color(text_col),
-            );
+            element = element.child(icon_element(right_icon, icon_size, colors.foreground));
         }
 
-        el
+        element
     }
+}
+
+fn icon_element(path: SharedString, size: Rems, color: Hsla) -> impl IntoElement {
+    svg()
+        .path(path)
+        .flex_shrink_0()
+        .size(size)
+        .text_color(color)
 }
 
 #[derive(IntoElement)]
 pub struct IconButton {
     id: ElementId,
     icon: SharedString,
-    icon_size: f32,
-    size: f32,
+    icon_size: Option<f32>,
+    size: Option<f32>,
+    icon_color: Option<Hsla>,
     variant: ButtonVariant,
     shape_circle: bool,
     selected: bool,
@@ -296,10 +335,11 @@ impl IconButton {
         Self {
             id: id.into(),
             icon: icon.into(),
-            icon_size: 14.0,
-            size: 28.0,
-            variant: ButtonVariant::Secondary,
-            shape_circle: true,
+            icon_size: None,
+            size: None,
+            icon_color: None,
+            variant: ButtonVariant::Ghost,
+            shape_circle: false,
             selected: false,
             disabled: false,
             tooltip: None,
@@ -308,17 +348,22 @@ impl IconButton {
     }
 
     pub fn icon_size(mut self, size: f32) -> Self {
-        self.icon_size = size;
+        self.icon_size = Some(size);
         self
     }
 
     pub fn button_size(mut self, size: f32) -> Self {
-        self.size = size;
+        self.size = Some(size);
         self
     }
 
     pub fn size(self, size: f32) -> Self {
         self.button_size(size)
+    }
+
+    pub fn icon_color(mut self, color: Hsla) -> Self {
+        self.icon_color = Some(color);
+        self
     }
 
     pub fn shape_circle(mut self, circle: bool) -> Self {
@@ -358,80 +403,54 @@ impl IconButton {
 impl RenderOnce for IconButton {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.global::<Theme>();
+        let colors = colors(theme, self.variant, self.selected);
+        let foreground = self.icon_color.unwrap_or(colors.foreground);
+        let button_size: Pixels = self
+            .size
+            .map(px)
+            .unwrap_or_else(|| crate::tokens::units_to_pixels(size::CONTROL, theme.font_size));
+        let icon_size: Pixels = self.icon_size.map(px).unwrap_or_else(|| {
+            crate::tokens::units_to_pixels(IconSize::Medium.value(), theme.font_size)
+        });
+        let (hover, active) = (colors.hover, colors.active);
 
-        let (base_bg, hover_bg, icon_col) = if self.selected {
-            (
-                theme.accent(),
-                theme.accent().opacity(0.85),
-                theme.on_accent(),
-            )
-        } else {
-            match self.variant {
-                ButtonVariant::Primary => (
-                    theme.accent(),
-                    theme.accent().opacity(0.85),
-                    theme.on_accent(),
-                ),
-                ButtonVariant::Secondary => (
-                    theme.surface().opacity(0.35),
-                    theme.surface().opacity(0.6),
-                    theme.foreground(),
-                ),
-                ButtonVariant::Ghost => (
-                    gpui::transparent_black(),
-                    theme.surface().opacity(0.35),
-                    theme.foreground(),
-                ),
-                ButtonVariant::Danger => (
-                    theme.red().opacity(0.15),
-                    theme.red().opacity(0.25),
-                    theme.red(),
-                ),
-            }
-        };
-
-        let mut el = div()
+        let mut element = div()
             .id(self.id)
             .flex()
+            .flex_shrink_0()
             .items_center()
             .justify_center()
-            .w(px(self.size))
-            .h(px(self.size))
-            .bg(base_bg)
-            .transitions(|t| {
-                t.bg(millis(120).with_easing(ease_in_out))
-                    .text_color(millis(120).with_easing(ease_in_out))
-            })
-            .child(
-                svg()
-                    .path(self.icon)
-                    .size(px(self.icon_size))
-                    .text_color(icon_col),
-            );
+            .size(button_size)
+            .bg(colors.background)
+            .border_1()
+            .border_color(colors.border)
+            .transitions(|transitions| transitions.bg(motion::fast_cubic()))
+            .child(svg().path(self.icon).size(icon_size).text_color(foreground));
 
-        if self.shape_circle {
-            el = el.rounded_full();
+        element = if self.shape_circle {
+            element.rounded_full()
         } else {
-            el = el.rounded(px(8.0));
-        }
+            element.rounded(Radius::Medium.rems())
+        };
 
         if let Some(tip) = self.tooltip {
-            el = el.tooltip(crate::components::tooltip::tooltip(tip));
+            element = element.tooltip(crate::components::tooltip::tooltip(tip));
         }
 
         if self.disabled {
-            el = el.opacity(0.45).cursor_not_allowed();
+            element = element.opacity(0.45).cursor_not_allowed();
         } else {
-            el = el.cursor_pointer().hover(move |s| s.bg(hover_bg));
-
+            element = element
+                .cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .active(move |style| style.bg(active))
+                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation());
             if let Some(on_click) = self.on_click {
-                el = el.on_click(move |evt, window, app| {
-                    on_click(evt, window, app);
-                });
+                element = element.on_click(on_click);
             }
         }
 
-        el
+        element
     }
 }
 
@@ -443,14 +462,14 @@ mod tests {
     fn test_button_builder() {
         let btn = Button::new("test-btn")
             .label("Submit")
-            .variant(ButtonVariant::Primary)
+            .variant(ButtonVariant::Outline)
             .size(ButtonSize::Lg)
             .pill(true)
             .disabled(false);
 
         assert_eq!(btn.size, ButtonSize::Lg);
-        assert_eq!(btn.size.height(), 42.0);
-        assert_eq!(btn.variant, ButtonVariant::Primary);
+        assert_eq!(btn.size.height(), size::CONTROL);
+        assert_eq!(btn.variant, ButtonVariant::Outline);
         assert!(btn.pill);
         assert!(!btn.disabled);
     }
@@ -463,9 +482,19 @@ mod tests {
             .variant(ButtonVariant::Ghost)
             .selected(true);
 
-        assert_eq!(btn.size, 32.0);
-        assert_eq!(btn.icon_size, 16.0);
+        assert_eq!(btn.size, Some(32.0));
+        assert_eq!(btn.icon_size, Some(16.0));
         assert_eq!(btn.variant, ButtonVariant::Ghost);
         assert!(btn.selected);
+    }
+
+    #[test]
+    fn selected_buttons_use_the_selection_role() {
+        let theme = Theme::default();
+        let selected = colors(&theme, ButtonVariant::Ghost, true);
+        assert_eq!(selected.background, theme.element_selected());
+        assert_eq!(selected.foreground, theme.accent());
+        let outline = colors(&theme, ButtonVariant::Outline, false);
+        assert_eq!(outline.border, theme.border_variant());
     }
 }

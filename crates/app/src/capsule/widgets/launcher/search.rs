@@ -35,7 +35,7 @@ pub fn render_search(
             svg()
                 .path("search.svg")
                 .size(px(17.0))
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
         .on_clear(cx.listener(|this, _, _, cx| this.reset_search(cx)))
 }

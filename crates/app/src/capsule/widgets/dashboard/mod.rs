@@ -54,7 +54,7 @@ pub(crate) fn separator(theme: &Theme) -> gpui::Div {
     div()
         .h(px(1.0))
         .flex_shrink_0()
-        .bg(theme.foreground().opacity(0.1))
+        .bg(theme.text().opacity(0.1))
 }
 
 #[derive(Clone)]
@@ -128,7 +128,7 @@ pub(crate) fn button(
                 .text_color(if active {
                     theme.accent()
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 }),
         )
         .when(!label.is_empty(), |s| {
@@ -167,7 +167,7 @@ pub(crate) fn icon_action(
             svg()
                 .path(icon)
                 .size(px(18.0))
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
         .into_any_element()
 }
@@ -177,7 +177,7 @@ pub(crate) fn empty(text: String, theme: &Theme) -> AnyElement {
         .w_full()
         .p(px(16.0))
         .text_size(px(12.0))
-        .text_color(theme.foreground_muted())
+        .text_color(theme.text_muted())
         .child(text)
         .into_any_element()
 }
@@ -185,7 +185,7 @@ pub(crate) fn error(text: String, theme: &Theme) -> AnyElement {
     div()
         .w_full()
         .text_size(px(12.0))
-        .text_color(theme.red())
+        .text_color(theme.error())
         .child(text)
         .into_any_element()
 }

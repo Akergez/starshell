@@ -1,8 +1,8 @@
-use crate::theme::Theme;
+use crate::theme::{Theme, mix};
+use crate::tokens::{motion, size, units};
 use gpui::{
-    App, ClickEvent, ColorExt, DurationWithEasing, ElementId, InteractiveElement,
-    IntoElement, ParentElement, RenderOnce, StatefulInteractiveElement, Styled, Window,
-    div, ease_in_out, millis, px, white,
+    App, ClickEvent, ElementId, InteractiveElement, IntoElement, ParentElement, RenderOnce,
+    StatefulInteractiveElement, Styled, Window, div,
 };
 
 pub type ClickListener = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -47,73 +47,50 @@ impl Switch {
 impl RenderOnce for Switch {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-
-        let track_bg = if self.disabled {
-            theme.surface().opacity(0.4)
-        } else if self.checked {
-            theme.accent()
+        let (track, knob) = if self.checked {
+            (theme.accent(), theme.on_accent())
         } else {
-            theme.surface().opacity(0.65)
+            (theme.border_variant(), theme.text_muted())
         };
+        let hover = mix(track, theme.text(), 0.1);
+        let inset = (size::SWITCH_HEIGHT - size::SWITCH_KNOB) / 2.0;
+        let travel = size::SWITCH_WIDTH - size::SWITCH_KNOB - inset * 2.0;
 
-        let hover_bg = if self.checked {
-            theme.accent().opacity(0.85)
-        } else {
-            theme.surface().opacity(0.85)
-        };
-
-        let mut track = div()
-            .id(self.id)
+        let mut element = div()
+            .id(self.id.clone())
             .flex()
+            .flex_shrink_0()
             .items_center()
-            .w(px(44.0))
-            .h(px(26.0))
-            .p(px(3.0))
+            .w(units(size::SWITCH_WIDTH))
+            .h(units(size::SWITCH_HEIGHT))
+            .px(units(inset))
             .rounded_full()
-            .bg(track_bg)
-            .border_1()
-            .border_color(if self.checked {
-                theme.accent()
-            } else {
-                theme.surface().opacity(0.9)
-            })
-            .transitions(|t| {
-                t.bg(millis(180).with_easing(ease_in_out))
-                    .border_color(millis(180).with_easing(ease_in_out))
-            });
+            .bg(track)
+            .transitions(|transitions| transitions.bg(motion::fast_cubic()))
+            .child(
+                div()
+                    .id((self.id, "knob"))
+                    .size(units(size::SWITCH_KNOB))
+                    .rounded_full()
+                    .bg(knob)
+                    .ml(units(if self.checked { travel } else { 0.0 }))
+                    .transitions(|transitions| {
+                        transitions
+                            .ml(motion::fast_cubic())
+                            .bg(motion::fast_cubic())
+                    }),
+            );
 
-        if !self.disabled {
-            track = track
-                .cursor_pointer()
-                .hover(move |s| s.bg(hover_bg));
-
-            if let Some(on_click) = self.on_click {
-                track = track.on_click(move |evt, window, app| {
-                    on_click(evt, window, app);
-                });
-            }
+        if self.disabled {
+            element = element.opacity(0.5).cursor_not_allowed();
         } else {
-            track = track.opacity(0.5);
+            element = element.cursor_pointer().hover(move |style| style.bg(hover));
+            if let Some(on_click) = self.on_click {
+                element = element.on_click(on_click);
+            }
         }
 
-        let knob_bg = if self.disabled {
-            white().opacity(0.6)
-        } else {
-            white()
-        };
-
-        let knob = div()
-            .size(px(20.0))
-            .rounded_full()
-            .bg(knob_bg)
-            .shadow_sm()
-            .ml(if self.checked { px(18.0) } else { px(0.0) })
-            .transitions(|t| {
-                t.ml(millis(180).with_easing(ease_in_out))
-                    .bg(millis(180).with_easing(ease_in_out))
-            });
-
-        track.child(knob)
+        element
     }
 }
 
@@ -123,17 +100,12 @@ mod tests {
 
     #[test]
     fn test_switch_builder() {
-        let sw = Switch::new("my-switch")
-            .checked(true)
-            .disabled(false);
+        let sw = Switch::new("my-switch").checked(true).disabled(false);
         assert!(sw.checked);
         assert!(!sw.disabled);
 
-        let sw_disabled = Switch::new("disabled-sw")
-            .checked(false)
-            .disabled(true);
+        let sw_disabled = Switch::new("disabled-sw").checked(false).disabled(true);
         assert!(!sw_disabled.checked);
         assert!(sw_disabled.disabled);
     }
 }
-

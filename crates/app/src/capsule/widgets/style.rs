@@ -131,8 +131,8 @@ pub(crate) fn concave_input_regions(
 
 pub(crate) fn surface(theme: &Theme) -> Hsla {
     tint(
-        tint(background(theme), theme.surface(), 0.5),
-        opaque(theme.surface()),
+        tint(background(theme), theme.elevated(), 0.5),
+        opaque(theme.elevated()),
         theme.light_mix(),
     )
 }
@@ -147,8 +147,8 @@ pub(crate) fn selected(theme: &Theme) -> Hsla {
 
 pub(crate) fn border(theme: &Theme) -> Hsla {
     tint(
-        tint(background(theme), theme.background_alt(), 0.5),
-        opaque(theme.background_alt()),
+        tint(background(theme), theme.surface(), 0.5),
+        opaque(theme.surface()),
         theme.light_mix(),
     )
 }
@@ -166,7 +166,7 @@ pub(crate) const INNER_RADIUS: f32 = 12.0;
 
 pub(crate) fn raised(theme: &Theme) -> Hsla {
     tint(
-        tint(surface(theme), theme.foreground(), 0.06),
+        tint(surface(theme), theme.text(), 0.06),
         tint(surface(theme), border(theme), 0.5),
         theme.light_mix(),
     )
@@ -184,10 +184,10 @@ pub(crate) fn breadcrumb(section: String, theme: &Theme) -> gpui::Div {
         .text_size(px(10.0))
         .letter_spacing(px(2.0))
         .text_transform(gpui::TextTransform::Uppercase)
-        .text_color(theme.foreground_muted())
+        .text_color(theme.text_muted())
         .child(
             div()
-                .text_color(theme.foreground())
+                .text_color(theme.text())
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .child("Capsule"),
         )
@@ -206,7 +206,7 @@ pub(crate) fn panel_header(icon: &'static str, title: String, theme: &Theme) -> 
                 .path(icon)
                 .size(px(18.0))
                 .flex_shrink_0()
-                .text_color(theme.foreground()),
+                .text_color(theme.text()),
         )
         .child(
             div()
@@ -240,7 +240,7 @@ pub(crate) fn circle_button(
             gpui::svg()
                 .path(icon)
                 .size(px((diameter * 0.45).round()))
-                .text_color(theme.foreground()),
+                .text_color(theme.text()),
         )
 }
 
@@ -251,7 +251,7 @@ pub(crate) fn primary_button(
     theme: &Theme,
 ) -> gpui::Stateful<gpui::Div> {
     let accent = opaque(theme.accent());
-    let pressed = tint(accent, theme.foreground(), 0.12);
+    let pressed = tint(accent, theme.text(), 0.12);
     div()
         .id(id)
         .h(px(32.0))
@@ -295,7 +295,7 @@ pub(crate) fn chip(
         .when(!selected, |s| {
             s.border_1()
                 .border_color(border(theme))
-                .text_color(theme.foreground())
+                .text_color(theme.text())
                 .hover(move |s| s.bg(hover))
         })
         .child(label)
@@ -327,7 +327,7 @@ pub(crate) fn radio(selected: bool, diameter: f32, theme: &Theme) -> gpui::Div {
             .flex_shrink_0()
             .rounded_full()
             .border_2()
-            .border_color(theme.foreground_muted())
+            .border_color(theme.text_muted())
     }
 }
 
@@ -349,7 +349,7 @@ pub(crate) fn search_field(theme: &Theme) -> gpui::Div {
                 .path("search.svg")
                 .size(px(16.0))
                 .flex_shrink_0()
-                .text_color(theme.foreground_muted()),
+                .text_color(theme.text_muted()),
         )
 }
 
@@ -424,7 +424,7 @@ mod tests {
         };
         assert_eq!(on_accent(&theme), theme.background());
         theme.accent_color = Color::from("#1545a0");
-        assert_eq!(on_accent(&theme), theme.foreground());
+        assert_eq!(on_accent(&theme), theme.text());
     }
 
     #[test]

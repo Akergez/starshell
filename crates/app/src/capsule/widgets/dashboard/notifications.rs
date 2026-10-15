@@ -37,7 +37,7 @@ pub fn render(
                         .rounded_full()
                         .bg(style::surface(theme))
                         .text_size(px(12.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(count.to_string()),
                 ),
         )
@@ -77,12 +77,12 @@ pub fn render(
                     svg()
                         .path("bell.svg")
                         .size(px(18.0))
-                        .text_color(theme.foreground_muted().opacity(0.65)),
+                        .text_color(theme.text_muted().opacity(0.65)),
                 )
                 .child(
                     div()
                         .text_size(px(13.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(module.text("dashboard.no_notifications", cx)),
                 ),
         );
@@ -93,7 +93,7 @@ pub fn render(
                 svg()
                     .path(notification.app_icon.clone())
                     .size(px(18.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .into_any_element()
             } else {
                 img(PathBuf::from(&notification.app_icon))
@@ -104,7 +104,7 @@ pub fn render(
             svg()
                 .path("bell.svg")
                 .size(px(16.0))
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .into_any_element()
         };
         let minutes = notification.received_at.elapsed().as_secs() / 60;
@@ -171,7 +171,7 @@ pub fn render(
                         div()
                             .flex_shrink_0()
                             .text_size(px(12.0))
-                            .text_color(theme.foreground_muted())
+                            .text_color(theme.text_muted())
                             .child(age),
                     ),
             )
@@ -183,7 +183,7 @@ pub fn render(
                     .flex_shrink_0()
                     .text_size(px(12.0))
                     .line_height(px(18.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .child(if notification.body.is_empty() {
                         notification.app_name.clone()
                     } else {
@@ -216,7 +216,7 @@ pub fn render(
                     .flex()
                     .items_center()
                     .text_size(px(11.0))
-                    .text_color(theme.foreground())
+                    .text_color(theme.text())
                     .bg(style::background(theme))
                     .cursor_pointer()
                     .hover(move |s| s.bg(hover))

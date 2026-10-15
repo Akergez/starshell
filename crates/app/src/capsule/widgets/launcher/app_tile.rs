@@ -76,7 +76,7 @@ fn tile(
                 .text_color(if selected {
                     style::on_accent(theme)
                 } else {
-                    theme.foreground()
+                    theme.text()
                 })
                 .text_center()
                 .text_ellipsis()

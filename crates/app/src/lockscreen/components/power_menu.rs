@@ -20,10 +20,10 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .w(px(32.0))
                 .h(px(32.0))
                 .rounded_full()
-                .bg(theme.surface().opacity(0.45))
+                .bg(theme.elevated().opacity(0.45))
                 .border_1()
-                .border_color(theme.surface().opacity(0.25))
-                .hover(|s| s.bg(theme.surface().opacity(0.8)))
+                .border_color(theme.elevated().opacity(0.25))
+                .hover(|s| s.bg(theme.elevated().opacity(0.8)))
                 .active(|s| s.opacity(0.6))
                 .cursor_pointer()
                 .on_click(|_, _, _| {
@@ -35,7 +35,7 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                     svg()
                         .path("moon.svg")
                         .size(px(14.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 ),
         )
         .child(
@@ -47,10 +47,10 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .w(px(32.0))
                 .h(px(32.0))
                 .rounded_full()
-                .bg(theme.surface().opacity(0.45))
+                .bg(theme.elevated().opacity(0.45))
                 .border_1()
-                .border_color(theme.surface().opacity(0.25))
-                .hover(|s| s.bg(theme.surface().opacity(0.8)))
+                .border_color(theme.elevated().opacity(0.25))
+                .hover(|s| s.bg(theme.elevated().opacity(0.8)))
                 .active(|s| s.opacity(0.6))
                 .cursor_pointer()
                 .on_click(|_, _, _| {
@@ -62,7 +62,7 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                     svg()
                         .path("rotate-ccw.svg")
                         .size(px(14.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 ),
         )
         .child(
@@ -74,12 +74,12 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .w(px(32.0))
                 .h(px(32.0))
                 .rounded_full()
-                .bg(theme.surface().opacity(0.45))
+                .bg(theme.elevated().opacity(0.45))
                 .border_1()
-                .border_color(theme.surface().opacity(0.25))
+                .border_color(theme.elevated().opacity(0.25))
                 .hover(|s| {
-                    s.bg(theme.red().opacity(0.25))
-                        .border_color(theme.red().opacity(0.5))
+                    s.bg(theme.error().opacity(0.25))
+                        .border_color(theme.error().opacity(0.5))
                 })
                 .active(|s| s.opacity(0.6))
                 .cursor_pointer()
@@ -92,7 +92,7 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                     svg()
                         .path("power.svg")
                         .size(px(14.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 ),
         )
 }

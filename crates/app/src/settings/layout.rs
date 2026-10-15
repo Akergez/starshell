@@ -66,7 +66,7 @@ pub(crate) fn render_settings(
         .border_color(style::border(&theme))
         .shadow_xl()
         .font_family(theme.font_family())
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .overflow_hidden()
         .opacity(settings.animator.card_opacity)
         .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {

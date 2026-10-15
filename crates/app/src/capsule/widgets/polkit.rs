@@ -64,14 +64,14 @@ pub(crate) fn render(
                 .path("lock.svg")
                 .size(px(18.0))
                 .flex_shrink_0()
-                .text_color(theme.foreground_muted())
+                .text_color(theme.text_muted())
                 .into_any_element(),
         )
         .h_px(42.0)
         .rounded_full()
         .bg(style::background(&theme))
         .border_color(if module.error.is_some() {
-            theme.red()
+            theme.error()
         } else {
             style::tint(style::border(&theme), theme.accent(), 0.35)
         })
@@ -85,7 +85,7 @@ pub(crate) fn render(
         .text_size(px(12.0))
         .line_height(px(18.0));
     if let Some(error) = &module.error {
-        feedback = feedback.text_color(theme.red()).child(error.clone());
+        feedback = feedback.text_color(theme.error()).child(error.clone());
     }
     div()
         .id("polkit-module")
@@ -98,7 +98,7 @@ pub(crate) fn render(
         .overflow_hidden()
         .bg(style::background(&theme))
         .font_family(theme.font_family())
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .flex()
         .flex_col()
         .gap(px(10.0))
@@ -144,7 +144,7 @@ pub(crate) fn render(
                         .child(
                             div()
                                 .text_size(px(10.0))
-                                .text_color(theme.foreground_muted())
+                                .text_color(theme.text_muted())
                                 .whitespace_nowrap()
                                 .text_ellipsis()
                                 .child(format!(
@@ -184,7 +184,7 @@ pub(crate) fn render(
                         .h(px(14.0))
                         .flex_shrink_0()
                         .text_size(px(10.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .whitespace_nowrap()
                         .text_ellipsis()
                         .child(request.action_id.clone()),
@@ -202,7 +202,7 @@ pub(crate) fn render(
                     div()
                         .h(px(14.0))
                         .text_size(px(11.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(module.text("polkit.password_placeholder", cx)),
                 )
                 .child(field),

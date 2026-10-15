@@ -74,9 +74,9 @@ impl Sidebar {
                 let tab = item.tab();
                 let selected = active_tab == tab && !has_search_query;
                 let foreground = if selected {
-                    theme.foreground()
+                    theme.text()
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 };
                 let title = item.title(cx);
                 let icon = item.icon();

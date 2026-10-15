@@ -24,11 +24,11 @@ pub fn render(
             .id("dashboard-calendar")
             .min_w_0()
             .text_size(px(12.0))
-            .text_color(theme.foreground_muted())
+            .text_color(theme.text_muted())
             .whitespace_nowrap()
             .text_ellipsis()
             .cursor_pointer()
-            .hover(|s| s.text_color(theme.foreground()))
+            .hover(|s| s.text_color(theme.text()))
             .on_click(cx.listener(|this, _, _, cx| {
                 this.dispatch(Action::Satellite(SatelliteId::Calendar), cx)
             }))
@@ -52,7 +52,7 @@ pub fn render(
                             "battery-full.svg"
                         })
                         .size(px(16.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 )
                 .child(format!("{}%", battery.percentage)),
         );
@@ -75,7 +75,7 @@ pub fn render(
                 svg()
                     .path("settings.svg")
                     .size(px(16.0))
-                    .text_color(theme.foreground()),
+                    .text_color(theme.text()),
             ),
     );
 

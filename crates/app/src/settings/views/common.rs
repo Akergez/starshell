@@ -4,7 +4,6 @@ use gpui::{
 };
 use ui::components::{Button, ButtonSize, ButtonVariant, Slider, Switch};
 use ui::theme::Theme;
-use ui::tracker::DimensionTracker;
 
 use crate::capsule::widgets::style;
 
@@ -46,13 +45,13 @@ pub fn hero_header(
                     div()
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_size(px(22.0))
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(title.to_owned()),
                 )
                 .child(
                     div()
                         .text_size(px(13.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(subtitle.to_owned()),
                 ),
         )
@@ -77,7 +76,7 @@ pub fn heading(title: &str, theme: &Theme) -> Div {
         .text_size(px(15.0))
         .line_height(px(20.0))
         .font_weight(FontWeight::SEMIBOLD)
-        .text_color(theme.foreground())
+        .text_color(theme.text())
         .child(title.to_owned())
 }
 
@@ -120,14 +119,14 @@ pub fn control_row(
                         .line_height(px(20.0))
                         .min_w_0()
                         .text_ellipsis()
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(title.to_string()),
                 )
                 .when_some(subtitle, |this, sub| {
                     this.child(
                         div()
                             .text_size(px(12.0))
-                            .text_color(theme.foreground_muted())
+                            .text_color(theme.text_muted())
                             .child(sub.to_string()),
                     )
                 }),
@@ -174,14 +173,14 @@ pub fn toggle_row(
                         .line_height(px(20.0))
                         .min_w_0()
                         .text_ellipsis()
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(title.to_string()),
                 )
                 .when_some(subtitle, |this, sub| {
                     this.child(
                         div()
                             .text_size(px(12.0))
-                            .text_color(theme.foreground_muted())
+                            .text_color(theme.text_muted())
                             .child(sub.to_string()),
                     )
                 }),
@@ -199,10 +198,8 @@ pub fn slider_row(
     title: &str,
     display_val: &str,
     pct: f32,
-    tracker: &DimensionTracker,
     theme: &Theme,
-    on_mouse_down: impl Fn(&gpui::MouseDownEvent, &mut Window, &mut App) + 'static,
-    on_mouse_up: impl Fn(&gpui::MouseUpEvent, &mut Window, &mut App) + 'static,
+    on_change: impl Fn(f32, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
     div()
         .flex()
@@ -228,7 +225,7 @@ pub fn slider_row(
                         .line_height(px(20.0))
                         .min_w_0()
                         .text_ellipsis()
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(title.to_string()),
                 )
                 .child(
@@ -241,17 +238,12 @@ pub fn slider_row(
                         .rounded(px(8.0))
                         .bg(style::raised(theme))
                         .flex_shrink_0()
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(display_val.to_string()),
                 ),
         )
         .child(
-            Slider::new(id)
-                .fraction(pct)
-                .height(28.0)
-                .track_bounds(tracker)
-                .on_mouse_down(on_mouse_down)
-                .on_mouse_up(on_mouse_up),
+            Slider::new(id).value(pct).on_change(on_change),
         )
         .into_any_element()
 }

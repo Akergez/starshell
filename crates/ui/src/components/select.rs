@@ -75,9 +75,9 @@ impl RenderOnce for SelectItem {
             .text_color(if self.selected {
                 theme.accent()
             } else {
-                theme.foreground()
+                theme.text()
             })
-            .hover(|s| s.bg(theme.surface().opacity(0.6)))
+            .hover(|s| s.bg(theme.elevated().opacity(0.6)))
             .transitions(|t| {
                 t.bg(millis(120).with_easing(ease_in_out))
                     .text_color(millis(120).with_easing(ease_in_out))
@@ -279,13 +279,13 @@ impl RenderOnce for Select {
             .bg(if self.is_open {
                 theme.accent().opacity(0.12)
             } else {
-                theme.surface().opacity(0.3)
+                theme.elevated().opacity(0.3)
             })
             .border_1()
             .border_color(if self.is_open {
                 theme.accent()
             } else {
-                theme.surface().opacity(0.4)
+                theme.elevated().opacity(0.4)
             })
             .transitions(|t| {
                 t.bg(millis(160).with_easing(ease_in_out))
@@ -300,7 +300,7 @@ impl RenderOnce for Select {
                 .hover(|s| {
                     if !self.is_open {
                         s.border_color(theme.accent().opacity(0.7))
-                            .bg(theme.surface().opacity(0.5))
+                            .bg(theme.elevated().opacity(0.5))
                     } else {
                         s
                     }
@@ -346,26 +346,28 @@ impl RenderOnce for Select {
                     .text_size(px(12.5))
                     .font_weight(gpui::FontWeight::MEDIUM)
                     .text_color(if is_placeholder {
-                        theme.foreground_muted()
+                        theme.text_muted()
                     } else {
-                        theme.foreground()
+                        theme.text()
                     })
                     .truncate()
                     .child(display_label),
             );
 
         let chevron = svg()
-            .path(if self.is_open { "chevron-up.svg" } else { "chevron-down.svg" })
+            .path(if self.is_open {
+                "chevron-up.svg"
+            } else {
+                "chevron-down.svg"
+            })
             .size(px(14.0))
             .flex_shrink_0()
             .text_color(if self.is_open {
                 theme.accent()
             } else {
-                theme.foreground_muted()
+                theme.text_muted()
             })
-            .transitions(|t| {
-                t.text_color(millis(160).with_easing(ease_in_out))
-            });
+            .transitions(|t| t.text_color(millis(160).with_easing(ease_in_out)));
 
         let trigger_element = trigger.child(trigger_content).child(chevron);
 
@@ -385,7 +387,7 @@ impl RenderOnce for Select {
                 .opacity(p)
                 .bg(theme.background())
                 .border_1()
-                .border_color(theme.surface().opacity(0.5))
+                .border_color(theme.elevated().opacity(0.5))
                 .rounded(px(12.0))
                 .shadow_lg()
                 .p_1p5()

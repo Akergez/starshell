@@ -61,7 +61,7 @@ impl Render for DraggedFile {
                         "file-text.svg"
                     })
                     .size(px(24.0))
-                    .text_color(cx.global::<Theme>().foreground()),
+                    .text_color(cx.global::<Theme>().text()),
             )
     }
 }
@@ -109,7 +109,7 @@ fn card(
                 "file-text.svg"
             })
             .size(px(36.0))
-            .text_color(theme.foreground_muted())
+            .text_color(theme.text_muted())
             .into_any_element()
     };
     let description = if item.is_dir {
@@ -181,7 +181,7 @@ fn card(
                 .child(
                     div()
                         .text_size(px(10.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .text_ellipsis()
                         .child(description),
                 ),
@@ -271,7 +271,7 @@ pub fn render(module: &ShelfModule, cx: &mut Context<ShelfModule>) -> gpui::Stat
                         .child(
                             div()
                                 .text_size(px(11.0))
-                                .text_color(theme.foreground_muted())
+                                .text_color(theme.text_muted())
                                 .child(format!("· {count}")),
                         ),
                 )
@@ -303,17 +303,17 @@ pub fn render(module: &ShelfModule, cx: &mut Context<ShelfModule>) -> gpui::Stat
                 .rounded(px(style::INNER_RADIUS))
                 .border_1()
                 .border_dashed()
-                .border_color(theme.foreground_muted().opacity(0.35))
+                .border_color(theme.text_muted().opacity(0.35))
                 .child(
                     svg()
                         .path("plus.svg")
                         .size(px(20.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 )
                 .child(
                     div()
                         .text_size(px(12.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .child(empty),
                 )
                 .into_any_element()
@@ -327,9 +327,9 @@ pub fn render(module: &ShelfModule, cx: &mut Context<ShelfModule>) -> gpui::Stat
                 .text_size(px(10.0))
                 .text_ellipsis()
                 .text_color(if module.error {
-                    theme.red()
+                    theme.error()
                 } else {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 })
                 .child(footer),
         )

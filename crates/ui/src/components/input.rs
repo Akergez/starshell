@@ -273,18 +273,14 @@ impl InputState {
     }
 
     pub fn copy(&self, cx: &mut App) {
-        let text = self
-            .selected_text()
-            .unwrap_or_else(|| self.text());
+        let text = self.selected_text().unwrap_or_else(|| self.text());
         if !text.is_empty() {
             cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
         }
     }
 
     pub fn cut(&mut self, cx: &mut App) {
-        let text = self
-            .selected_text()
-            .unwrap_or_else(|| self.text());
+        let text = self.selected_text().unwrap_or_else(|| self.text());
         if !text.is_empty() {
             cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
             if !self.delete_selection() {
@@ -661,19 +657,22 @@ impl RenderOnce for Input {
         };
 
         let is_empty = chars.is_empty();
-        let show_cursor = self.cursor_visible.unwrap_or(self.focused && !self.disabled);
+        let show_cursor = self
+            .cursor_visible
+            .unwrap_or(self.focused && !self.disabled);
 
         let height = self.height.unwrap_or(px(44.0));
         let rounded = self.rounded.unwrap_or(px(9999.0));
-        let bg_color = self.bg.unwrap_or_else(|| theme.surface());
+        let bg_color = self.bg.unwrap_or_else(|| theme.elevated());
         let font_size = self.text_size.unwrap_or(px(14.0));
 
         let current_border = if self.error {
-            theme.red()
+            theme.error()
         } else if self.focused {
             self.focused_border_color.unwrap_or_else(|| theme.accent())
         } else {
-            self.border_color.unwrap_or_else(|| theme.surface().opacity(0.35))
+            self.border_color
+                .unwrap_or_else(|| theme.elevated().opacity(0.35))
         };
 
         let mut container = div()
@@ -757,7 +756,11 @@ impl RenderOnce for Input {
                     .text_ellipsis()
                     .whitespace_nowrap()
                     .text_size(font_size)
-                    .text_color(theme.foreground_muted().opacity(if self.focused { 0.6 } else { 0.85 }))
+                    .text_color(
+                        theme
+                            .text_muted()
+                            .opacity(if self.focused { 0.6 } else { 0.85 }),
+                    )
                     .when(self.centered, |s| s.text_center())
                     .child(self.placeholder),
             );
@@ -792,7 +795,7 @@ impl RenderOnce for Input {
                         .min_w_0()
                         .whitespace_nowrap()
                         .text_size(font_size)
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(before_str),
                 );
             }
@@ -806,7 +809,7 @@ impl RenderOnce for Input {
                         .bg(theme.accent().opacity(0.35))
                         .rounded(px(3.0))
                         .px(px(2.0))
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(selected_str),
                 );
             }
@@ -817,7 +820,7 @@ impl RenderOnce for Input {
                         .min_w_0()
                         .whitespace_nowrap()
                         .text_size(font_size)
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(after_str),
                 );
             }
@@ -834,7 +837,10 @@ impl RenderOnce for Input {
                 } else if cursor_pos + half >= chars.len() {
                     (chars.len().saturating_sub(max_v), chars.len())
                 } else {
-                    (cursor_pos - half, (cursor_pos - half + max_v).min(chars.len()))
+                    (
+                        cursor_pos - half,
+                        (cursor_pos - half + max_v).min(chars.len()),
+                    )
                 }
             } else {
                 (0, chars.len())
@@ -849,7 +855,7 @@ impl RenderOnce for Input {
                         .min_w_0()
                         .whitespace_nowrap()
                         .text_size(font_size)
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(before_cursor),
                 );
             }
@@ -870,7 +876,7 @@ impl RenderOnce for Input {
                         .min_w_0()
                         .whitespace_nowrap()
                         .text_size(font_size)
-                        .text_color(theme.foreground())
+                        .text_color(theme.text())
                         .child(after_cursor),
                 );
             }
@@ -884,7 +890,7 @@ impl RenderOnce for Input {
                     .text_ellipsis()
                     .whitespace_nowrap()
                     .text_size(font_size)
-                    .text_color(theme.foreground())
+                    .text_color(theme.text())
                     .when(self.centered, |s| s.text_center())
                     .child(text_val),
             );
@@ -898,8 +904,8 @@ impl RenderOnce for Input {
                 .size(px(22.0))
                 .flex_shrink_0()
                 .rounded_full()
-                .bg(theme.surface().opacity(0.8))
-                .hover(|s| s.bg(theme.surface()))
+                .bg(theme.elevated().opacity(0.8))
+                .hover(|s| s.bg(theme.elevated()))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -908,7 +914,7 @@ impl RenderOnce for Input {
                     svg()
                         .path("close.svg")
                         .size(px(10.0))
-                        .text_color(theme.foreground_muted()),
+                        .text_color(theme.text_muted()),
                 );
 
             if let Some(on_clear) = self.on_clear {
@@ -963,7 +969,7 @@ mod tests {
     fn test_select_all() {
         let mut state = InputState::new("Starshell Desktop");
         state.select_all();
-        assert_eq!(state.selection, Some(0..15));
+        assert_eq!(state.selection, Some(0..17));
         assert_eq!(state.selected_text(), Some("Starshell Desktop".to_string()));
 
         // Backspace on select_all deletes everything
@@ -1056,4 +1062,3 @@ mod tests {
         assert_eq!(state.text(), "hello");
     }
 }
-

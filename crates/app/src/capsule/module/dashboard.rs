@@ -333,7 +333,7 @@ impl Render for DashboardModule {
             .bg(crate::capsule::widgets::style::background(&theme))
             .font_family(theme.font_family())
             .text_size(px(14.0))
-            .text_color(theme.foreground())
+            .text_color(theme.text())
             .child(widgets::home::render(self, &theme, cx));
         let mut root = div()
             .relative()

@@ -43,7 +43,7 @@ fn measure(
             weight,
             ..gpui::font(theme.font_family())
         },
-        color: theme.foreground(),
+        color: theme.text(),
         ..Default::default()
     }];
     text_system
@@ -214,12 +214,12 @@ pub fn render(
                         svg()
                             .path("bell.svg")
                             .size(px(28.0))
-                            .text_color(theme.foreground_muted()),
+                            .text_color(theme.text_muted()),
                     )
                     .child(
                         div()
                             .text_size(px(13.0))
-                            .text_color(theme.foreground_muted())
+                            .text_color(theme.text_muted())
                             .child(module.text("dashboard.no_notifications", cx)),
                     ),
             );
@@ -289,7 +289,7 @@ fn card(
                     .flex_shrink_0()
                     .text_size(px(13.0))
                     .line_height(px(18.0))
-                    .text_color(theme.foreground_muted())
+                    .text_color(theme.text_muted())
                     .child(item.body.clone()),
             )
         });
@@ -342,7 +342,7 @@ fn card(
                         .flex_1()
                         .min_w_0()
                         .text_size(px(12.0))
-                        .text_color(theme.foreground_muted())
+                        .text_color(theme.text_muted())
                         .text_ellipsis()
                         .child(item.app_name.clone()),
                 )
@@ -441,7 +441,7 @@ fn card(
                         div()
                             .text_size(px(12.0))
                             .line_height(px(18.0))
-                            .text_color(theme.red())
+                            .text_color(theme.error())
                             .child(module.text("notifications_module.reply_failed", cx)),
                     )
                 }),

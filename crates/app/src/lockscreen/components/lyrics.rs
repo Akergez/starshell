@@ -88,9 +88,9 @@ pub fn render_lyrics(
                 .text_color(if is_active {
                     theme.accent()
                 } else if is_past {
-                    theme.foreground_muted()
+                    theme.text_muted()
                 } else {
-                    theme.foreground()
+                    theme.text()
                 })
                 .opacity(opacity)
                 .relative()
@@ -109,9 +109,9 @@ pub fn render_lyrics(
         .px(px(20.0))
         .py(px(10.0))
         .rounded(px(22.0))
-        .bg(theme.surface().opacity(0.35))
+        .bg(theme.elevated().opacity(0.35))
         .border_1()
-        .border_color(theme.surface().opacity(0.25))
+        .border_color(theme.elevated().opacity(0.25))
         .overflow_hidden()
         .child(lines_col)
         .into_any_element()
