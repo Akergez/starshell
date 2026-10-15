@@ -40,16 +40,23 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn load() -> Self {
         let config_path = Self::get_config_path();
-        if let Ok(content) = fs::read_to_string(&config_path)
-            && let Ok(mut cfg) = toml::from_str::<AppConfig>(&content)
-        {
-            cfg.ui.capsule_round = cfg.ui.capsule_round.clamp(0.0, 24.0);
-            return cfg;
+        match fs::read_to_string(&config_path) {
+            Ok(content) => match toml::from_str::<AppConfig>(&content) {
+                Ok(mut cfg) => {
+                    cfg.ui.capsule_round = cfg.ui.capsule_round.clamp(0.0, 24.0);
+                    cfg
+                }
+                Err(error) => {
+                    eprintln!("Invalid config {}: {error}", config_path.display());
+                    AppConfig::default()
+                }
+            },
+            Err(_) => {
+                let default_cfg = AppConfig::default();
+                let _ = Self::save(&default_cfg);
+                default_cfg
+            }
         }
-
-        let default_cfg = AppConfig::default();
-        let _ = Self::save(&default_cfg);
-        default_cfg
     }
 
     pub fn save(cfg: &AppConfig) -> std::io::Result<()> {
@@ -57,17 +64,41 @@ impl AppConfig {
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let content = toml::to_string_pretty(cfg).map_err(std::io::Error::other)?;
+        let existing = fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|content| content.parse::<toml::Table>().ok())
+            .unwrap_or_default();
+        let content = Self::merged_content(existing, cfg)?;
         fs::write(config_path, content)
     }
 
     pub fn get_config_path() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("capsule")
+            .join("starshell")
             .join("config.toml")
     }
+
+    fn merged_content(mut existing: toml::Table, cfg: &AppConfig) -> std::io::Result<String> {
+        let current = toml::Table::try_from(cfg).map_err(std::io::Error::other)?;
+        merge_tables(&mut existing, current);
+        toml::to_string_pretty(&existing).map_err(std::io::Error::other)
+    }
 }
+
+fn merge_tables(target: &mut toml::Table, source: toml::Table) {
+    for (key, value) in source {
+        match (target.get_mut(&key), value) {
+            (Some(toml::Value::Table(target_table)), toml::Value::Table(source_table)) => {
+                merge_tables(target_table, source_table);
+            }
+            (_, value) => {
+                target.insert(key, value);
+            }
+        }
+    }
+}
+
 
 #[derive(Clone)]
 pub struct ConfigService {
@@ -127,5 +158,24 @@ impl ConfigService {
 
     pub fn subscribe(&self) -> broadcast::Receiver<Arc<AppConfig>> {
         self.tx.subscribe()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn saving_preserves_keys_owned_by_other_tools() {
+        let existing: toml::Table =
+            "[bar]\nsize = 30.0\n[osd]\nposition = 'right'\n[ui]\nforeign = 1\n"
+                .parse()
+                .expect("existing config");
+        let content = AppConfig::merged_content(existing, &AppConfig::default())
+            .expect("merged config");
+        let merged: toml::Table = content.parse().expect("merged table");
+        assert_eq!(merged["osd"]["position"].as_str(), Some("right"));
+        assert_eq!(merged["ui"]["foreign"].as_integer(), Some(1));
+        assert!(merged["ui"].get("dark_mode").is_some());
     }
 }

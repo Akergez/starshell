@@ -78,7 +78,7 @@ impl LockScreen {
 
     fn init_fallback_blur(&mut self) {
         let wallpaper_path = dirs::home_dir().and_then(|h| {
-            let conf = h.join(".config/capsule/current_wallpaper");
+            let conf = h.join(".config/starshell/current_wallpaper");
             std::fs::read_to_string(conf)
                 .ok()
                 .map(|s| PathBuf::from(s.trim()))
@@ -500,7 +500,7 @@ impl Drop for LockScreen {
         if let Some(ref path) = self.blurred_wallpaper
             && path
                 .to_string_lossy()
-                .starts_with("/tmp/capsule_lock_blur_")
+                .starts_with("/tmp/starshell_lock_blur_")
         {
             let _ = std::fs::remove_file(path);
         }

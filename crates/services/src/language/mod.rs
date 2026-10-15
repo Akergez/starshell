@@ -285,7 +285,7 @@ impl LangService {
     pub fn languages_dir() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("capsule")
+            .join("starshell")
             .join("languages")
     }
 

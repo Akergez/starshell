@@ -87,7 +87,7 @@ fn cache_local_image(id: &str, text: &str) -> Option<PathBuf> {
     let bytes = std::fs::read(local_image_path(text)?).ok()?;
     let mut hash = std::collections::hash_map::DefaultHasher::new();
     bytes.hash(&mut hash);
-    let cache_dir = PathBuf::from("/tmp/capsule_clipboard");
+    let cache_dir = PathBuf::from("/tmp/starshell_clipboard");
     std::fs::create_dir_all(&cache_dir).ok()?;
     let path = cache_dir.join(format!("{id}-{:x}-preview.png", hash.finish()));
     if !path.is_file() {
@@ -279,7 +279,7 @@ impl ClipboardService {
 
                         let (preview, image_path) = if is_image {
                             let clean_preview = parse_image_preview(rest_trimmed);
-                            let cache_dir = PathBuf::from("/tmp/capsule_clipboard");
+                            let cache_dir = PathBuf::from("/tmp/starshell_clipboard");
                             let _ = std::fs::create_dir_all(&cache_dir);
                             let file_path = cache_dir.join(format!("{id_trimmed}-preview.png"));
 
@@ -462,7 +462,7 @@ impl ClipboardService {
         }
         let _ = Command::new("cliphist").arg("wipe").status();
         let _ = Command::new("wl-copy").arg("-c").status();
-        let _ = std::fs::remove_dir_all("/tmp/capsule_clipboard");
+        let _ = std::fs::remove_dir_all("/tmp/starshell_clipboard");
         if let Ok(mut images) = self.images.lock() {
             *images = images::HistoryImages::default();
         }
@@ -630,7 +630,7 @@ mod tests {
     #[test]
     fn local_images_and_file_uris_produce_png_payloads() {
         let directory =
-            std::env::temp_dir().join(format!("capsule-image-test-{}", std::process::id()));
+            std::env::temp_dir().join(format!("starshell-image-test-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("fixture directory");
         let source = directory.join("image with spaces.jpg");
         image::DynamicImage::new_rgb8(3, 2)

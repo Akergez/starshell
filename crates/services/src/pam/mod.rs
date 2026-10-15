@@ -134,9 +134,9 @@ impl PamService {
             data_ptr: &auth_data as *const PamAuthData as *mut c_void,
         };
 
-        let service = std::env::var("CAPSULE_PAM_SERVICE").unwrap_or_else(|_| {
+        let service = std::env::var("STARSHELL_PAM_SERVICE").unwrap_or_else(|_| {
             for candidate in [
-                "capsule",
+                "starshell",
                 "hyprlock",
                 "swaylock",
                 "system-auth",

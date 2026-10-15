@@ -1,11 +1,11 @@
 [package]
-name = "capsule"
+name = "starshell"
 version = "2.1.0"
 edition = "2024"
 license.workspace = true
 
 [[bin]]
-name = "capsule"
+name = "starshell"
 path = "src/main.rs"
 
 [dependencies]

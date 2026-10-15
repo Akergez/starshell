@@ -62,11 +62,11 @@ hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("playerctl volume 0.05-"),
     { locked = true, repeating = true })
 hl.bind("SUPER + SHIFT + M", hl.dsp.exec_cmd("spotify"))
 
--- Dynamic Capsule Mode Controls
-hl.bind(mainMod .. " + SUPER_L", hl.dsp.exec_cmd("capsule toggle launcher"))
-hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("capsule toggle clipboard"))
-hl.bind(mainMod .. " + PERIOD", hl.dsp.exec_cmd("capsule toggle emoji"))
-hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("capsule toggle dashboard"))
-hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("capsule toggle settings"))
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("capsule toggle record"))
+-- Dynamic Starshell Mode Controls
+hl.bind(mainMod .. " + SUPER_L", hl.dsp.exec_cmd("starshell toggle launcher"))
+hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("starshell toggle clipboard"))
+hl.bind(mainMod .. " + PERIOD", hl.dsp.exec_cmd("starshell toggle emoji"))
+hl.bind(mainMod .. " + ESCAPE", hl.dsp.exec_cmd("starshell toggle dashboard"))
+hl.bind(mainMod .. " + I", hl.dsp.exec_cmd("starshell toggle settings"))
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("starshell toggle record"))
 hl.bind(mainMod .. "+ SHIFT + W", hl.dsp.exec_cmd("zapzap"))

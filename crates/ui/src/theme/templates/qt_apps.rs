@@ -119,7 +119,7 @@ impl AppTheme for QtApps {
 
             // 2. Write KDE kdeglobals using proper R,G,B comma-separated values
             let kdeglobals_path = config_dir.join("kdeglobals");
-            let scheme_name = "Capsule";
+            let scheme_name = "Starshell";
 
             let kde_content = format!(
                 r#"[General]
@@ -162,14 +162,14 @@ inactiveForeground={fg_muted_rgb}
             let _ = fs::write(kdeglobals_path, kde_content);
         }
 
-        // 3. Write KDE color-scheme file in ~/.local/share/color-schemes/Capsule.colors for Dolphin & KDE apps
+        // 3. Write KDE color-scheme file in ~/.local/share/color-schemes/Starshell.colors for Dolphin & KDE apps
         if let Some(data_dir) = dirs::data_dir() {
             let color_schemes_dir = data_dir.join("color-schemes");
             let _ = fs::create_dir_all(&color_schemes_dir);
-            let capsule_colors = format!(
+            let starshell_colors = format!(
                 r#"[Base]
-Name=Capsule
-Scheme=Capsule
+Name=Starshell
+Scheme=Starshell
 
 [Colors:Window]
 BackgroundNormal={bg_rgb}
@@ -201,7 +201,7 @@ inactiveBackground={bg_alt_rgb}
 inactiveForeground={fg_muted_rgb}
 "#
             );
-            let _ = fs::write(color_schemes_dir.join("Capsule.colors"), capsule_colors);
+            let _ = fs::write(color_schemes_dir.join("Starshell.colors"), starshell_colors);
         }
 
         self.reload_apps();

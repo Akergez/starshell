@@ -409,7 +409,7 @@ mod tests {
     #[tokio::test]
     async fn flatpak_exported_icons_resolve_and_refresh_after_installation() -> Result<()> {
         let root = std::env::temp_dir().join(format!(
-            "capsule-flatpak-icons-{}-{}",
+            "starshell-flatpak-icons-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?

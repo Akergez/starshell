@@ -35,7 +35,7 @@ pub fn render(f: &mut Frame, app: &App) {
 fn render_header(f: &mut Frame, area: Rect) {
     let title = Line::from(vec![
         Span::styled(
-            "◆ CAPSULE ",
+            "◆ STARSHELL ",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
@@ -136,7 +136,7 @@ fn render_welcome(f: &mut Frame, area: Rect, app: &App) {
     } else {
         "Stable (Latest)"
     };
-    let running_str = if app.capsule_was_running {
+    let running_str = if app.starshell_was_running {
         "Running (will restart on update)"
     } else {
         "Stopped"
@@ -174,7 +174,7 @@ fn render_welcome(f: &mut Frame, area: Rect, app: &App) {
             ),
         ]),
         Line::from(vec![
-            Span::styled("Capsule Status:      ", Style::default().fg(Color::Gray)),
+            Span::styled("Starshell Status:      ", Style::default().fg(Color::Gray)),
             Span::styled(running_str, Style::default().fg(Color::Blue)),
         ]),
         Line::from(vec![
@@ -328,7 +328,7 @@ fn render_dependencies(f: &mut Frame, area: Rect, app: &App) {
         } else {
             "✔ Re-check Dependencies"
         },
-        "▶ Proceed to Install Capsule Binary",
+        "▶ Proceed to Install Starshell Binary",
         "◀ Back to Welcome Screen",
     ];
 
@@ -431,7 +431,7 @@ fn render_finished(f: &mut Frame, area: Rect, app: &App) {
             ),
             Span::styled(
                 format!(
-                    "Capsule {} successfully installed to /usr/local/bin/capsule!",
+                    "Starshell {} successfully installed to /usr/local/bin/starshell!",
                     ver
                 ),
                 Style::default()
@@ -446,7 +446,7 @@ fn render_finished(f: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(Color::DarkGray),
             ),
             Span::styled(
-                "/usr/share/applications/capsule.desktop",
+                "/usr/share/applications/starshell.desktop",
                 Style::default().fg(Color::Cyan),
             ),
         ]),
@@ -459,7 +459,7 @@ fn render_finished(f: &mut Frame, area: Rect, app: &App) {
         )),
         Line::from(vec![
             Span::styled("  • Hyprland: ", Style::default().fg(Color::Gray)),
-            Span::styled("exec-once = capsule", Style::default().fg(Color::Cyan)),
+            Span::styled("exec-once = starshell", Style::default().fg(Color::Cyan)),
             Span::styled(
                 " in ~/.config/hypr/hyprland.conf",
                 Style::default().fg(Color::DarkGray),
@@ -468,7 +468,7 @@ fn render_finished(f: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![
             Span::styled("  • Niri:     ", Style::default().fg(Color::Gray)),
             Span::styled(
-                "spawn-at-startup \"capsule\"",
+                "spawn-at-startup \"starshell\"",
                 Style::default().fg(Color::Cyan),
             ),
             Span::styled(
@@ -488,7 +488,7 @@ fn render_finished(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(p, sub[0]);
 
     let options = [
-        format!("{} Launch Capsule daemon on exit", launch_check),
+        format!("{} Launch Starshell daemon on exit", launch_check),
         "▶ Finish and Exit".to_string(),
     ];
 
@@ -544,7 +544,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("Back", Style::default().fg(Color::Gray)),
         ],
         Step::Installing => vec![Span::styled(
-            "Installing Capsule... Please wait.",
+            "Installing Starshell... Please wait.",
             Style::default().fg(Color::Cyan),
         )],
         Step::Finished => vec![

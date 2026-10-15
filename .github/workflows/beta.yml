@@ -84,18 +84,18 @@ jobs:
       - name: Package Release Assets
         run: |
           mkdir -p dist
-          if [ -f target/x86_64-unknown-linux-gnu/release/capsule ]; then
-            cp target/x86_64-unknown-linux-gnu/release/capsule dist/capsule
+          if [ -f target/x86_64-unknown-linux-gnu/release/starshell ]; then
+            cp target/x86_64-unknown-linux-gnu/release/starshell dist/starshell
           else
-            cp target/x86_64-unknown-linux-gnu/release/Capsule dist/capsule
+            cp target/x86_64-unknown-linux-gnu/release/Starshell dist/starshell
           fi
-          chmod +x dist/capsule
-          tar -czvf capsule-x86_64-unknown-linux-gnu.tar.gz -C dist capsule
+          chmod +x dist/starshell
+          tar -czvf starshell-x86_64-unknown-linux-gnu.tar.gz -C dist starshell
 
           mkdir -p dist_installer
-          cp target/x86_64-unknown-linux-gnu/release/capsule-installer dist_installer/capsule-installer
-          chmod +x dist_installer/capsule-installer
-          tar -czvf capsule-installer-x86_64-unknown-linux-gnu.tar.gz -C dist_installer capsule-installer
+          cp target/x86_64-unknown-linux-gnu/release/starshell-installer dist_installer/starshell-installer
+          chmod +x dist_installer/starshell-installer
+          tar -czvf starshell-installer-x86_64-unknown-linux-gnu.tar.gz -C dist_installer starshell-installer
 
       - name: Prepare Release Body
         id: release_body
@@ -115,8 +115,8 @@ jobs:
           name: Beta ${{ steps.tag_info.outputs.TAG_NAME }}
           body_path: ${{ steps.release_body.outputs.BODY_PATH }}
           files: |
-            capsule-x86_64-unknown-linux-gnu.tar.gz
-            capsule-installer-x86_64-unknown-linux-gnu.tar.gz
+            starshell-x86_64-unknown-linux-gnu.tar.gz
+            starshell-installer-x86_64-unknown-linux-gnu.tar.gz
           draft: false
           prerelease: true
         env:

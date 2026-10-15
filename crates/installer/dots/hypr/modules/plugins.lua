@@ -28,7 +28,7 @@ if hl.plugin.hyprglass then
     })
     
     hg.layer(
-	"capsule-panel",
+	"starshell-panel",
 	{exclude = true}
     )
     hg.layer(

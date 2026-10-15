@@ -410,7 +410,7 @@ async fn resolve_art_url(url: &str) -> Option<String> {
     let mut hasher = Sha256::new();
     hasher.update(url.as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    let cache_path = format!("/tmp/capsule_art_{}.jpg", &hash[..16]);
+    let cache_path = format!("/tmp/starshell_art_{}.jpg", &hash[..16]);
     if Path::new(&cache_path).is_file() {
         return Some(cache_path);
     }
@@ -500,7 +500,7 @@ mod tests {
     #[tokio::test]
     async fn local_artwork_accepts_encoded_file_urls_and_absolute_paths() {
         let directory =
-            std::env::temp_dir().join(format!("capsule-art-test-{}", std::process::id()));
+            std::env::temp_dir().join(format!("starshell-art-test-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("artwork fixture directory");
         let path = directory.join("cover with spaces.png");
         image::RgbaImage::new(2, 2)

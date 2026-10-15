@@ -52,8 +52,8 @@ impl NotificationServer {
 
     pub(crate) async fn get_server_information(&self) -> (String, String, String, String) {
         (
-            "Capsule Notifications".to_string(),
-            "Capsule".to_string(),
+            "Starshell Notifications".to_string(),
+            "Starshell".to_string(),
             "0.1.0".to_string(),
             "1.2".to_string(),
         )

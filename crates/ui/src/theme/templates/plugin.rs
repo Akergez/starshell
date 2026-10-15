@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_write_replace_section() {
-        let temp_dir = std::env::temp_dir().join("capsule_section_test");
+        let temp_dir = std::env::temp_dir().join("starshell_section_test");
         let _ = fs::create_dir_all(&temp_dir);
         let config_file = temp_dir.join("test.ini");
 
@@ -380,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_write_replace_section_preserves_keys_and_deduplicates() {
-        let temp_dir = std::env::temp_dir().join("capsule_section_preserve_test");
+        let temp_dir = std::env::temp_dir().join("starshell_section_preserve_test");
         let _ = fs::create_dir_all(&temp_dir);
         let config_file = temp_dir.join("foot.ini");
 
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_write_replace_markers() {
-        let temp_dir = std::env::temp_dir().join("capsule_marker_test");
+        let temp_dir = std::env::temp_dir().join("starshell_marker_test");
         let _ = fs::create_dir_all(&temp_dir);
         let config_file = temp_dir.join("test.conf");
 

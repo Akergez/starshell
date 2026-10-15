@@ -86,7 +86,7 @@ pub fn tokio_handle() -> tokio::runtime::Handle {
     let rt = FALLBACK_RUNTIME.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .thread_name("capsule-tokio")
+            .thread_name("starshell-tokio")
             .build()
             .expect("Failed to create fallback Tokio runtime")
     });

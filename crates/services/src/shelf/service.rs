@@ -127,7 +127,7 @@ fn copy_paths_to_clipboard(paths: &[PathBuf]) -> bool {
     }
 
     let _ = Command::new("pkill")
-        .args(["-f", "capsule_shelf_clipboard_helper"])
+        .args(["-f", "starshell_shelf_clipboard_helper"])
         .status();
 
     let paths_args: Vec<String> = paths
@@ -172,7 +172,7 @@ except Exception:
     let py_status = Command::new("python3")
         .arg("-c")
         .arg(py_script)
-        .arg("capsule_shelf_clipboard_helper")
+        .arg("starshell_shelf_clipboard_helper")
         .args(&paths_args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -204,7 +204,7 @@ mod tests {
     fn test_shelf_service_add_and_remove() {
         let service = ShelfService::new();
         let temp_dir = std::env::temp_dir();
-        let file_path = temp_dir.join("capsule_shelf_test.txt");
+        let file_path = temp_dir.join("starshell_shelf_test.txt");
         let _ = std::fs::write(&file_path, "hello");
 
         let added = service.add_paths(&[file_path.clone()]);
@@ -229,7 +229,7 @@ mod tests {
     fn test_shelf_service_copy() {
         let service = ShelfService::new();
         let temp_dir = std::env::temp_dir();
-        let file_path = temp_dir.join("capsule_shelf_copy_test.txt");
+        let file_path = temp_dir.join("starshell_shelf_copy_test.txt");
         let _ = std::fs::write(&file_path, "copy test");
 
         service.add_paths(&[file_path.clone()]);

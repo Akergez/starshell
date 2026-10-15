@@ -5,10 +5,10 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 const DESKTOP_ENTRY_CONTENT: &str = r#"[Desktop Entry]
-Name=Capsule
+Name=Starshell
 Comment=Dynamic Island Shell for Linux
-Exec=/usr/local/bin/capsule
-Icon=capsule
+Exec=/usr/local/bin/starshell
+Icon=starshell
 Terminal=false
 Type=Application
 Path=$HOME
@@ -45,7 +45,7 @@ pub fn run_sudo_cmd(args: &[&str], password: Option<&str>) -> Result<()> {
 
 pub fn copy_binary_to_system(source_bin: &Path, password: Option<&str>) -> Result<()> {
     let dest_dir = Path::new("/usr/local/bin");
-    let dest_file = dest_dir.join("capsule");
+    let dest_file = dest_dir.join("starshell");
 
     if !dest_dir.exists() {
         run_sudo_cmd(&["mkdir", "-p", "/usr/local/bin"], password)
@@ -60,27 +60,27 @@ pub fn copy_binary_to_system(source_bin: &Path, password: Option<&str>) -> Resul
         ],
         password,
     )
-    .context("Failed to copy binary to /usr/local/bin/capsule")?;
+    .context("Failed to copy binary to /usr/local/bin/starshell")?;
 
     run_sudo_cmd(
         &["chmod", "755", dest_file.to_string_lossy().as_ref()],
         password,
     )
-    .context("Failed to chmod /usr/local/bin/capsule")?;
+    .context("Failed to chmod /usr/local/bin/starshell")?;
 
     Ok(())
 }
 
 pub fn create_desktop_entry(password: Option<&str>) -> Result<()> {
     let desktop_dir = Path::new("/usr/share/applications");
-    let desktop_file = desktop_dir.join("capsule.desktop");
+    let desktop_file = desktop_dir.join("starshell.desktop");
 
     if !desktop_dir.exists() {
         let _ = run_sudo_cmd(&["mkdir", "-p", "/usr/share/applications"], password);
     }
 
     let temp_desktop =
-        std::env::temp_dir().join(format!("capsule-desktop-{}.desktop", std::process::id()));
+        std::env::temp_dir().join(format!("starshell-desktop-{}.desktop", std::process::id()));
     fs::write(&temp_desktop, DESKTOP_ENTRY_CONTENT)?;
 
     run_sudo_cmd(
@@ -101,14 +101,14 @@ pub fn create_desktop_entry(password: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-pub fn launch_capsule() -> Result<()> {
+pub fn launch_starshell() -> Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
 
     if crate::system::command_exists("gtk-launch")
-        && Path::new("/usr/share/applications/capsule.desktop").exists()
+        && Path::new("/usr/share/applications/starshell.desktop").exists()
     {
         let status = Command::new("gtk-launch")
-            .arg("capsule.desktop")
+            .arg("starshell.desktop")
             .current_dir(&home)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -120,13 +120,13 @@ pub fn launch_capsule() -> Result<()> {
         }
     }
 
-    Command::new("/usr/local/bin/capsule")
+    Command::new("/usr/local/bin/starshell")
         .current_dir(&home)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .context("Failed to spawn /usr/local/bin/capsule")?;
+        .context("Failed to spawn /usr/local/bin/starshell")?;
 
     Ok(())
 }

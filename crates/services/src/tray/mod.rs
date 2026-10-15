@@ -16,7 +16,7 @@ pub enum TrayAction {
     Quit,
 }
 
-/// Shared queue that the tray posts actions into, and the capsule heartbeat drains.
+/// Shared queue that the tray posts actions into, and the starshell heartbeat drains.
 #[derive(Clone)]
 pub struct TrayService {
     queue: Arc<Mutex<Vec<TrayAction>>>,
@@ -36,7 +36,7 @@ impl TrayService {
         }
     }
 
-    /// Pop the next action (called from the capsule heartbeat).
+    /// Pop the next action (called from the starshell heartbeat).
     pub fn pop(&self) -> Option<TrayAction> {
         self.queue.lock().ok()?.drain(..1).next()
     }
@@ -45,7 +45,7 @@ impl TrayService {
     pub fn start(&self) {
         let service = self.clone();
         crate::spawn_tokio(async move {
-            let tray = CapsuleTray {
+            let tray = StarshellTray {
                 service: service.clone(),
             };
             match tray.spawn().await {
@@ -63,30 +63,30 @@ impl TrayService {
 
 // ── ksni implementation ─────────────────────────────────────────────────────
 
-struct CapsuleTray {
+struct StarshellTray {
     service: TrayService,
 }
 
-impl ksni::Tray for CapsuleTray {
+impl ksni::Tray for StarshellTray {
     fn id(&self) -> String {
-        "capsule".to_string()
+        "starshell".to_string()
     }
 
     fn icon_name(&self) -> String {
-        // Place a PNG named "capsule" in ~/.local/share/icons/hicolor/64x64/apps/
+        // Place a PNG named "starshell" in ~/.local/share/icons/hicolor/64x64/apps/
         // for a themed icon; falls back to a generic system icon otherwise.
-        "capsule".to_string()
+        "starshell".to_string()
     }
 
     fn title(&self) -> String {
-        "Capsule".to_string()
+        "Starshell".to_string()
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
         ksni::ToolTip {
             icon_name: String::new(),
             icon_pixmap: vec![],
-            title: "Capsule".to_string(),
+            title: "Starshell".to_string(),
             description: "Dynamic Island para Linux".to_string(),
         }
     }
@@ -98,7 +98,7 @@ impl ksni::Tray for CapsuleTray {
             StandardItem {
                 label: "Dashboard".to_string(),
                 icon_name: "preferences-system".to_string(),
-                activate: Box::new(|tray: &mut CapsuleTray| {
+                activate: Box::new(|tray: &mut StarshellTray| {
                     tray.service.push(TrayAction::ToggleDashboard);
                 }),
                 ..Default::default()
@@ -107,7 +107,7 @@ impl ksni::Tray for CapsuleTray {
             StandardItem {
                 label: "Lanzador".to_string(),
                 icon_name: "system-search".to_string(),
-                activate: Box::new(|tray: &mut CapsuleTray| {
+                activate: Box::new(|tray: &mut StarshellTray| {
                     tray.service.push(TrayAction::ToggleLauncher);
                 }),
                 ..Default::default()
@@ -116,7 +116,7 @@ impl ksni::Tray for CapsuleTray {
             StandardItem {
                 label: "Temas".to_string(),
                 icon_name: "preferences-desktop-theme".to_string(),
-                activate: Box::new(|tray: &mut CapsuleTray| {
+                activate: Box::new(|tray: &mut StarshellTray| {
                     tray.service.push(TrayAction::SelectTheme);
                 }),
                 ..Default::default()
@@ -126,7 +126,7 @@ impl ksni::Tray for CapsuleTray {
             StandardItem {
                 label: "Salir".to_string(),
                 icon_name: "application-exit".to_string(),
-                activate: Box::new(|tray: &mut CapsuleTray| {
+                activate: Box::new(|tray: &mut StarshellTray| {
                     tray.service.push(TrayAction::Quit);
                 }),
                 ..Default::default()

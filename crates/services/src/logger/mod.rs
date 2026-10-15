@@ -7,10 +7,10 @@ static LOG_FILE: Mutex<Option<std::fs::File>> = Mutex::new(None);
 
 pub fn init_logger() {
     let log_dir = dirs::data_local_dir()
-        .map(|p| p.join("capsule"))
+        .map(|p| p.join("starshell"))
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
     let _ = std::fs::create_dir_all(&log_dir);
-    let file_path = log_dir.join("capsule.log");
+    let file_path = log_dir.join("starshell.log");
 
     match OpenOptions::new()
         .create(true)

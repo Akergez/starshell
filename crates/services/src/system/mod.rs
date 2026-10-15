@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     fn audio_refresh_recovers_and_preserves_last_volume() -> Result<()> {
-        const FIXTURE_ENV: &str = "CAPSULE_AUDIO_TEST_DIR";
+        const FIXTURE_ENV: &str = "STARSHELL_AUDIO_TEST_DIR";
         if let Some(directory) = std::env::var_os(FIXTURE_ENV) {
             let directory = std::path::PathBuf::from(directory);
             return tokio::runtime::Builder::new_current_thread()
@@ -387,7 +387,7 @@ mod tests {
         }
 
         let directory = std::env::temp_dir().join(format!(
-            "capsule-audio-test-{}-{}",
+            "starshell-audio-test-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?
@@ -397,7 +397,7 @@ mod tests {
         for (name, script) in [
             (
                 "wpctl",
-                "#!/bin/sh\n/bin/cat \"$CAPSULE_AUDIO_TEST_DIR/$2\" || exit 1\n[ ! -f \"$CAPSULE_AUDIO_TEST_DIR/fail\" ]\n",
+                "#!/bin/sh\n/bin/cat \"$STARSHELL_AUDIO_TEST_DIR/$2\" || exit 1\n[ ! -f \"$STARSHELL_AUDIO_TEST_DIR/fail\" ]\n",
             ),
             ("pactl", "#!/bin/sh\nexit 1\n"),
             ("brightnessctl", "#!/bin/sh\nexit 1\n"),

@@ -22,7 +22,7 @@ impl TemplatePluginManager {
     pub fn templates_dir() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("capsule")
+            .join("starshell")
             .join("templates")
     }
 
@@ -173,8 +173,8 @@ palette = 15={{palette.15}}
 const DEFAULT_FISH_TEMPLATE: &str = r##"name = "fish"
 description = "Fish shell syntax highlighting theme"
 enabled = true
-target = "~/.config/fish/conf.d/capsule_theme.fish"
-reload = "fish -c 'source ~/.config/fish/conf.d/capsule_theme.fish'"
+target = "~/.config/fish/conf.d/starshell_theme.fish"
+reload = "fish -c 'source ~/.config/fish/conf.d/starshell_theme.fish'"
 
 [template]
 content = """
@@ -361,13 +361,13 @@ bright7={{palette.15.strip}}
 const DEFAULT_HYPRLAND_TEMPLATE: &str = r##"name = "hyprland"
 description = "Hyprland borders and colors"
 enabled = true
-target = "~/.config/hypr/capsule_colors.lua"
+target = "~/.config/hypr/starshell_colors.lua"
 reload = "hyprctl reload"
 
 [hook]
 file = "~/.config/hypr/hyprland.lua"
-contains = "require(\"capsule_colors\")"
-inject = "colors = require(\"capsule_colors\")\n"
+contains = "require(\"starshell_colors\")"
+inject = "colors = require(\"starshell_colors\")\n"
 
 [template]
 content = """
@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn test_apply_theme_renders_to_temp() {
-        let temp_dir = std::env::temp_dir().join("capsule_tpl_test");
+        let temp_dir = std::env::temp_dir().join("starshell_tpl_test");
         let _ = fs::create_dir_all(&temp_dir);
         let target_file = temp_dir.join("theme.conf");
 
@@ -442,7 +442,7 @@ mod tests {
         assert!(plugin.is_some());
         let plugin = plugin.unwrap_or_else(|| unreachable!());
         assert_eq!(plugin.name, "hyprland");
-        assert!(plugin.target.ends_with("capsule_colors.lua"));
+        assert!(plugin.target.ends_with("starshell_colors.lua"));
     }
 
     #[test]

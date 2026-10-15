@@ -1,6 +1,6 @@
 return {
-    terminal    = "capsule terminal",
-    fileManager = "capsule files",
-    browser     = "capsule browser",
-    code_editor = "capsule editor"
+    terminal    = "starshell terminal",
+    fileManager = "starshell files",
+    browser     = "starshell browser",
+    code_editor = "starshell editor"
 }

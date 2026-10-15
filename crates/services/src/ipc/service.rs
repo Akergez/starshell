@@ -78,7 +78,7 @@ impl IpcSubscriber {
             AcquireResult::Primary(subscriber) => Some(subscriber),
             AcquireResult::Secondary => None,
             AcquireResult::NotRunning => {
-                eprintln!("Error: Capsule daemon is not running. Start it first with 'Capsule'.");
+                eprintln!("Error: Starshell daemon is not running. Start it first with 'Starshell'.");
                 std::process::exit(1);
             }
             AcquireResult::Error(err) => {
@@ -88,7 +88,7 @@ impl IpcSubscriber {
                     AcquireResult::Secondary => None,
                     AcquireResult::NotRunning => {
                         eprintln!(
-                            "Error: Capsule daemon is not running. Start it first with 'Capsule'."
+                            "Error: Starshell daemon is not running. Start it first with 'Starshell'."
                         );
                         std::process::exit(1);
                     }

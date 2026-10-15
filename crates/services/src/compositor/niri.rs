@@ -199,7 +199,7 @@ mod tests {
             ("unexpected", Ok(Response::Workspaces(Vec::new())), false),
         ] {
             let path = std::env::temp_dir().join(format!(
-                "capsule-niri-logout-{}-{name}.sock",
+                "starshell-niri-logout-{}-{name}.sock",
                 std::process::id()
             ));
             let listener = tokio::net::UnixListener::bind(&path).expect("mock socket");

@@ -26,8 +26,8 @@ fn main() -> Result<()> {
         match arg.as_str() {
             "--beta" => beta_mode = true,
             "--help" | "-h" => {
-                println!("Capsule Installer");
-                println!("Usage: capsule-installer [OPTIONS]");
+                println!("Starshell Installer");
+                println!("Usage: starshell-installer [OPTIONS]");
                 println!();
                 println!("Options:");
                 println!("  --beta       Install pre-release beta version");
@@ -36,14 +36,14 @@ fn main() -> Result<()> {
             }
             other => {
                 eprintln!("Unknown option: {}", other);
-                eprintln!("Usage: capsule-installer [--beta]");
+                eprintln!("Usage: starshell-installer [--beta]");
                 std::process::exit(1);
             }
         }
     }
 
     if system::is_root() {
-        eprintln!("Error: Please run capsule-installer as regular user, not root or sudo.");
+        eprintln!("Error: Please run starshell-installer as regular user, not root or sudo.");
         eprintln!("Sudo password will be prompted within the TUI if needed.");
         std::process::exit(1);
     }
@@ -89,13 +89,13 @@ fn main() -> Result<()> {
     if let Err(e) = res {
         eprintln!("Installer error: {:#}", e);
     } else if app.step == Step::Finished && app.launch_on_finish {
-        println!("==> Starting Capsule daemon in background...");
-        let _ = install::launch_capsule();
+        println!("==> Starting Starshell daemon in background...");
+        let _ = install::launch_starshell();
         std::thread::sleep(Duration::from_millis(800));
-        if system::is_capsule_running() {
-            println!("==> Capsule is now running!");
+        if system::is_starshell_running() {
+            println!("==> Starshell is now running!");
         } else {
-            println!("==> Note: Capsule can be started anytime via 'capsule' command.");
+            println!("==> Note: Starshell can be started anytime via 'starshell' command.");
         }
     }
 
@@ -134,7 +134,7 @@ fn run_loop<B: ratatui::backend::Backend>(
                                 }
                                 if let Some(action) = app.pending_action.take() {
                                     match action {
-                                        app::PendingAction::InstallCapsule => {
+                                        app::PendingAction::InstallStarshell => {
                                             app.start_installation();
                                         }
                                         app::PendingAction::InstallDeps => {
@@ -241,7 +241,7 @@ fn handle_deps_key<B: ratatui::backend::Backend>(
                 }
             }
             1 => {
-                if app.request_auth_or_proceed(app::PendingAction::InstallCapsule) {
+                if app.request_auth_or_proceed(app::PendingAction::InstallStarshell) {
                     app.selected_index = 0;
                     app.start_installation();
                 }

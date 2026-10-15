@@ -30,7 +30,7 @@ pub struct SniHostService {
 impl SniHostService {
     pub fn new() -> Self {
         let _guard = crate::tokio_handle().enter();
-        let _ = std::fs::create_dir_all("/tmp/capsule_tray_icons");
+        let _ = std::fs::create_dir_all("/tmp/starshell_tray_icons");
         Self {
             items: Arc::new(Mutex::new(Vec::new())),
             raw_services: Arc::new(Mutex::new(Vec::new())),
@@ -409,7 +409,7 @@ async fn save_pixmap_to_file(
             }
         })
         .collect();
-    let file_path = format!("/tmp/capsule_tray_icons/{safe_id}_{hash}.png");
+    let file_path = format!("/tmp/starshell_tray_icons/{safe_id}_{hash}.png");
     if !std::path::Path::new(&file_path).exists() {
         image.save(&file_path).ok()?;
     }

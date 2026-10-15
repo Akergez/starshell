@@ -154,7 +154,7 @@ impl ThemeManager {
             });
         } else {
             std::thread::Builder::new()
-                .name("capsule-theme-apply".to_string())
+                .name("starshell-theme-apply".to_string())
                 .spawn(move || {
                     for app in &apps {
                         app.apply_current_theme(&theme);
@@ -187,7 +187,7 @@ impl ThemeManager {
     pub fn theme_path() -> PathBuf {
         dirs::config_dir()
             .expect("Failed to get config directory")
-            .join("capsule")
+            .join("starshell")
             .join("themes")
             .join("current.toml")
     }
@@ -195,7 +195,7 @@ impl ThemeManager {
     pub fn themes_path() -> PathBuf {
         dirs::config_dir()
             .expect("Failed to get config directory")
-            .join("capsule")
+            .join("starshell")
             .join("themes")
             .join("presets")
     }

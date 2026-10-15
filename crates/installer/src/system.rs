@@ -124,8 +124,8 @@ pub fn check_package_installed(pkg: &str, helper: &Option<AurHelper>) -> bool {
         .unwrap_or(false)
 }
 
-pub fn get_installed_capsule_version() -> Option<String> {
-    let paths = ["capsule", "/usr/local/bin/capsule", "/usr/bin/capsule"];
+pub fn get_installed_starshell_version() -> Option<String> {
+    let paths = ["starshell", "/usr/local/bin/starshell", "/usr/bin/starshell"];
     for p in paths {
         if let Ok(out) = Command::new(p).arg("--version").output() {
             if out.status.success() {
@@ -139,23 +139,23 @@ pub fn get_installed_capsule_version() -> Option<String> {
     None
 }
 
-pub fn is_capsule_running() -> bool {
-    let pgrep_capsule = Command::new("pgrep")
+pub fn is_starshell_running() -> bool {
+    let pgrep_starshell = Command::new("pgrep")
         .arg("-x")
-        .arg("capsule")
+        .arg("starshell")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
         .map(|s| s.success())
         .unwrap_or(false);
 
-    if pgrep_capsule {
+    if pgrep_starshell {
         return true;
     }
 
     Command::new("pgrep")
         .arg("-x")
-        .arg("Capsule")
+        .arg("Starshell")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -163,27 +163,27 @@ pub fn is_capsule_running() -> bool {
         .unwrap_or(false)
 }
 
-pub fn stop_capsule_process() {
-    let _ = Command::new("capsule")
+pub fn stop_starshell_process() {
+    let _ = Command::new("starshell")
         .arg("quit")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
 
     for _ in 0..15 {
-        if !is_capsule_running() {
+        if !is_starshell_running() {
             return;
         }
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
 
-    let _ = Command::new("pkill").args(["-x", "capsule"]).status();
-    let _ = Command::new("pkill").args(["-x", "Capsule"]).status();
+    let _ = Command::new("pkill").args(["-x", "starshell"]).status();
+    let _ = Command::new("pkill").args(["-x", "Starshell"]).status();
     std::thread::sleep(std::time::Duration::from_millis(300));
 
-    if is_capsule_running() {
-        let _ = Command::new("pkill").args(["-9", "-x", "capsule"]).status();
-        let _ = Command::new("pkill").args(["-9", "-x", "Capsule"]).status();
+    if is_starshell_running() {
+        let _ = Command::new("pkill").args(["-9", "-x", "starshell"]).status();
+        let _ = Command::new("pkill").args(["-9", "-x", "Starshell"]).status();
     }
 }
 
@@ -199,10 +199,10 @@ pub fn check_wallpaper_daemon() -> Option<&'static str> {
 
 pub fn find_local_release_binary() -> Option<std::path::PathBuf> {
     let candidates = [
-        "target/release/capsule",
-        "target/release/Capsule",
-        "../target/release/capsule",
-        "../../target/release/capsule",
+        "target/release/starshell",
+        "target/release/Starshell",
+        "../target/release/starshell",
+        "../../target/release/starshell",
     ];
 
     for c in candidates {

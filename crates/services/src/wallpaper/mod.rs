@@ -48,7 +48,7 @@ impl WallpaperService {
     pub fn new(compositor: CompositorService) -> Self {
         let config_dir = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("capsule");
+            .join("starshell");
         let _ = fs::create_dir_all(&config_dir);
         let config_file = config_dir.join("current_wallpaper");
         let engine = WallpaperEngine::detect();
@@ -106,7 +106,7 @@ impl WallpaperService {
         modified.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let cache_dir = PathBuf::from("/tmp/capsule_blur");
+        let cache_dir = PathBuf::from("/tmp/starshell_blur");
         let _ = std::fs::create_dir_all(&cache_dir);
         let cached_path = cache_dir.join(format!("{:x}.jpg", hash));
 

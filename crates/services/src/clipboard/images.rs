@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn equivalent_encodings_keep_the_newest_image_and_preserve_distinct_images_and_text() {
         let directory =
-            std::env::temp_dir().join(format!("capsule-dedup-images-{}", std::process::id()));
+            std::env::temp_dir().join(format!("starshell-dedup-images-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("fixture directory");
         let png = directory.join("newest.png");
         let bmp = directory.join("older.bmp");
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn changed_files_are_rechecked_and_removed_entries_release_cached_fingerprints() {
         let path =
-            std::env::temp_dir().join(format!("capsule-dedup-change-{}.png", std::process::id()));
+            std::env::temp_dir().join(format!("starshell-dedup-change-{}.png", std::process::id()));
         image::DynamicImage::new_rgb8(1, 1)
             .save(&path)
             .expect("initial fixture");

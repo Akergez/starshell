@@ -19,7 +19,7 @@ impl SnippetsConfig {
     pub fn get_path() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("capsule")
+            .join("starshell")
             .join("snippets.toml")
     }
 

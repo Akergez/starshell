@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_resolve_markdown_icon() {
-        let path = PathBuf::from("/home/moi/pro/Capsule/README.md");
+        let path = PathBuf::from("/home/moi/pro/Starshell/README.md");
         let icon = resolve_file_icon(&path, false);
         assert!(icon.is_some());
         let icon_path = icon.unwrap();
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_resolve_rust_icon() {
-        let path = PathBuf::from("/home/moi/pro/Capsule/crates/app/src/main.rs");
+        let path = PathBuf::from("/home/moi/pro/Starshell/crates/app/src/main.rs");
         let icon = resolve_file_icon(&path, false);
         assert!(icon.is_some());
         let icon_path = icon.unwrap();

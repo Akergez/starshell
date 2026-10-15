@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tar::Archive;
 
 pub const REPO: &str = "moiCR/Capsule";
-const USER_AGENT: &str = "capsule-installer/0.1.0";
+const USER_AGENT: &str = "starshell-installer/0.1.0";
 
 #[derive(Debug, Clone)]
 pub struct ReleaseInfo {
@@ -44,7 +44,7 @@ pub fn fetch_release_info(target: &str, beta_mode: bool) -> Result<ReleaseInfo> 
                 let tag = r.tag_name;
                 let version = tag.trim_start_matches('v').to_string();
                 let download_url = format!(
-                    "https://github.com/{}/releases/download/{}/capsule-{}.tar.gz",
+                    "https://github.com/{}/releases/download/{}/starshell-{}.tar.gz",
                     REPO, tag, target
                 );
                 return Ok(ReleaseInfo {
@@ -66,7 +66,7 @@ pub fn fetch_release_info(target: &str, beta_mode: bool) -> Result<ReleaseInfo> 
                 let tag = rel.tag_name;
                 let version = tag.trim_start_matches('v').to_string();
                 let download_url = format!(
-                    "https://github.com/{}/releases/download/{}/capsule-{}.tar.gz",
+                    "https://github.com/{}/releases/download/{}/starshell-{}.tar.gz",
                     REPO, tag, target
                 );
                 Ok(ReleaseInfo {
@@ -78,7 +78,7 @@ pub fn fetch_release_info(target: &str, beta_mode: bool) -> Result<ReleaseInfo> 
             }
             _ => {
                 let download_url = format!(
-                    "https://github.com/{}/releases/latest/download/capsule-{}.tar.gz",
+                    "https://github.com/{}/releases/latest/download/starshell-{}.tar.gz",
                     REPO, target
                 );
                 Ok(ReleaseInfo {
@@ -115,13 +115,13 @@ where
     }
 
     let total_size = response.content_length().unwrap_or(0);
-    let temp_dir = std::env::temp_dir().join(format!("capsule-install-{}", std::process::id()));
+    let temp_dir = std::env::temp_dir().join(format!("starshell-install-{}", std::process::id()));
     std::fs::create_dir_all(&temp_dir)?;
 
-    let tar_path = temp_dir.join("capsule.tar.gz");
+    let tar_path = temp_dir.join("starshell.tar.gz");
     let mut file = File::create(&tar_path)?;
 
-    progress_callback(0.15, "Downloading capsule archive...");
+    progress_callback(0.15, "Downloading starshell archive...");
     let mut downloaded: u64 = 0;
     let mut buffer = [0u8; 16384];
 
@@ -156,18 +156,18 @@ where
         .unpack(&temp_dir)
         .context("Failed to unpack archive")?;
 
-    let extracted_capsule = temp_dir.join("capsule");
-    if extracted_capsule.exists() {
+    let extracted_starshell = temp_dir.join("starshell");
+    if extracted_starshell.exists() {
         progress_callback(0.90, "Archive extracted successfully.");
-        Ok(extracted_capsule)
+        Ok(extracted_starshell)
     } else {
-        let extracted_capital = temp_dir.join("Capsule");
+        let extracted_capital = temp_dir.join("Starshell");
         if extracted_capital.exists() {
             progress_callback(0.90, "Archive extracted successfully.");
             Ok(extracted_capital)
         } else {
             Err(anyhow!(
-                "No 'capsule' binary found inside downloaded archive"
+                "No 'starshell' binary found inside downloaded archive"
             ))
         }
     }

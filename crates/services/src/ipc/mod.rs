@@ -156,10 +156,10 @@ pub fn decode_command(payload: &str) -> Option<IpcCommand> {
 
 pub fn get_socket_path() -> PathBuf {
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-        PathBuf::from(runtime_dir).join("capsule.sock")
+        PathBuf::from(runtime_dir).join("starshell.sock")
     } else {
         let user = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
-        PathBuf::from(format!("/tmp/capsule-{user}.sock"))
+        PathBuf::from(format!("/tmp/starshell-{user}.sock"))
     }
 }
 

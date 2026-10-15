@@ -961,10 +961,10 @@ mod tests {
 
     #[test]
     fn test_select_all() {
-        let mut state = InputState::new("Capsule Desktop");
+        let mut state = InputState::new("Starshell Desktop");
         state.select_all();
         assert_eq!(state.selection, Some(0..15));
-        assert_eq!(state.selected_text(), Some("Capsule Desktop".to_string()));
+        assert_eq!(state.selected_text(), Some("Starshell Desktop".to_string()));
 
         // Backspace on select_all deletes everything
         state.backspace();

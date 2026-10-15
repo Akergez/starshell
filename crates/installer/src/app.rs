@@ -37,7 +37,7 @@ pub enum Step {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PendingAction {
-    InstallCapsule,
+    InstallStarshell,
     InstallDeps,
 }
 
@@ -57,7 +57,7 @@ pub struct App {
     pub aur_helper: Option<AurHelper>,
     pub dependencies: Vec<(String, bool)>,
     pub wallpaper_daemon: Option<String>,
-    pub capsule_was_running: bool,
+    pub starshell_was_running: bool,
     pub progress: f64,
     pub status_message: String,
     pub logs: Vec<String>,
@@ -79,8 +79,8 @@ impl App {
     pub fn new(beta_mode: bool) -> Self {
         let target = system::detect_target();
         let aur_helper = system::detect_aur_helper();
-        let installed_version = system::get_installed_capsule_version();
-        let capsule_was_running = system::is_capsule_running();
+        let installed_version = system::get_installed_starshell_version();
+        let starshell_was_running = system::is_starshell_running();
         let wallpaper_daemon = system::check_wallpaper_daemon().map(|s| s.to_string());
 
         let mut app = Self {
@@ -93,7 +93,7 @@ impl App {
             aur_helper,
             dependencies: Vec::new(),
             wallpaper_daemon,
-            capsule_was_running,
+            starshell_was_running,
             progress: 0.0,
             status_message: "Ready".to_string(),
             logs: Vec::new(),
@@ -197,7 +197,7 @@ impl App {
 
         let target = self.target;
         let release_info = self.release_info.clone();
-        let was_running = self.capsule_was_running;
+        let was_running = self.starshell_was_running;
         let sudo_pass = self.sudo_password.clone();
 
         thread::spawn(move || {
@@ -205,12 +205,12 @@ impl App {
                 if was_running {
                     let _ = tx.send(WorkerMsg::Progress(
                         0.10,
-                        "Stopping existing Capsule process...".to_string(),
+                        "Stopping existing Starshell process...".to_string(),
                     ));
                     let _ = tx.send(WorkerMsg::Log(
-                        "Stopping existing Capsule process...".to_string(),
+                        "Stopping existing Starshell process...".to_string(),
                     ));
-                    system::stop_capsule_process();
+                    system::stop_starshell_process();
                 }
 
                 let binary_path = if let Some(local_bin) = system::find_local_release_binary() {
@@ -227,7 +227,7 @@ impl App {
                     let download_url = match &release_info {
                         Some(info) => info.download_url.clone(),
                         None => format!(
-                            "https://github.com/{}/releases/latest/download/capsule-{}.tar.gz",
+                            "https://github.com/{}/releases/latest/download/starshell-{}.tar.gz",
                             github::REPO,
                             target
                         ),
@@ -251,7 +251,7 @@ impl App {
                     "Installing binary to /usr/local/bin...".to_string(),
                 ));
                 let _ = tx.send(WorkerMsg::Log(
-                    "Copying capsule binary to /usr/local/bin/capsule...".to_string(),
+                    "Copying starshell binary to /usr/local/bin/starshell...".to_string(),
                 ));
                 if let Err(e) = install::copy_binary_to_system(&binary_path, sudo_pass.as_deref()) {
                     return Err(format!("Failed to copy binary: {}", e));
@@ -262,7 +262,7 @@ impl App {
                     "Creating desktop launcher entry...".to_string(),
                 ));
                 let _ = tx.send(WorkerMsg::Log(
-                    "Writing /usr/share/applications/capsule.desktop...".to_string(),
+                    "Writing /usr/share/applications/starshell.desktop...".to_string(),
                 ));
                 if let Err(e) = install::create_desktop_entry(sudo_pass.as_deref()) {
                     return Err(format!("Failed to create desktop entry: {}", e));
@@ -295,7 +295,7 @@ impl App {
                     }
                     WorkerMsg::Done(res) => match res {
                         Ok(()) => {
-                            self.installed_version = system::get_installed_capsule_version();
+                            self.installed_version = system::get_installed_starshell_version();
                             self.step = Step::Finished;
                         }
                         Err(e) => {

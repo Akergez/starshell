@@ -1,16 +1,16 @@
-# Contributing to Capsule
+# Contributing to Starshell
 
-Thank you for your interest in contributing to **Capsule**! Whether you are improving system integrations, refining UI components, or designing new widgets, this guide outlines the standards and conventions to keep Capsule fast, clean, and maintainable.
+Thank you for your interest in contributing to **Starshell**! Whether you are improving system integrations, refining UI components, or designing new widgets, this guide outlines the standards and conventions to keep Starshell fast, clean, and maintainable.
 
 ---
 
 ## 1. Architecture & Crates Overview
 
-Capsule is built in Rust using **GPUI** (the GPU-accelerated UI framework from Zed) and is strictly organized into decoupled crates:
+Starshell is built in Rust using **GPUI** (the GPU-accelerated UI framework from Zed) and is strictly organized into decoupled crates:
 
 ```mermaid
 flowchart TD
-    App["crates/app (Capsule Shell)"] --> UI["crates/ui (Components & Design)"]
+    App["crates/app (Starshell Shell)"] --> UI["crates/ui (Components & Design)"]
     App --> Services["crates/services (System & D-Bus)"]
 ```
 
@@ -24,19 +24,19 @@ flowchart TD
 
 ## 2. Modularity & Clean Structure
 
-To prevent massive monoliths, Capsule enforces high cohesion and strict file modularity:
+To prevent massive monoliths, Starshell enforces high cohesion and strict file modularity:
 
 * **Slim Parent Modules (`mod.rs`)**: Keep parent `mod.rs` files under 100 lines. They should only declare submodules, re-export public APIs, and act as lightweight coordinators.
 * **Feature Isolation**: Place distinct responsibilities in their own files:
   * For example, in `services/src/system/`, volume/sinks live in `audio.rs`, backlight in `brightness.rs`, and power commands in `power.rs`.
 * **Zero Blocking on UI Thread**: Never call `futures::executor::block_on` or run blocking operations inside render methods. Always delegate async work to `crate::spawn_tokio` and communicate back through channels or `cx.update(...)`.
-* **Defensive Timeouts**: Wrap external command executions (`wpctl`, `brightnessctl`, etc.) in `tokio::time::timeout` (e.g. 1.5–2s) so a hung system utility never hangs Capsule.
+* **Defensive Timeouts**: Wrap external command executions (`wpctl`, `brightnessctl`, etc.) in `tokio::time::timeout` (e.g. 1.5–2s) so a hung system utility never hangs Starshell.
 
 ---
 
-## 3. UI Design Standards (`capsule-design`)
+## 3. UI Design Standards (`starshell-design`)
 
-Capsule features a solid, theme-aware desktop style. Any new UI work must follow these principles:
+Starshell features a solid, theme-aware desktop style. Any new UI work must follow these principles:
 
 1. **Opaque Surfaces**:
    * Windows and content cards use solid, opaque backgrounds (`theme.surface()`, `theme.card()`, `theme.raised_card()`).
@@ -71,8 +71,8 @@ cargo check --workspace
 # Run the complete test suite (all tests must pass)
 cargo test --workspace
 
-# Run Capsule in development mode
-cargo run --bin capsule
+# Run Starshell in development mode
+cargo run --bin starshell
 ```
 
 ---

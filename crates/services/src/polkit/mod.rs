@@ -716,7 +716,7 @@ mod tests {
             .expect("test timestamp")
             .as_nanos();
         let pid_path = std::path::PathBuf::from(format!(
-            "/tmp/capsule-polkit-helper-{}-{nonce}.pid",
+            "/tmp/starshell-polkit-helper-{}-{nonce}.pid",
             std::process::id()
         ));
         let script = format!(

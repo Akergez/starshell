@@ -1,5 +1,5 @@
 {
-  description = "Capsule, a Wayland desktop shell built with GPUI";
+  description = "Starshell, a Wayland desktop shell built with GPUI";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
@@ -22,8 +22,8 @@
             freetype
             libxcb
           ];
-          capsule = pkgs.rustPlatform.buildRustPackage {
-            pname = "capsule";
+          starshell = pkgs.rustPlatform.buildRustPackage {
+            pname = "starshell";
             version = (builtins.fromTOML (builtins.readFile ./crates/app/Cargo.toml)).package.version;
             src = lib.cleanSource self;
 
@@ -35,8 +35,8 @@
               };
             };
 
-            cargoBuildFlags = [ "--package" "capsule" "--bin" "capsule" ];
-            cargoTestFlags = [ "--package" "capsule" ];
+            cargoBuildFlags = [ "--package" "starshell" "--bin" "starshell" ];
+            cargoTestFlags = [ "--package" "starshell" ];
 
             nativeBuildInputs = with pkgs; [
               pkg-config
@@ -51,7 +51,7 @@
             ]);
 
             postFixup = ''
-              wrapProgram "$out/bin/capsule" \
+              wrapProgram "$out/bin/starshell" \
                 --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeLibraries}
             '';
 
@@ -59,14 +59,14 @@
               description = "A Wayland desktop shell built with GPUI";
               homepage = "https://github.com/moiCR/Capsule";
               license = lib.licenses.mit;
-              mainProgram = "capsule";
+              mainProgram = "starshell";
               platforms = systems;
             };
           };
         in
         {
-          inherit capsule;
-          default = capsule;
+          inherit starshell;
+          default = starshell;
         });
     };
 }

@@ -90,7 +90,7 @@ pub async fn spawn_gpu_screen_recorder(
 ) -> Result<ActiveSession, String> {
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
     let socket_path = PathBuf::from(format!(
-        "{}/capsule_gsr_{}_{}.sock",
+        "{}/starshell_gsr_{}_{}.sock",
         runtime_dir,
         std::process::id(),
         Local::now().timestamp_millis()
@@ -146,7 +146,7 @@ pub async fn spawn_gpu_screen_recorder(
     cmd.arg("-o").arg(output_path);
     cmd.arg("-ipc").arg(&socket_path);
 
-    let log_path = PathBuf::from(format!("{}/capsule_record.log", runtime_dir));
+    let log_path = PathBuf::from(format!("{}/starshell_record.log", runtime_dir));
     let log_file = std::fs::File::create(&log_path)
         .map_err(|e| format!("Fallo al crear archivo de log: {e}"))?;
     let err_file = log_file
@@ -216,7 +216,7 @@ pub async fn spawn_wl_screenrec(
     }
 
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
-    let log_path = PathBuf::from(format!("{}/capsule_wl_record.log", runtime_dir));
+    let log_path = PathBuf::from(format!("{}/starshell_wl_record.log", runtime_dir));
     let log_file = std::fs::File::create(&log_path)
         .map_err(|e| format!("Fallo al crear archivo de log: {e}"))?;
     let err_file = log_file
@@ -264,7 +264,7 @@ mod tests {
         crate::tokio_handle().block_on(async {
             use tokio::net::UnixListener;
             let root = std::env::temp_dir()
-                .join(format!("capsule-record-ipc-test-{}", std::process::id()));
+                .join(format!("starshell-record-ipc-test-{}", std::process::id()));
             std::fs::create_dir_all(&root).expect("fixture directory");
             let rejected = root.join("rejected.sock");
             let listener = UnixListener::bind(&rejected).expect("mock recorder");

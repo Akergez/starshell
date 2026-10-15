@@ -326,7 +326,7 @@ impl RecordService {
                 .join("Videos")
         });
         let filename = format!(
-            "Capsule_Record_{}.{}",
+            "Starshell_Record_{}.{}",
             Local::now().format("%Y-%m-%d_%H-%M-%S"),
             container
         );
@@ -350,7 +350,7 @@ mod tests {
     fn test_generate_default_output_path() {
         let path = RecordService::generate_default_output_path("mp4");
         assert!(path.to_string_lossy().ends_with(".mp4"));
-        assert!(path.to_string_lossy().contains("Capsule_Record_"));
+        assert!(path.to_string_lossy().contains("Starshell_Record_"));
     }
 
     #[tokio::test]
@@ -360,7 +360,7 @@ mod tests {
         }
 
         let temp_dir = std::env::temp_dir();
-        let output_file = temp_dir.join("test_capsule_live_record.mp4");
+        let output_file = temp_dir.join("test_starshell_live_record.mp4");
         let _ = std::fs::remove_file(&output_file);
 
         let service = RecordService::new();
@@ -403,7 +403,7 @@ mod tests {
             *service.active_session.lock().await = Some(ActiveSession {
                 backend: RecordBackend::GpuScreenRecorder,
                 output_path: PathBuf::from("/tmp/fixture.mp4"),
-                ipc_socket_path: Some(PathBuf::from("/tmp/capsule-nonexistent-recorder-ipc.sock")),
+                ipc_socket_path: Some(PathBuf::from("/tmp/starshell-nonexistent-recorder-ipc.sock")),
                 child_pid: 0,
                 child: None,
                 accumulated_active_duration: Duration::from_secs(5),

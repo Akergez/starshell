@@ -487,7 +487,7 @@ mod tests {
     async fn logout_uses_native_quit_and_reports_rejected_requests() {
         assert!(Mango::default().logout().await.is_err());
         let path = std::env::temp_dir().join(format!(
-            "capsule-mango-logout-test-{}.sock",
+            "starshell-mango-logout-test-{}.sock",
             std::process::id()
         ));
         let listener = tokio::net::UnixListener::bind(&path).expect("mock socket");
@@ -519,7 +519,7 @@ mod tests {
     #[tokio::test]
     async fn socket_queries_dispatches_and_workspace_events() {
         let path =
-            std::env::temp_dir().join(format!("capsule-mango-test-{}.sock", std::process::id()));
+            std::env::temp_dir().join(format!("starshell-mango-test-{}.sock", std::process::id()));
         let listener = tokio::net::UnixListener::bind(&path).unwrap();
         let backend = Mango {
             socket: Some(Socket::new(path.clone())),
