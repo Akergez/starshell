@@ -1,8 +1,8 @@
 use crate::theme::Theme;
 use crate::tokens::{IconSize, Radius, Spacing, size, units};
 use gpui::{
-    AnyElement, App, ClickEvent, ColorExt, DefiniteLength, ElementId, FontWeight, Hsla,
-    InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Pixels, RenderOnce, SharedString,
+    AnyElement, App, ClickEvent, ColorExt, DefiniteLength, ElementId, Hsla, InteractiveElement,
+    IntoElement, KeyDownEvent, ParentElement, Pixels, RenderOnce, SharedString,
     StatefulInteractiveElement, Styled, Window, div, prelude::*, px, svg,
 };
 use std::ops::Range;
@@ -628,7 +628,7 @@ impl Input {
 }
 
 impl RenderOnce for Input {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.global::<Theme>().clone();
 
         let chars: Vec<char> = if self.masked {
@@ -650,6 +650,28 @@ impl RenderOnce for Input {
         });
         let bg_color = self.bg.unwrap_or_else(|| theme.background());
         let font_size = self.text_size.unwrap_or_else(|| theme.font_size());
+        let text_width = |text: &str| {
+            window
+                .text_system()
+                .shape_line(
+                    text.to_owned().into(),
+                    font_size,
+                    &[gpui::TextRun {
+                        len: text.len(),
+                        font: gpui::font(theme.font_family()),
+                        color: theme.text(),
+                        ..Default::default()
+                    }],
+                )
+                .width
+        };
+        let caret = || {
+            div()
+                .flex_shrink_0()
+                .w(Spacing::Hairline.rems())
+                .h(font_size)
+                .bg(theme.accent())
+        };
 
         let current_border = if self.error {
             theme.error()
@@ -673,6 +695,7 @@ impl RenderOnce for Input {
             .px(crate::tokens::Spacing::Medium.rems())
             .gap(crate::tokens::Spacing::Small.rems())
             .cursor_text()
+            .font_family(theme.font_family())
             .transitions(|t| {
                 t.border_color(crate::tokens::motion::fast_cubic())
                     .bg(crate::tokens::motion::fast_cubic())
@@ -725,13 +748,7 @@ impl RenderOnce for Input {
 
         if is_empty {
             if show_cursor && !self.centered {
-                text_container = text_container.child(
-                    div()
-                        .flex_shrink_0()
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(theme.accent())
-                        .child("│"),
-                );
+                text_container = text_container.child(caret());
             }
             text_container = text_container.child(
                 div()
@@ -836,6 +853,8 @@ impl RenderOnce for Input {
             if !before_cursor.is_empty() {
                 text_container = text_container.child(
                     div()
+                        .w(text_width(&before_cursor))
+                        .flex_shrink_0()
                         .min_w_0()
                         .whitespace_nowrap()
                         .text_size(font_size)
@@ -845,18 +864,14 @@ impl RenderOnce for Input {
             }
 
             if show_cursor {
-                text_container = text_container.child(
-                    div()
-                        .flex_shrink_0()
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(theme.accent())
-                        .child("│"),
-                );
+                text_container = text_container.child(caret());
             }
 
             if !after_cursor.is_empty() {
                 text_container = text_container.child(
                     div()
+                        .w(text_width(&after_cursor))
+                        .flex_shrink_0()
                         .min_w_0()
                         .whitespace_nowrap()
                         .text_size(font_size)

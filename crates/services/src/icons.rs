@@ -134,7 +134,23 @@ fn build_icon_map() -> HashMap<String, PathBuf> {
     let mut base_dirs = Vec::new();
     if let Some(home) = dirs::home_dir() {
         base_dirs.push(home.join(".local/share/icons"));
+        base_dirs.push(home.join(".local/share/flatpak/exports/share/icons"));
     }
+    if let Some(data) = dirs::data_dir() {
+        base_dirs.push(data.join("icons"));
+        base_dirs.push(data.join("flatpak/exports/share/icons"));
+    }
+    if let Some(directories) = std::env::var_os("XDG_DATA_DIRS") {
+        for directory in
+            std::env::split_paths(&directories).filter(|path| !path.as_os_str().is_empty())
+        {
+            let icons = directory.join("icons");
+            if !base_dirs.contains(&icons) {
+                base_dirs.push(icons);
+            }
+        }
+    }
+    base_dirs.push(PathBuf::from("/var/lib/flatpak/exports/share/icons"));
     base_dirs.push(PathBuf::from("/usr/local/share/icons"));
     base_dirs.push(PathBuf::from("/usr/share/icons"));
     base_dirs.push(PathBuf::from("/usr/share/pixmaps"));

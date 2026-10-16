@@ -52,7 +52,24 @@ impl Global for Shell {}
 impl Shell {
     pub fn init(cx: &mut App) {
         cx.set_global(Shell::default());
-        Self::open_bars(cx);
+        cx.spawn(async move |cx| {
+            let mut delay = std::time::Duration::from_millis(20);
+            loop {
+                let ready = cx.update(|cx| {
+                    if cx.displays().is_empty() {
+                        return false;
+                    }
+                    Self::open_bars(cx);
+                    true
+                });
+                if ready {
+                    break;
+                }
+                cx.background_executor().timer(delay).await;
+                delay = (delay * 2).min(std::time::Duration::from_secs(1));
+            }
+        })
+        .detach();
         Self::watch_config(cx);
     }
 
@@ -114,6 +131,7 @@ impl Shell {
                 .is_ok()
         {
             cx.global_mut::<Shell>().surface = Some(surface);
+            Self::sync_bar_visibility(cx);
             cx.refresh_windows();
             return;
         }
@@ -129,6 +147,7 @@ impl Shell {
                 shell.overlay = Some(handle);
                 shell.overlay_display = display;
                 shell.surface = Some(surface);
+                Self::sync_bar_visibility(cx);
                 cx.refresh_windows();
             }
             Err(error) => services::log_error!("Shell", "Failed to open overlay: {error}"),
@@ -142,18 +161,23 @@ impl Shell {
         if let Some(handle) = shell.overlay.take() {
             let _ = handle.update(cx, |_, window, _| window.remove_window());
         }
+        Self::sync_bar_visibility(cx);
         cx.refresh_windows();
     }
 
+    fn sync_bar_visibility(cx: &mut App) {
+        let bars = cx.global::<Shell>().bars.clone();
+        for bar in bars {
+            let _ = bar.update(cx, |bar, window, cx| bar.sync_visibility(window, cx));
+        }
+    }
+
     fn open_bars(cx: &mut App) {
-        let mut displays: Vec<Option<DisplayId>> = cx
+        let displays: Vec<Option<DisplayId>> = cx
             .displays()
             .iter()
             .map(|display| Some(display.id()))
             .collect();
-        if displays.is_empty() {
-            displays.push(None);
-        }
         let mut bars = Vec::new();
         for id in displays {
             let options = bar_options(id, cx);

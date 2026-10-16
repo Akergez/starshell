@@ -230,28 +230,50 @@ impl ClipboardService {
     }
 
     async fn start_watcher(&self) {
+        use tokio::io::AsyncBufReadExt;
         let mut last_text = String::new();
         loop {
-            tokio::time::sleep(Duration::from_secs(2)).await;
-
-            if let Ok(out) = tokio::process::Command::new("wl-paste")
-                .args(["-t", "text"])
-                .output()
-                .await
-                && out.status.success()
+            let watcher = tokio::process::Command::new("wl-paste")
+                .args(["--type", "text", "--watch", "echo"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .kill_on_drop(true)
+                .spawn();
+            if let Ok(mut watcher) = watcher
+                && let Some(stdout) = watcher.stdout.take()
             {
-                let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !text.is_empty() && text != last_text {
-                    last_text = text.clone();
-
-                    if let Ok(mut guard) = self.fallback_history.lock() {
-                        guard.retain(|x| x != &text);
-                        guard.push_front(text);
-                        if guard.len() > 50 {
-                            guard.pop_back();
-                        }
-                    }
+                let mut changes = tokio::io::BufReader::new(stdout).lines();
+                while let Ok(Some(_)) = changes.next_line().await {
+                    self.record_clipboard_text(&mut last_text).await;
                 }
+                let _ = watcher.kill().await;
+            }
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        }
+    }
+
+    async fn record_clipboard_text(&self, last_text: &mut String) {
+        let Ok(out) = tokio::process::Command::new("wl-paste")
+            .args(["-t", "text"])
+            .output()
+            .await
+        else {
+            return;
+        };
+        if !out.status.success() {
+            return;
+        }
+        let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if text.is_empty() || text == *last_text {
+            return;
+        }
+        *last_text = text.clone();
+        if let Ok(mut guard) = self.fallback_history.lock() {
+            guard.retain(|x| x != &text);
+            guard.push_front(text);
+            if guard.len() > 50 {
+                guard.pop_back();
             }
         }
     }

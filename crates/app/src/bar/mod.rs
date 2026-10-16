@@ -20,9 +20,11 @@ pub struct Bar {
     display: Option<DisplayId>,
     state: Entity<ShellState>,
     revealed: bool,
-    applied_region: Option<bool>,
+    pointer_inside: bool,
+    applied_region: Option<(bool, gpui::Size<gpui::Pixels>)>,
     hide: Option<Task<()>>,
     _observe: Subscription,
+    _bounds: Subscription,
 }
 
 fn autohide_enabled(cx: &App) -> bool {
@@ -33,32 +35,37 @@ impl Bar {
     pub fn new(display: Option<DisplayId>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let state = ShellState::global(cx);
         let observe = cx.observe(&state, |_, _, cx| cx.notify());
+        let bounds = cx.observe_window_bounds(window, Self::apply_input_region);
         cx.defer_in(window, |bar: &mut Bar, window, cx| {
-            bar.apply_input_region(window, cx)
+            bar.sync_visibility(window, cx)
         });
         Self {
             display,
             state,
             revealed: !autohide_enabled(cx),
+            pointer_inside: false,
             applied_region: None,
             hide: None,
             _observe: observe,
+            _bounds: bounds,
         }
     }
 
     fn apply_input_region(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let full = self.revealed || !autohide_enabled(cx);
-        if self.applied_region == Some(full) {
+        let viewport = window.viewport_size();
+        if self.applied_region == Some((full, viewport)) {
             return;
         }
-        self.applied_region = Some(full);
+        self.applied_region = Some((full, viewport));
         if full {
             window.set_input_region(None);
             return;
         }
-        let viewport = window.viewport_size();
         let strip =
-            ui::tokens::units_to_pixels(size::BAR_HIDDEN_STRIP, cx.global::<Theme>().font_size);
+            ui::tokens::units_to_pixels(size::BAR_HIDDEN_STRIP, cx.global::<Theme>().font_size)
+                .ceil()
+                .min(viewport.height);
         let top = match Shell::bar_position(cx) {
             BarEdge::Top => gpui::px(0.0),
             BarEdge::Bottom => viewport.height - strip,
@@ -78,31 +85,36 @@ impl Bar {
     }
 
     fn hovered(&mut self, hovered: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.pointer_inside = hovered && window.is_window_hovered();
+        self.sync_visibility(window, cx);
+    }
+
+    pub(crate) fn sync_visibility(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !autohide_enabled(cx) {
-            return;
-        }
-        if hovered {
             self.hide = None;
             self.set_revealed(true, window, cx);
+            return;
+        }
+        if self.pointer_inside || Shell::current(cx).is_some() {
+            self.hide = None;
+            self.set_revealed(true, window, cx);
+            return;
+        }
+        self.apply_input_region(window, cx);
+        if !self.revealed || self.hide.is_some() {
             return;
         }
         let delay = std::time::Duration::from_millis(
             cx.global::<AppState>().config.get().bar.autohide_delay_ms,
         );
         self.hide = Some(cx.spawn_in(window, async move |this, cx| {
-            loop {
-                cx.background_executor().timer(delay).await;
-                let keep = this.update_in(cx, |bar: &mut Bar, window, cx| {
-                    if Shell::current(cx).is_some() {
-                        return true;
-                    }
+            cx.background_executor().timer(delay).await;
+            let _ = this.update_in(cx, |bar: &mut Bar, window, cx| {
+                bar.hide = None;
+                if !bar.pointer_inside && Shell::current(cx).is_none() {
                     bar.set_revealed(false, window, cx);
-                    false
-                });
-                if !matches!(keep, Ok(true)) {
-                    break;
                 }
-            }
+            });
         }));
     }
 }
@@ -598,6 +610,11 @@ impl Render for Bar {
             .id("bar")
             .size_full()
             .overflow_hidden()
+            .on_mouse_move(cx.listener(|bar, _, window, cx| {
+                if !bar.pointer_inside {
+                    bar.hovered(true, window, cx);
+                }
+            }))
             .on_hover(
                 cx.listener(|bar, hovered: &bool, window, cx| bar.hovered(*hovered, window, cx)),
             )

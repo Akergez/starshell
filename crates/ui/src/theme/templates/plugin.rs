@@ -311,6 +311,16 @@ impl TemplatePlugin {
     }
 
     fn execute_reload(&self, cmd: &str) {
+        if self.name == "hyprland" && std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
+            return;
+        }
+        if self.name == "fish"
+            && !std::env::var_os("PATH").is_some_and(|paths| {
+                std::env::split_paths(&paths).any(|directory| directory.join("fish").is_file())
+            })
+        {
+            return;
+        }
         let _ = Command::new("sh").args(["-c", cmd]).status();
     }
 }

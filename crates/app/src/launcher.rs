@@ -128,8 +128,13 @@ impl Launcher {
                         result
                             .icon
                             .as_ref()
-                            .or(result.category_icon.as_ref())
                             .and_then(|icon| icon.resolve())
+                            .or_else(|| {
+                                result
+                                    .category_icon
+                                    .as_ref()
+                                    .and_then(|icon| icon.resolve())
+                            })
                     })
                     .collect();
                 self.results = results;

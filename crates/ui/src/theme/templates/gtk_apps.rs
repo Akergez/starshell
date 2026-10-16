@@ -137,9 +137,11 @@ impl AppTheme for GtkApps {
             .args(["--user", "restart", "xdg-desktop-portal-gtk"])
             .status();
 
-        let _ = Command::new("systemctl")
-            .args(["--user", "restart", "xdg-desktop-portal-hyprland"])
-            .status();
+        if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some() {
+            let _ = Command::new("systemctl")
+                .args(["--user", "restart", "xdg-desktop-portal-hyprland"])
+                .status();
+        }
 
         let _ = Command::new("gsettings")
             .args(["get", "org.gnome.desktop.interface", "color-scheme"])

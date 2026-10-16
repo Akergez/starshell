@@ -173,15 +173,9 @@ impl LauncherService {
     }
 
     pub fn launch_desktop_entry(&self, path: &Path) -> Result<()> {
-        let stem = path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .context("Desktop entry has no name")?;
-        if let Some(app) = self.apps.load().iter().find(|app| app.id == stem) {
-            return Self::launch_app(app);
-        }
-        std::process::Command::new("gtk-launch")
-            .arg(stem)
+        std::process::Command::new("gio")
+            .arg("launch")
+            .arg(path)
             .spawn()
             .context("Failed to launch desktop entry")?;
         Ok(())
@@ -420,6 +414,42 @@ impl LauncherService {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn launches_desktop_entry_outside_xdg_application_directories() -> Result<()> {
+        let root = std::env::temp_dir().join(format!(
+            "starshell-desktop-launch-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root)?;
+        let marker = root.join("arguments");
+        let script = root.join("launch.sh");
+        std::fs::write(
+            &script,
+            format!("printf '%s\\n' \"$@\" > '{}'", marker.display()),
+        )?;
+        let desktop = root.join("org.example.Flatpak.desktop");
+        std::fs::write(
+            &desktop,
+            format!(
+                "[Desktop Entry]\nType=Application\nName=Flatpak fixture\nExec=/bin/sh {} \"argument with spaces\" %U\nTerminal=false\n",
+                script.display()
+            ),
+        )?;
+        LauncherService::default().launch_desktop_entry(&desktop)?;
+        for _ in 0..100 {
+            if marker.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(std::fs::read_to_string(&marker)?, "argument with spaces\n");
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
 
     #[tokio::test]
     async fn flatpak_exported_icons_resolve_and_refresh_after_installation() -> Result<()> {

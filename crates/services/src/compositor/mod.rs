@@ -80,6 +80,7 @@ impl CompositorBackend {
 pub struct CompositorService {
     refresh_rate: Arc<ArcSwap<f64>>,
     current_workspace: Arc<ArcSwap<WorkspaceInfo>>,
+    workspaces: Arc<ArcSwap<Vec<WorkspaceInfo>>>,
     workspace_tx: broadcast::Sender<WorkspaceInfo>,
     compositor: Arc<dyn Compositor>,
     backend: CompositorBackend,
@@ -115,11 +116,13 @@ impl CompositorService {
         };
         let initial_ws = compositor.get_workspace().unwrap_or_default();
         let current_workspace = Arc::new(ArcSwap::from_pointee(initial_ws));
+        let workspaces = Arc::new(ArcSwap::from_pointee(compositor.get_workspaces()));
         let (workspace_tx, _) = broadcast::channel(32);
 
         let service = Self {
             refresh_rate,
             current_workspace,
+            workspaces,
             workspace_tx,
             compositor,
             backend,
@@ -138,6 +141,11 @@ impl CompositorService {
         let service_workspace = service.clone();
         crate::spawn_tokio(async move {
             service_workspace.run_workspace_events_loop().await;
+        });
+
+        let service_list = service.clone();
+        crate::spawn_tokio(async move {
+            service_list.run_workspace_list_loop().await;
         });
 
         service
@@ -213,7 +221,32 @@ impl CompositorService {
     }
 
     pub fn get_workspaces(&self) -> Vec<WorkspaceInfo> {
-        self.compositor.get_workspaces()
+        (**self.workspaces.load()).clone()
+    }
+
+    async fn refresh_workspace_list(&self) {
+        let compositor = self.compositor.clone();
+        if let Ok(list) = crate::spawn_blocking(move || compositor.get_workspaces()).await
+            && **self.workspaces.load() != list
+        {
+            self.workspaces.store(Arc::new(list));
+            let _ = self.workspace_tx.send(self.get_workspace());
+        }
+    }
+
+    async fn run_workspace_list_loop(&self) {
+        let mut changes = self.on_change_workspace();
+        loop {
+            self.refresh_workspace_list().await;
+            tokio::select! {
+                change = changes.recv() => {
+                    if matches!(change, Err(broadcast::error::RecvError::Closed)) {
+                        changes = self.on_change_workspace();
+                    }
+                }
+                _ = tokio::time::sleep(Duration::from_secs(5)) => {}
+            }
+        }
     }
 
     pub fn switch_workspace(&self, id: i64) {
