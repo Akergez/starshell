@@ -129,6 +129,10 @@ async fn read(
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(error)) => Poll::Ready(Err(error.into())),
             Poll::Ready(Ok(mut readiness)) => match guard.read() {
+                Ok(0) => {
+                    readiness.clear_ready();
+                    Poll::Ready(Ok(()))
+                }
                 Ok(_) => Poll::Ready(Ok(())),
                 Err(wayland_client::backend::WaylandError::Io(error))
                     if error.kind() == ErrorKind::WouldBlock =>
