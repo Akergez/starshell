@@ -50,7 +50,7 @@ pub use launcher::{
 };
 pub use logger::init_logger;
 pub use lyrics::{LyricLine, LyricsService, TrackLyrics};
-pub use mpris::{MediaTrack, MprisService};
+pub use mpris::{MediaTrack, MprisService, PositionWatch};
 pub use notifications::{NotificationItem, NotificationStore, start_notification_server};
 pub use pam::PamService;
 pub use polkit::{

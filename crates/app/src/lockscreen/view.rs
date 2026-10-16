@@ -24,6 +24,7 @@ pub struct LockScreen {
     pub lyric_change_time: Instant,
     pub blurred_wallpaper: Option<PathBuf>,
     fallback_blur_slot: Arc<Mutex<Option<PathBuf>>>,
+    _positions: services::PositionWatch,
 }
 
 impl LockScreen {
@@ -54,7 +55,9 @@ impl LockScreen {
             }
         });
 
+        let positions = cx.global::<services::AppState>().mpris.watch_positions();
         let mut screen = Self {
+            _positions: positions,
             is_primary,
             username,
             password_input: InputState::new("").with_masked(true).with_focused(true),

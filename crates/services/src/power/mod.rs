@@ -202,6 +202,16 @@ impl PowerService {
     }
 
     async fn start_polling(&self) {
+        use crate::dbus_util::signals::{Bus, SignalRule, notifier, settle};
+        let changes = notifier(
+            Bus::System,
+            vec![
+                SignalRule::from("net.hadess.PowerProfiles")
+                    .interface("org.freedesktop.DBus.Properties"),
+                SignalRule::from("org.freedesktop.UPower")
+                    .interface("org.freedesktop.DBus.Properties"),
+            ],
+        );
         loop {
             self.battery.store(Arc::new(read_system_battery()));
             if let Some(conn) = get_shared_system_conn().await
@@ -223,7 +233,7 @@ impl PowerService {
                         .store(Arc::new(PowerProfile::parse(&profile)));
                 }
             }
-            tokio::time::sleep(Duration::from_secs(3)).await;
+            settle(&changes, Duration::from_secs(30)).await;
         }
     }
 }

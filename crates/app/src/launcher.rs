@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use gpui::{
-    AnyElement, Context, ElementId, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
-    MouseButton, ParentElement, Render, ScrollHandle, SharedString, StatefulInteractiveElement,
-    Styled, Task, Window, div, img, prelude::FluentBuilder, svg,
+    AnyElement, AppContext, Context, ElementId, FocusHandle, InteractiveElement, IntoElement,
+    KeyDownEvent, MouseButton, ParentElement, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement, Styled, Task, Window, div, img, prelude::FluentBuilder, svg,
 };
 use services::{
     AppState, ContextOption, PopEvent, PopLauncher, PopRequest, PopResponse, SearchResult,
@@ -16,6 +16,10 @@ use ui::tokens::{IconSize, Radius, Spacing, TextSize, motion, size, units};
 use crate::shell::Shell;
 
 pub const PREFIX_HINTS: &str = "/ files  ·  = calculate  ·  ? plugins";
+
+struct GlobalLauncher(gpui::Entity<Launcher>);
+
+impl gpui::Global for GlobalLauncher {}
 
 pub struct Launcher {
     focus: FocusHandle,
@@ -69,6 +73,44 @@ impl Launcher {
 
     pub fn focus_handle(&self) -> FocusHandle {
         self.focus.clone()
+    }
+
+    pub fn shared(window: &mut Window, cx: &mut gpui::App) -> gpui::Entity<Self> {
+        if let Some(launcher) = cx.try_global::<GlobalLauncher>() {
+            let launcher = launcher.0.clone();
+            launcher.update(cx, |launcher, cx| launcher.reset(cx));
+            return launcher;
+        }
+        let launcher = cx.new(|cx| Launcher::new(window, cx));
+        cx.set_global(GlobalLauncher(launcher.clone()));
+        launcher
+    }
+
+    fn reset(&mut self, cx: &mut Context<Self>) {
+        self.query.clear();
+        self.selected = 0;
+        self.actions = None;
+        self.scroll.scroll_to_item(0);
+        if self.error.take().is_some() {
+            let mut events = {
+                let _guard = services::tokio_handle().enter();
+                self.backend.connect()
+            };
+            self._events = cx.spawn(async move |this, cx| {
+                while let Some(event) = events.recv().await {
+                    if this
+                        .update(cx, |launcher: &mut Launcher, cx| {
+                            launcher.handle_event(event, cx)
+                        })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            });
+        }
+        self.search();
+        cx.notify();
     }
 
     fn search(&mut self) {

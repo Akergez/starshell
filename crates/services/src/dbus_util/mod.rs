@@ -1,3 +1,5 @@
+pub mod signals;
+
 use std::sync::Mutex;
 use zbus::Connection;
 

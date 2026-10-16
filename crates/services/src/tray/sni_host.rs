@@ -198,6 +198,15 @@ async fn run_sni_service(host: SniHostService) -> anyhow::Result<()> {
 
     let mut item_cache: std::collections::HashMap<String, (Instant, SniItem)> =
         std::collections::HashMap::new();
+    let changes = crate::dbus_util::signals::notifier(
+        crate::dbus_util::signals::Bus::Session,
+        vec![
+            crate::dbus_util::signals::SignalRule::any().interface("org.kde.StatusNotifierItem"),
+            crate::dbus_util::signals::SignalRule::any().interface("com.canonical.dbusmenu"),
+            crate::dbus_util::signals::SignalRule::from("org.freedesktop.DBus")
+                .member("NameOwnerChanged"),
+        ],
+    );
 
     loop {
         let services = fetch_registered_services(&conn, &host).await;
@@ -308,8 +317,15 @@ async fn run_sni_service(host: SniHostService) -> anyhow::Result<()> {
             host.set_items(detailed_items);
         }
 
-        let _ = timeout(Duration::from_secs(2), host.notify.notified()).await;
-        sleep(Duration::from_millis(50)).await;
+        let item_changed = tokio::select! {
+            _ = host.notify.notified() => false,
+            _ = changes.notified() => true,
+            _ = sleep(Duration::from_secs(60)) => true,
+        };
+        sleep(Duration::from_millis(250)).await;
+        if item_changed {
+            item_cache.clear();
+        }
     }
 }
 

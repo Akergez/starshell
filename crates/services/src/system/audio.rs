@@ -599,9 +599,7 @@ pub async fn parse_wpctl_sources() -> Vec<AudioSource> {
     sources
 }
 
-pub async fn listen_pactl_events(
-    on_change: impl Fn() -> tokio::task::JoinHandle<()> + Send + Sync + 'static,
-) {
+pub async fn listen_pactl_events(changes: std::sync::Arc<tokio::sync::Notify>) {
     loop {
         if let Ok(mut child) = Command::new("pactl")
             .arg("subscribe")
@@ -612,18 +610,18 @@ pub async fn listen_pactl_events(
             .spawn()
         {
             if let Some(stdout) = child.stdout.take() {
-                drop(on_change());
+                changes.notify_one();
                 let mut reader = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = reader.next_line().await {
                     if line.contains("sink") || line.contains("source") || line.contains("server") {
-                        drop(on_change());
+                        changes.notify_one();
                     }
                 }
             }
             let _ = child.kill().await;
             let _ = child.wait().await;
         }
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 }
 

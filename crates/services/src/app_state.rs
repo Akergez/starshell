@@ -49,14 +49,15 @@ impl AppState {
         let calendar = CalendarService::new();
         let power = PowerService::new();
         let clipboard = ClipboardService::new();
-        let idle = IdleService::new(config.clone());
+        let mpris = MprisService::new(config.clone());
+        let idle = IdleService::new(config.clone(), mpris.clone());
         let record = RecordService::new();
         let shelf = ShelfService::new();
 
         Self {
             config: config.clone(),
             launcher: LauncherService::new(),
-            mpris: MprisService::new(config),
+            mpris,
             system: SystemService::new(),
             displays: DisplayService::new(),
             lyrics: LyricsService::new(),

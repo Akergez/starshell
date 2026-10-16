@@ -77,24 +77,33 @@ impl DisplayService {
     }
 
     async fn poll(self) {
-        let mut ddc = detect_ddc().await;
+        const DDC_EVERY: u32 = 12;
+        let ddc_available = program_exists("ddcutil");
+        let mut ddc: Vec<(String, Display)> = Vec::new();
         let mut ticks = 0u32;
         loop {
-            if ticks % 30 == 29 {
+            if ddc_available && ticks.is_multiple_of(DDC_EVERY) {
                 ddc = detect_ddc().await;
+                for (display_number, display) in &mut ddc {
+                    if let Some(value) = ddc_brightness(display_number).await {
+                        display.brightness = value;
+                    }
+                }
             }
             let mut displays = read_backlights();
-            for (display_number, mut display) in ddc.clone() {
-                if let Some(value) = ddc_brightness(&display_number).await {
-                    display.brightness = value;
-                }
-                displays.push(display);
-            }
-            if *self.displays.load_full() != displays {
+            let current = self.displays.load_full();
+            displays.extend(ddc.iter().map(|(_, display)| {
+                current
+                    .iter()
+                    .find(|known| known.id == display.id)
+                    .cloned()
+                    .unwrap_or_else(|| display.clone())
+            }));
+            if *current != displays {
                 self.displays.store(Arc::new(displays));
             }
             ticks = ticks.wrapping_add(1);
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
 
@@ -148,6 +157,12 @@ async fn run(program: &str, args: &[&str]) -> anyhow::Result<String> {
         String::from_utf8_lossy(&output.stderr).trim()
     );
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+fn program_exists(program: &str) -> bool {
+    std::env::var_os("PATH").is_some_and(|paths| {
+        std::env::split_paths(&paths).any(|directory| directory.join(program).is_file())
+    })
 }
 
 fn read_number(path: &Path) -> Option<u64> {

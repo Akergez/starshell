@@ -1,5 +1,6 @@
 use crate::config::ConfigService;
 use crate::ipc::{IpcCommand, push_ipc_command};
+use crate::mpris::MprisService;
 use tokio::sync::broadcast;
 
 #[derive(Clone, Debug)]
@@ -11,19 +12,14 @@ pub enum IdleEvent {
 pub struct IdleService {
     tx: broadcast::Sender<IdleEvent>,
     config: ConfigService,
-}
-
-impl Default for IdleService {
-    fn default() -> Self {
-        Self::new(ConfigService::new())
-    }
+    mpris: MprisService,
 }
 
 impl IdleService {
-    pub fn new(config: ConfigService) -> Self {
+    pub fn new(config: ConfigService, mpris: MprisService) -> Self {
         let _guard = crate::tokio_handle().enter();
         let (tx, _) = broadcast::channel(16);
-        let service = Self { tx, config };
+        let service = Self { tx, config, mpris };
 
         let svc_dbus = service.clone();
         crate::spawn_tokio(async move {
@@ -50,19 +46,27 @@ impl IdleService {
         let mut last_activity = std::time::Instant::now();
         let mut last_cursor_pos = String::new();
 
+        let hyprland = std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some();
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
             let timeout_secs = self.config.get().lockscreen.idle_timeout;
+            if timeout_secs == 0 {
+                while rx_activity.try_recv().is_ok() {}
+                last_activity = std::time::Instant::now();
+                continue;
+            }
             let mut has_activity = false;
 
             while rx_activity.try_recv().is_ok() {
                 has_activity = true;
             }
 
-            if let Ok(output) = std::process::Command::new("hyprctl")
-                .arg("cursorpos")
-                .output()
+            if hyprland
+                && let Ok(output) = tokio::process::Command::new("hyprctl")
+                    .arg("cursorpos")
+                    .output()
+                    .await
                 && output.status.success()
             {
                 let pos_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -77,7 +81,7 @@ impl IdleService {
             }
 
             let is_video_playing = {
-                let players = crate::mpris::MprisService::fetch_all_players().await;
+                let players = self.mpris.get_all_players();
                 players.iter().any(|p| {
                     if !p.is_playing {
                         return false;

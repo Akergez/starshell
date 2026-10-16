@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 pub mod audio;
-pub mod brightness;
 mod capture;
 pub mod displays;
 pub mod power;
@@ -21,7 +20,6 @@ pub struct SystemStatus {
     pub is_muted: bool,
     pub input_volume: u32,
     pub is_input_muted: bool,
-    pub brightness: u32,
     pub audio_sinks: Vec<AudioSink>,
     pub audio_sources: Vec<AudioSource>,
     pub streams: Vec<AppStream>,
@@ -59,26 +57,15 @@ impl SystemService {
 
         crate::spawn_tokio(capture::monitor(service.capture_status.clone()));
 
-        let service_clone = service.clone();
-        crate::spawn_tokio(async move {
-            let _ = service_clone.refresh().await;
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-            loop {
-                interval.tick().await;
-                let _ = service_clone.refresh_audio().await;
-            }
-        });
-
+        let changes = Arc::new(tokio::sync::Notify::new());
+        crate::spawn_tokio(audio::listen_pactl_events(changes.clone()));
         let service_events = service.clone();
         crate::spawn_tokio(async move {
-            audio::listen_pactl_events(move || {
-                let s = service_events.clone();
-                tokio::spawn(async move {
-                    let _ = s.refresh().await;
-                })
-            })
-            .await;
+            loop {
+                let _ = service_events.refresh().await;
+                crate::dbus_util::signals::settle(&changes, std::time::Duration::from_secs(60))
+                    .await;
+            }
         });
 
         let service_volume = service.clone();
@@ -202,7 +189,6 @@ impl SystemService {
     pub async fn refresh(&self) -> Result<()> {
         let output = audio::fetch_audio_status().await;
         let input = audio::fetch_input_audio_status().await;
-        let brightness = brightness::fetch_brightness().await.unwrap_or(100);
         let audio_sinks = audio::fetch_audio_sinks().await;
         let audio_sources = audio::fetch_audio_sources().await;
         let streams = audio::fetch_app_streams().await;
@@ -215,7 +201,6 @@ impl SystemService {
             is_muted: vol_muted.1,
             input_volume: input_vol_muted.0,
             is_input_muted: input_vol_muted.1,
-            brightness,
             audio_sinks,
             audio_sources,
             streams,
@@ -297,11 +282,6 @@ impl SystemService {
         audio::apply_toggle_input_mute().await;
 
         let _ = is_muted;
-        self.refresh().await
-    }
-
-    pub async fn set_brightness(&self, percent: u32) -> Result<()> {
-        brightness::set_brightness(percent).await?;
         self.refresh().await
     }
 
@@ -434,7 +414,6 @@ mod tests {
                 "#!/bin/sh\n/bin/cat \"$STARSHELL_AUDIO_TEST_DIR/$2\" || exit 1\n[ ! -f \"$STARSHELL_AUDIO_TEST_DIR/fail\" ]\n",
             ),
             ("pactl", "#!/bin/sh\nexit 1\n"),
-            ("brightnessctl", "#!/bin/sh\nexit 1\n"),
         ] {
             let path = directory.join(name);
             std::fs::write(&path, script)?;

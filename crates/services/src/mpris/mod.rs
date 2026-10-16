@@ -35,19 +35,38 @@ pub struct MediaTrack {
 #[derive(Clone)]
 pub struct MprisService {
     players: Arc<ArcSwap<Vec<MediaTrack>>>,
+    watchers: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+/// Keeps track positions fresh while it is alive; without one, players
+/// are refreshed only when they report a change.
+pub struct PositionWatch(Arc<std::sync::atomic::AtomicUsize>);
+
+impl Drop for PositionWatch {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 impl MprisService {
     pub fn new(config: ConfigService) -> Self {
         let _guard = crate::tokio_handle().enter();
         let players = Arc::new(ArcSwap::from_pointee(Vec::new()));
+        let watchers = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let players_clone = players.clone();
+        let watchers_clone = watchers.clone();
 
         crate::spawn_tokio(async move {
-            run_mpris_listener(players_clone, config).await;
+            run_mpris_listener(players_clone, watchers_clone, config).await;
         });
 
-        Self { players }
+        Self { players, watchers }
+    }
+
+    pub fn watch_positions(&self) -> PositionWatch {
+        self.watchers
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        PositionWatch(self.watchers.clone())
     }
 
     pub fn get_current_track(&self) -> MediaTrack {
@@ -224,12 +243,37 @@ impl Default for MprisService {
     }
 }
 
-async fn run_mpris_listener(players: Arc<ArcSwap<Vec<MediaTrack>>>, config: ConfigService) {
+async fn run_mpris_listener(
+    players: Arc<ArcSwap<Vec<MediaTrack>>>,
+    watchers: Arc<std::sync::atomic::AtomicUsize>,
+    config: ConfigService,
+) {
+    use crate::dbus_util::signals::{Bus, SignalRule, notifier, settle};
+    let changes = notifier(
+        Bus::Session,
+        vec![
+            SignalRule::any()
+                .interface("org.freedesktop.DBus.Properties")
+                .member("PropertiesChanged")
+                .path("/org/mpris/MediaPlayer2"),
+            SignalRule::from("org.freedesktop.DBus")
+                .member("NameOwnerChanged")
+                .arg0_namespace("org.mpris.MediaPlayer2"),
+        ],
+    );
     loop {
         let allowed = config.get().mpris.players.clone();
         let current_players = poll_all_players_dbus(&allowed).await;
-        players.store(Arc::new(current_players));
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        if **players.load() != current_players {
+            players.store(Arc::new(current_players));
+        }
+        let watching = watchers.load(std::sync::atomic::Ordering::Relaxed) > 0;
+        let fallback = if watching {
+            Duration::from_secs(1)
+        } else {
+            Duration::from_secs(30)
+        };
+        settle(&changes, fallback).await;
     }
 }
 

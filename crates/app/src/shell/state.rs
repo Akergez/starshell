@@ -89,9 +89,7 @@ impl ShellState {
         let state = cx.new(|cx| {
             let poll = cx.spawn(async move |this, cx| {
                 loop {
-                    cx.background_executor()
-                        .timer(Duration::from_millis(500))
-                        .await;
+                    cx.background_executor().timer(Duration::from_secs(1)).await;
                     if this
                         .update(cx, |state: &mut ShellState, cx| state.refresh(cx))
                         .is_err()

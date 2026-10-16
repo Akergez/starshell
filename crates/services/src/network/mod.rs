@@ -3,6 +3,7 @@ pub mod vpn;
 pub use vpn::{VpnKind, VpnProfile, VpnService, VpnState, VpnStatus};
 
 use crate::dbus_util::get_shared_system_conn;
+use crate::dbus_util::signals::{Bus, SignalRule, notifier, settle};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::time::{Duration, sleep, timeout};
@@ -699,6 +700,7 @@ impl NetworkService {
     fn start_polling(&self) {
         let _guard = crate::tokio_handle().enter();
         let status_arc = self.status.clone();
+        let changes = network_changes();
         crate::spawn_tokio(async move {
             loop {
                 if let Some(conn) = get_shared_system_conn().await
@@ -730,8 +732,31 @@ impl NetworkService {
                         *guard = status;
                     }
                 }
-                sleep(Duration::from_secs(3)).await;
+                settle(&changes, Duration::from_secs(30)).await;
             }
         });
     }
+}
+
+const NETWORK_MANAGER: &str = "org.freedesktop.NetworkManager";
+const BLUEZ: &str = "org.bluez";
+const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
+
+pub(crate) fn network_changes() -> std::sync::Arc<tokio::sync::Notify> {
+    notifier(
+        Bus::System,
+        vec![
+            SignalRule::from(NETWORK_MANAGER)
+                .interface(PROPERTIES)
+                .path("/org/freedesktop/NetworkManager"),
+            SignalRule::from(NETWORK_MANAGER)
+                .member("StateChanged")
+                .path_namespace("/org/freedesktop/NetworkManager"),
+            SignalRule::from(NETWORK_MANAGER).interface("org.freedesktop.NetworkManager.Settings"),
+            SignalRule::from(NETWORK_MANAGER)
+                .interface("org.freedesktop.NetworkManager.Device.Wireless"),
+            SignalRule::from(BLUEZ).interface(PROPERTIES),
+            SignalRule::from(BLUEZ).interface("org.freedesktop.DBus.ObjectManager"),
+        ],
+    )
 }

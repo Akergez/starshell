@@ -12,6 +12,7 @@ use crate::shell::state::ShellState;
 pub struct MediaApplet {
     state: Entity<ShellState>,
     selected: Option<String>,
+    _positions: services::PositionWatch,
     _observe: Subscription,
 }
 
@@ -22,6 +23,7 @@ impl MediaApplet {
         Self {
             state,
             selected: None,
+            _positions: cx.global::<services::AppState>().mpris.watch_positions(),
             _observe: observe,
         }
     }

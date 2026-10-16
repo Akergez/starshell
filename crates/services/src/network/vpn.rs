@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use arc_swap::ArcSwap;
 use tokio::process::Command;
-use tokio::sync::Notify;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VpnKind {
@@ -81,7 +80,6 @@ impl VpnStatus {
 #[derive(Clone)]
 pub struct VpnService {
     status: Arc<ArcSwap<VpnStatus>>,
-    refresh: Arc<Notify>,
 }
 
 impl Default for VpnService {
@@ -95,16 +93,13 @@ impl VpnService {
         let _guard = crate::tokio_handle().enter();
         let service = Self {
             status: Arc::new(ArcSwap::from_pointee(VpnStatus::default())),
-            refresh: Arc::new(Notify::new()),
         };
         let worker = service.clone();
+        let changes = super::network_changes();
         crate::spawn_tokio(async move {
             loop {
                 worker.reload().await;
-                tokio::select! {
-                    _ = worker.refresh.notified() => {}
-                    _ = tokio::time::sleep(Duration::from_secs(3)) => {}
-                }
+                crate::dbus_util::signals::settle(&changes, Duration::from_secs(120)).await;
             }
         });
         service

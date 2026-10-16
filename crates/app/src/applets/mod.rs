@@ -70,7 +70,7 @@ pub fn build(surface: Surface, window: &mut Window, cx: &mut Context<Overlay>) -
             }
         }
         Surface::Launcher => {
-            let view = cx.new(|cx| crate::launcher::Launcher::new(window, cx));
+            let view = crate::launcher::Launcher::shared(window, cx);
             Content {
                 focus: Some(view.read(cx).focus_handle()),
                 view: view.into(),
