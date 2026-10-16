@@ -47,7 +47,9 @@ fn sync(cx: &mut App) {
                 cx.new(NotificationPopup::new)
             }) {
                 Ok(handle) => cx.global_mut::<PopupWindow>().0 = Some(handle),
-                Err(error) => eprintln!("Failed to open notification popup: {error}"),
+                Err(error) => {
+                    services::log_error!("Shell", "Failed to open notification popup: {error}")
+                }
             }
         }
         (None, Some(handle)) => {

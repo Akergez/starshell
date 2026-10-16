@@ -104,12 +104,22 @@ impl LockScreenPanel {
                 view
             }) {
                 Ok(w) => handles.push(w),
-                Err(err) => eprintln!("Failed to open lockscreen on display {index}: {err}"),
+                Err(err) => services::log_error!(
+                    "Lock",
+                    "Failed to open lockscreen on display {index}: {err}"
+                ),
             }
         }
 
         if handles.is_empty() {
+            services::log_error!(
+                "Lock",
+                "No lock surface could be opened on {} displays",
+                displays.len()
+            );
             IS_LOCKSCREEN_OPEN.store(false, Ordering::SeqCst);
+        } else {
+            services::log_info!("Lock", "Session locked on {} displays", handles.len());
         }
 
         handles
@@ -182,7 +192,7 @@ impl SettingsPanel {
             Ok(w) => Some(w),
             Err(err) => {
                 IS_SETTINGS_OPEN.store(false, Ordering::SeqCst);
-                eprintln!("Failed to open settings window: {err}");
+                services::log_error!("Shell", "Failed to open settings window: {err}");
                 None
             }
         }

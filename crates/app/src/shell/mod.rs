@@ -131,7 +131,7 @@ impl Shell {
                 shell.surface = Some(surface);
                 cx.refresh_windows();
             }
-            Err(error) => eprintln!("Failed to open overlay: {error}"),
+            Err(error) => services::log_error!("Shell", "Failed to open overlay: {error}"),
         }
     }
 
@@ -162,7 +162,7 @@ impl Shell {
                 cx.new(|cx| Bar::new(id, window, cx))
             }) {
                 Ok(handle) => bars.push(handle),
-                Err(error) => eprintln!("Failed to open bar: {error}"),
+                Err(error) => services::log_error!("Shell", "Failed to open bar: {error}"),
             }
         }
         cx.global_mut::<Shell>().bars = bars;

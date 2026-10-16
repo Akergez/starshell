@@ -124,7 +124,7 @@ impl LockScreen {
                 ) {
                     Ok(valid) => valid,
                     Err(error) => {
-                        eprintln!("[PAM] Authentication failed: {error:#}");
+                        services::log_error!("PAM", "Authentication failed: {error:#}");
                         false
                     }
                 })
