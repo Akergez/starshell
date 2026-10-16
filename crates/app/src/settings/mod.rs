@@ -20,8 +20,8 @@ use views::{
     media::MediaView, record::RecordView, system::SystemView,
 };
 
-pub const WIDTH: f32 = 1120.0;
-pub const HEIGHT: f32 = 780.0;
+pub const WIDTH: f32 = ui::tokens::size::LAUNCHER + ui::tokens::size::PANEL;
+pub const HEIGHT: f32 = ui::tokens::size::PANEL_MAX_HEIGHT;
 
 pub struct Settings {
     pub(crate) focus_handle: FocusHandle,

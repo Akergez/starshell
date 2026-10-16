@@ -1,4 +1,5 @@
 use crate::theme::Theme;
+use crate::tokens::{IconSize, Radius, Spacing, size, units};
 use gpui::{
     AnyElement, App, ClickEvent, ColorExt, DefiniteLength, ElementId, FontWeight, Hsla,
     InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Pixels, RenderOnce, SharedString,
@@ -553,11 +554,6 @@ impl Input {
         self
     }
 
-    pub fn h_px(mut self, px_val: f32) -> Self {
-        self.height = Some(px(px_val));
-        self
-    }
-
     pub fn w(mut self, width: impl Into<DefiniteLength>) -> Self {
         self.width = Some(width.into());
         self
@@ -568,18 +564,8 @@ impl Input {
         self
     }
 
-    pub fn w_px(mut self, px_val: f32) -> Self {
-        self.width = Some(px(px_val).into());
-        self
-    }
-
     pub fn max_w(mut self, max_width: impl Into<DefiniteLength>) -> Self {
         self.max_width = Some(max_width.into());
-        self
-    }
-
-    pub fn max_w_px(mut self, px_val: f32) -> Self {
-        self.max_width = Some(px(px_val).into());
         self
     }
 
@@ -809,8 +795,8 @@ impl RenderOnce for Input {
                         .whitespace_nowrap()
                         .text_size(font_size)
                         .bg(theme.accent().opacity(0.35))
-                        .rounded(px(3.0))
-                        .px(px(2.0))
+                        .rounded(Radius::Small.rems())
+                        .px(Spacing::XXSmall.rems())
                         .text_color(theme.text())
                         .child(selected_str),
                 );
@@ -903,7 +889,7 @@ impl RenderOnce for Input {
         if self.cleanable && !is_empty {
             let mut clear_btn = div()
                 .id("input-clear-btn")
-                .size(px(22.0))
+                .size(units(size::BAR_CHIP))
                 .flex_shrink_0()
                 .rounded_full()
                 .bg(theme.elevated().opacity(0.8))
@@ -915,7 +901,7 @@ impl RenderOnce for Input {
                 .child(
                     svg()
                         .path("close.svg")
-                        .size(px(10.0))
+                        .size(IconSize::Indicator.rems())
                         .text_color(theme.text_muted()),
                 );
 

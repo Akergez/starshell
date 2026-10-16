@@ -1,6 +1,7 @@
-use gpui::{ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, px, svg};
+use gpui::{ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, svg};
 use ui::components::{IconButton, Input};
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
 use crate::settings::Settings;
 use crate::settings::style;
@@ -22,11 +23,11 @@ pub fn render_header(
     let suffix = if query_empty && !is_searching {
         Some(
             div()
-                .px(px(6.0))
-                .py(px(2.0))
-                .rounded(px(4.0))
+                .px(Spacing::Small.rems())
+                .py(Spacing::XXSmall.rems())
+                .rounded(Radius::Small.rems())
                 .bg(style::raised(theme))
-                .text_size(px(11.0))
+                .text_size(TextSize::XSmall.pixels(theme.font_size))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(theme.text_muted().opacity(0.7))
                 .child("Ctrl+F")
@@ -39,9 +40,7 @@ pub fn render_header(
     let mut search_input = Input::from_state("settings-search-box", search_input_state)
         .placeholder(placeholder)
         .cleanable(true)
-        .w_px(420.0)
-        .max_w_px(420.0)
-        .h_px(44.0)
+        .w(units(size::PANEL))
         .rounded_full()
         .bg(style::surface(theme))
         .border_color(style::border(theme))
@@ -49,7 +48,7 @@ pub fn render_header(
         .prefix(
             svg()
                 .path("search.svg")
-                .size(px(15.0))
+                .size(IconSize::Medium.rems())
                 .text_color(if is_searching {
                     theme.accent()
                 } else {
@@ -74,12 +73,12 @@ pub fn render_header(
     div()
         .flex()
         .items_center()
-        .gap(px(10.0))
+        .gap(Spacing::Large.rems())
         .w_full()
         .min_w_0()
-        .h(px(48.0))
+        .h(units(size::TILE))
         .flex_shrink_0()
-        .child(div().w(px(30.0)).flex_shrink_0())
+        .child(div().w(units(size::CONTROL)).flex_shrink_0())
         .child(
             div()
                 .flex()
@@ -90,7 +89,6 @@ pub fn render_header(
         )
         .child(
             IconButton::new("settings-close-btn", "close.svg")
-                .size(30.0)
                 .tooltip(if cx.has_global::<services::AppState>() {
                     String::from("Close")
                 } else {

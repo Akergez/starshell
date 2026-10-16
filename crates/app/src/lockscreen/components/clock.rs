@@ -1,7 +1,10 @@
 use chrono::Local;
-use gpui::{ColorExt, Element, ParentElement, Styled, div, px};
+use gpui::{ColorExt, Element, ParentElement, Styled, div};
 use services::LockScreenConfig;
 use ui::theme::Theme;
+use ui::tokens::{Spacing, TextSize, units};
+
+const CLOCK_SIZE: f32 = 84.0;
 
 pub fn render_clock(theme: &Theme, config: &LockScreenConfig) -> impl Element {
     let now = Local::now();
@@ -12,11 +15,11 @@ pub fn render_clock(theme: &Theme, config: &LockScreenConfig) -> impl Element {
         .flex()
         .flex_col()
         .items_center()
-        .gap(px(4.0))
+        .gap(Spacing::XSmall.rems())
         .child(
             div()
                 .font_family(theme.font_family())
-                .text_size(px(18.0))
+                .text_size(TextSize::Large.pixels(theme.font_size))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(theme.text().opacity(0.92))
                 .child(date_str),
@@ -24,8 +27,8 @@ pub fn render_clock(theme: &Theme, config: &LockScreenConfig) -> impl Element {
         .child(
             div()
                 .font_family(theme.font_family())
-                .text_size(px(96.0))
-                .line_height(px(96.0))
+                .text_size(units(CLOCK_SIZE))
+                .line_height(units(CLOCK_SIZE))
                 .font_weight(gpui::FontWeight::BOLD)
                 .text_color(theme.text())
                 .child(time_str),

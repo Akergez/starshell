@@ -1,9 +1,10 @@
 use gpui::{
     AnyElement, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled, div,
-    prelude::*, px, svg,
+    prelude::*, svg,
 };
 use services::AppState;
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Spacing, TextSize, size, units};
 
 use super::common::{card, control_row, hero_header, row_divider, toggle_row};
 use crate::settings::Settings;
@@ -448,9 +449,9 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
                     .id(format!("search-nav-{}", def.id))
                     .flex()
                     .items_center()
-                    .gap(px(6.0))
-                    .h(px(28.0))
-                    .px(px(12.0))
+                    .gap(Spacing::Small.rems())
+                    .h(units(size::APPLICATION_ICON))
+                    .px(Spacing::Large.rems())
                     .rounded_full()
                     .bg(style::surface(theme))
                     .border_1()
@@ -462,7 +463,7 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
                     }))
                     .child(
                         div()
-                            .text_size(px(12.0))
+                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                             .font_weight(FontWeight::MEDIUM)
                             .text_color(theme.text())
                             .child(tab_label),
@@ -470,7 +471,7 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
                     .child(
                         svg()
                             .path("chevron-right.svg")
-                            .size(px(13.0))
+                            .size(IconSize::Small.rems())
                             .text_color(theme.text_muted()),
                     );
 
@@ -498,11 +499,11 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
             .justify_center()
             .w_full()
             .min_w_0()
-            .py(px(48.0))
-            .gap(px(12.0))
+            .py(units(size::VIEWPORT_INSET))
+            .gap(Spacing::Large.rems())
             .child(
                 div()
-                    .size(px(52.0))
+                    .size(IconSize::XXLarge.rems())
                     .rounded_full()
                     .bg(style::surface(theme))
                     .flex()
@@ -511,23 +512,23 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
                     .child(
                         svg()
                             .path("search.svg")
-                            .size(px(24.0))
+                            .size(IconSize::XLarge.rems())
                             .text_color(theme.text_muted()),
                     ),
             )
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(16.0))
+                    .text_size(TextSize::Medium.pixels(theme.font_size))
                     .text_color(theme.text())
                     .child(String::from("No results")),
             )
             .child(
                 div()
-                    .text_size(px(13.0))
+                    .text_size(TextSize::Small.pixels(theme.font_size))
                     .text_color(theme.text_muted())
                     .text_center()
-                    .max_w(px(380.0))
+                    .max_w(units(size::DEVICE_PANEL))
                     .overflow_hidden()
                     .text_ellipsis()
                     .child(no_sub),
@@ -550,7 +551,7 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
         div()
             .flex()
             .flex_col()
-            .gap(px(16.0))
+            .gap(Spacing::XLarge.rems())
             .w_full()
             .min_w_0()
             .child(hero_header(

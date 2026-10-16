@@ -1,9 +1,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
+use ui::tokens::{IconSize, Radius, Spacing, size};
 
-use gpui::{
-    AnyElement, Context, ElementId, IntoElement, ParentElement, Styled, Window, div, px, svg,
-};
+use gpui::{AnyElement, Context, ElementId, IntoElement, ParentElement, Styled, Window, div, svg};
 use services::{AppState, Application};
 use ui::components::select::{Select, SelectItem};
 use ui::theme::Theme;
@@ -251,13 +250,13 @@ fn render_app_icon(
 ) -> AnyElement {
     if let Some(path) = icon_path {
         gpui::img(path.to_path_buf())
-            .size(px(18.0))
-            .rounded(px(4.0))
+            .size(IconSize::Large.rems())
+            .rounded(Radius::Small.rems())
             .into_any_element()
     } else {
         svg()
             .path(fallback_svg)
-            .size(px(16.0))
+            .size(IconSize::Medium.rems())
             .text_color(theme.accent())
             .into_any_element()
     }
@@ -296,7 +295,7 @@ fn render_select_for_field(
         .selected_label(display_name)
         .icon(display_icon)
         .is_open(is_open)
-        .width(220.0)
+        .width(size::PANEL_MIN_WIDTH)
         .track_bounds(cell)
         .on_toggle(cx.listener(move |this, _, _, cx| {
             if let Some(view) = this.view_as_mut::<AppsView>() {
@@ -407,7 +406,7 @@ impl SettingsView for AppsView {
         div()
             .flex()
             .flex_col()
-            .gap(px(16.0))
+            .gap(Spacing::XLarge.rems())
             .w_full()
             .min_w_0()
             .child(hero_header(

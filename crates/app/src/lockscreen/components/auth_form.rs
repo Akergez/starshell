@@ -1,6 +1,7 @@
 use gpui::{ColorExt, IntoElement};
 use ui::components::{Input, InputState};
 use ui::theme::Theme;
+use ui::tokens::{size, units};
 
 pub fn render_auth_form(
     theme: &Theme,
@@ -26,9 +27,7 @@ pub fn render_auth_form(
         .cursor_visible(false)
         .error(auth_failed)
         .centered(true)
-        .w_px(200.0)
-        .max_w_px(200.0)
-        .h_px(34.0)
+        .w(units(size::PANEL / 2.0))
         .rounded_full()
         .bg(theme.elevated().opacity(0.35))
         .border_color(if auth_failed {

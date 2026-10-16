@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::theme::Theme;
-use crate::tokens::{Radius, Spacing, TextSize, motion, units};
+use crate::tokens::{Radius, Spacing, TextSize, motion, size, units};
 use gpui::{
     App, ElementId, FontWeight, InteractiveElement, IntoElement, ParentElement, RenderOnce,
     SharedString, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder,
@@ -69,7 +69,7 @@ impl RenderOnce for SegmentedControl {
                 .flex()
                 .items_center()
                 .justify_center()
-                .h(units(28.0))
+                .h(units(size::CONTROL - Spacing::XXSmall.value() * 2.0))
                 .px(Spacing::Small.rems())
                 .rounded(inner_radius)
                 .text_size(TextSize::Small.pixels(theme.font_size))

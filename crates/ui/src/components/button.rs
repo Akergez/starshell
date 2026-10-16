@@ -2,8 +2,8 @@ use crate::theme::{Theme, mix};
 use crate::tokens::{IconSize, Radius, Spacing, TextSize, motion, size, units};
 use gpui::{
     App, ClickEvent, ColorExt, ElementId, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, Pixels, Rems, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
-    Window, div, px, svg,
+    ParentElement, Rems, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div,
+    svg,
 };
 
 pub type ClickListener = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -133,8 +133,6 @@ pub struct Button {
     selected: bool,
     disabled: bool,
     w_full: bool,
-    height_px: Option<f32>,
-    padding_x: Option<f32>,
     tooltip: Option<SharedString>,
     on_click: Option<ClickListener>,
 }
@@ -152,21 +150,9 @@ impl Button {
             selected: false,
             disabled: false,
             w_full: false,
-            height_px: None,
-            padding_x: None,
             tooltip: None,
             on_click: None,
         }
-    }
-
-    pub fn height_px(mut self, height: f32) -> Self {
-        self.height_px = Some(height);
-        self
-    }
-
-    pub fn padding_x(mut self, padding: f32) -> Self {
-        self.padding_x = Some(padding);
-        self
     }
 
     pub fn tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
@@ -232,14 +218,8 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.global::<Theme>();
         let colors = colors(theme, self.variant, self.selected);
-        let height: gpui::AbsoluteLength = self
-            .height_px
-            .map(|height| px(height).into())
-            .unwrap_or_else(|| units(self.size.height()).into());
-        let padding_x: gpui::AbsoluteLength = self
-            .padding_x
-            .map(|padding| px(padding).into())
-            .unwrap_or_else(|| self.size.padding_x().rems().into());
+        let height = units(self.size.height());
+        let padding_x = self.size.padding_x().rems();
         let icon_size = self.size.icon_size().rems();
         let (hover, active) = (colors.hover, colors.active);
 
@@ -405,13 +385,8 @@ impl RenderOnce for IconButton {
         let theme = cx.global::<Theme>();
         let colors = colors(theme, self.variant, self.selected);
         let foreground = self.icon_color.unwrap_or(colors.foreground);
-        let button_size: Pixels = self
-            .size
-            .map(px)
-            .unwrap_or_else(|| crate::tokens::units_to_pixels(size::CONTROL, theme.font_size));
-        let icon_size: Pixels = self.icon_size.map(px).unwrap_or_else(|| {
-            crate::tokens::units_to_pixels(IconSize::Medium.value(), theme.font_size)
-        });
+        let button_size = units(self.size.unwrap_or(size::CONTROL));
+        let icon_size = units(self.icon_size.unwrap_or(IconSize::Medium.value()));
         let (hover, active) = (colors.hover, colors.active);
 
         let mut element = div()

@@ -1,7 +1,8 @@
 use crate::theme::Theme;
+use crate::tokens::{Radius, Spacing, TextSize};
 use gpui::{
     AnyView, App, AppContext, ColorExt, Context, IntoElement, ParentElement, Render, SharedString,
-    Styled, Window, div, prelude::FluentBuilder, px,
+    Styled, Window, div, prelude::FluentBuilder,
 };
 
 pub struct TooltipView {
@@ -13,28 +14,28 @@ impl Render for TooltipView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
         div()
-            .px(px(8.0))
-            .py(px(4.0))
-            .rounded(px(6.0))
+            .px(Spacing::Medium.rems())
+            .py(Spacing::XSmall.rems())
+            .rounded(Radius::Medium.rems())
             .bg(theme.elevated())
             .border_1()
             .border_color(theme.elevated().opacity(0.4))
-            .text_size(px(11.0))
+            .text_size(TextSize::XSmall.pixels(theme.font_size))
             .text_color(theme.text())
             .font_family(theme.font_family())
             .flex()
             .items_center()
-            .gap(px(6.0))
+            .gap(Spacing::Small.rems())
             .child(self.text.clone())
             .when_some(self.shortcut.clone(), |el, sc| {
                 el.child(
                     div()
-                        .px(px(4.0))
-                        .py(px(1.0))
-                        .rounded(px(4.0))
+                        .px(Spacing::XSmall.rems())
+                        .py(Spacing::Hairline.rems())
+                        .rounded(Radius::Small.rems())
                         .bg(theme.background())
                         .text_color(theme.text_muted())
-                        .text_size(px(10.0))
+                        .text_size(TextSize::XSmall.pixels(theme.font_size))
                         .child(sc),
                 )
             })

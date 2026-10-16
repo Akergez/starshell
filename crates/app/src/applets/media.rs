@@ -5,7 +5,7 @@ use gpui::{
 use services::{MediaTrack, MprisService};
 use ui::components::{Button, ButtonVariant, IconButton, Slider, caption, panel};
 use ui::theme::Theme;
-use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units, units_to_pixels};
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
 use crate::shell::state::ShellState;
 
@@ -221,11 +221,8 @@ impl Render for MediaApplet {
                         )
                         .variant(ButtonVariant::Primary)
                         .shape_circle(true)
-                        .button_size(f32::from(units_to_pixels(size::PLAYBACK, theme.font_size)))
-                        .icon_size(f32::from(units_to_pixels(
-                            IconSize::XLarge.value(),
-                            theme.font_size,
-                        )))
+                        .button_size(size::PLAYBACK)
+                        .icon_size(IconSize::XLarge.value())
                         .on_click({
                             let bus = bus.clone();
                             move |_, _, _| play_pause(bus.clone())

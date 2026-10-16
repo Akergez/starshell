@@ -2,7 +2,7 @@ use gpui::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div}
 use services::{AppState, PowerProfile};
 use ui::components::SegmentedControl;
 use ui::theme::Theme;
-use ui::tokens::{Spacing, units};
+use ui::tokens::{Spacing, size, units};
 
 use super::SettingsView;
 use super::common::{card, control_row, hero_header};
@@ -71,7 +71,7 @@ impl SettingsView for SystemView {
                 } else {
                     "power-profiles-daemon is not running."
                 }),
-                div().w(units(260.0)).child(selector),
+                div().w(units(size::PANEL_MIN_WIDTH)).child(selector),
                 &theme,
             )))
             .into_any_element()

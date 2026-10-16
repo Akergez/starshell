@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use ui::components::InputState;
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
 use super::components::{render_auth_form, render_clock, render_lyrics};
 
@@ -278,12 +279,12 @@ impl Render for LockScreen {
 
         let top_bar = div()
             .absolute()
-            .top(px(24.0))
-            .right(px(32.0))
+            .top(Spacing::XXXLarge.rems())
+            .right(units(size::CONTROL))
             .flex()
             .flex_row()
             .items_center()
-            .gap(px(10.0))
+            .gap(Spacing::Large.rems())
             .opacity(top_bar_opacity)
             .when_some(battery_opt, |d, bat| {
                 d.child(
@@ -291,15 +292,15 @@ impl Render for LockScreen {
                         .flex()
                         .flex_row()
                         .items_center()
-                        .gap(px(4.0))
-                        .px(px(6.0))
-                        .py(px(2.0))
-                        .rounded(px(6.0))
+                        .gap(Spacing::XSmall.rems())
+                        .px(Spacing::Small.rems())
+                        .py(Spacing::XXSmall.rems())
+                        .rounded(Radius::Medium.rems())
                         .bg(theme.success().opacity(0.85))
                         .child(
                             div()
                                 .font_family(theme.font_family())
-                                .text_size(px(11.0))
+                                .text_size(TextSize::XSmall.pixels(theme.font_size))
                                 .font_weight(gpui::FontWeight::BOLD)
                                 .text_color(theme.background())
                                 .child(bat.percentage.to_string()),
@@ -315,13 +316,18 @@ impl Render for LockScreen {
                                 } else {
                                     "battery-full.svg"
                                 })
-                                .size(px(12.0))
+                                .size(IconSize::XSmall.rems())
                                 .text_color(theme.background()),
                         ),
                 )
             })
             .when_some(wifi_icon_opt, |d, icon| {
-                d.child(svg().path(icon).size(px(15.0)).text_color(theme.text()))
+                d.child(
+                    svg()
+                        .path(icon)
+                        .size(IconSize::Medium.rems())
+                        .text_color(theme.text()),
+                )
             });
 
         let content = if self.is_primary {
@@ -331,8 +337,8 @@ impl Render for LockScreen {
                 .justify_between()
                 .items_center()
                 .size_full()
-                .pt(px(120.0))
-                .pb(px(100.0))
+                .pt(units(size::LAUNCHER_OFFSET))
+                .pb(units(size::LAUNCHER_OFFSET))
                 .child(
                     div()
                         .flex()
@@ -348,8 +354,8 @@ impl Render for LockScreen {
                         .flex_col()
                         .items_center()
                         .w_full()
-                        .max_w(px(520.0))
-                        .px(px(20.0))
+                        .max_w(units(size::LAUNCHER))
+                        .px(Spacing::XXLarge.rems())
                         .opacity(lyrics_opacity)
                         .mt(px(lyrics_y))
                         .child(render_lyrics(
@@ -364,7 +370,7 @@ impl Render for LockScreen {
                         .flex()
                         .flex_col()
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(Spacing::Medium.rems())
                         .opacity(user_opacity)
                         .mt(px(user_y))
                         .child(
@@ -372,8 +378,8 @@ impl Render for LockScreen {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .w(px(46.0))
-                                .h(px(46.0))
+                                .w(units(size::PLAYBACK))
+                                .h(units(size::PLAYBACK))
                                 .rounded_full()
                                 .bg(theme.elevated().opacity(0.45))
                                 .border_1()
@@ -381,7 +387,7 @@ impl Render for LockScreen {
                                 .child(
                                     svg()
                                         .path("user.svg")
-                                        .size(px(22.0))
+                                        .size(IconSize::XLarge.rems())
                                         .text_color(theme.text().opacity(0.95)),
                                 ),
                         )
@@ -389,7 +395,7 @@ impl Render for LockScreen {
                             div()
                                 .font_family(theme.font_family())
                                 .font_weight(gpui::FontWeight::MEDIUM)
-                                .text_size(px(14.0))
+                                .text_size(TextSize::Small.pixels(theme.font_size))
                                 .text_color(theme.text().opacity(0.9))
                                 .child(self.username.clone()),
                         )

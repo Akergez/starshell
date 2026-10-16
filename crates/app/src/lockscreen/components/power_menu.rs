@@ -1,8 +1,9 @@
 use gpui::{
     ColorExt, Element, InteractiveElement, ParentElement, StatefulInteractiveElement, Styled, div,
-    px, svg,
+    svg,
 };
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Spacing, size, units};
 
 pub fn render_power_menu(theme: &Theme) -> impl Element {
     div()
@@ -10,15 +11,15 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
         .flex_row()
         .items_center()
         .justify_center()
-        .gap(px(10.0))
+        .gap(Spacing::Large.rems())
         .child(
             div()
                 .id("power-suspend")
                 .flex()
                 .items_center()
                 .justify_center()
-                .w(px(32.0))
-                .h(px(32.0))
+                .w(units(size::CONTROL))
+                .h(units(size::CONTROL))
                 .rounded_full()
                 .bg(theme.elevated().opacity(0.45))
                 .border_1()
@@ -34,7 +35,7 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .child(
                     svg()
                         .path("moon.svg")
-                        .size(px(14.0))
+                        .size(IconSize::Small.rems())
                         .text_color(theme.text_muted()),
                 ),
         )
@@ -44,8 +45,8 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .flex()
                 .items_center()
                 .justify_center()
-                .w(px(32.0))
-                .h(px(32.0))
+                .w(units(size::CONTROL))
+                .h(units(size::CONTROL))
                 .rounded_full()
                 .bg(theme.elevated().opacity(0.45))
                 .border_1()
@@ -61,7 +62,7 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .child(
                     svg()
                         .path("rotate-ccw.svg")
-                        .size(px(14.0))
+                        .size(IconSize::Small.rems())
                         .text_color(theme.text_muted()),
                 ),
         )
@@ -71,8 +72,8 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .flex()
                 .items_center()
                 .justify_center()
-                .w(px(32.0))
-                .h(px(32.0))
+                .w(units(size::CONTROL))
+                .h(units(size::CONTROL))
                 .rounded_full()
                 .bg(theme.elevated().opacity(0.45))
                 .border_1()
@@ -91,7 +92,7 @@ pub fn render_power_menu(theme: &Theme) -> impl Element {
                 .child(
                     svg()
                         .path("power.svg")
-                        .size(px(14.0))
+                        .size(IconSize::Small.rems())
                         .text_color(theme.text_muted()),
                 ),
         )

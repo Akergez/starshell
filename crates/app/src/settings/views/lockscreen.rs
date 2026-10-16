@@ -1,6 +1,7 @@
-use gpui::{AnyElement, Context, ElementId, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui::{AnyElement, Context, ElementId, IntoElement, ParentElement, Styled, Window, div};
 use services::AppState;
 use ui::theme::Theme;
+use ui::tokens::Spacing;
 
 use super::SettingsView;
 use super::common::{
@@ -60,7 +61,7 @@ impl SettingsView for LockScreenView {
         div()
             .flex()
             .flex_col()
-            .gap(px(16.0))
+            .gap(Spacing::XLarge.rems())
             .w_full()
             .min_w_0()
             // Hero Header
@@ -134,7 +135,7 @@ impl SettingsView for LockScreenView {
                         Some(&String::from(
                             "Chrono syntax (e.g. %H:%M for 24h, %I:%M %p for 12h).",
                         )),
-                        div().flex().gap(px(6.0)).children(
+                        div().flex().gap(Spacing::Small.rems()).children(
                             time_presets
                                 .into_iter()
                                 .enumerate()
@@ -167,7 +168,7 @@ impl SettingsView for LockScreenView {
                         Some(&String::from(
                             "Chrono syntax for date below the main clock.",
                         )),
-                        div().flex().gap(px(6.0)).children(
+                        div().flex().gap(Spacing::Small.rems()).children(
                             date_presets
                                 .into_iter()
                                 .enumerate()

@@ -1,4 +1,5 @@
 use crate::theme::Theme;
+use crate::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 use gpui::{
     AnyElement, App, ClickEvent, ColorExt, DurationWithEasing, ElementId, InteractiveElement,
     IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
@@ -66,7 +67,7 @@ impl RenderOnce for SelectItem {
             .w_full()
             .px_2p5()
             .py_1p5()
-            .rounded(px(8.0))
+            .rounded(Radius::Large.rems())
             .bg(if self.selected {
                 theme.accent().opacity(0.12)
             } else {
@@ -99,7 +100,7 @@ impl RenderOnce for SelectItem {
                 .children(self.icon)
                 .child(
                     div()
-                        .text_size(px(12.0))
+                        .text_size(TextSize::XSmall.pixels(theme.font_size))
                         .font_weight(if self.selected {
                             gpui::FontWeight::SEMIBOLD
                         } else {
@@ -111,7 +112,7 @@ impl RenderOnce for SelectItem {
         .children(if self.selected {
             Some(
                 div()
-                    .size(px(6.0))
+                    .size(Spacing::Small.rems())
                     .rounded_full()
                     .bg(theme.accent())
                     .flex_shrink_0(),
@@ -150,7 +151,7 @@ impl Select {
             anim_progress: 1.0,
             open_upwards: false,
             disabled: false,
-            width: 240.0,
+            width: crate::tokens::size::NAVIGATION_LIST,
             max_menu_height: 220.0,
             items: Vec::new(),
             on_toggle: None,
@@ -272,10 +273,10 @@ impl RenderOnce for Select {
             .flex_row()
             .items_center()
             .justify_between()
-            .w(px(self.width))
-            .h(px(36.0))
+            .w(units(self.width))
+            .h(units(size::PERCENTAGE_LABEL))
             .px_3()
-            .rounded(px(10.0))
+            .rounded(Radius::XLarge.rems())
             .bg(if self.is_open {
                 theme.accent().opacity(0.12)
             } else {
@@ -343,7 +344,7 @@ impl RenderOnce for Select {
             .children(self.icon)
             .child(
                 div()
-                    .text_size(px(12.5))
+                    .text_size(TextSize::XSmall.pixels(theme.font_size))
                     .font_weight(gpui::FontWeight::MEDIUM)
                     .text_color(if is_placeholder {
                         theme.text_muted()
@@ -360,7 +361,7 @@ impl RenderOnce for Select {
             } else {
                 "chevron-down.svg"
             })
-            .size(px(14.0))
+            .size(IconSize::Small.rems())
             .flex_shrink_0()
             .text_color(if self.is_open {
                 theme.accent()
@@ -382,16 +383,16 @@ impl RenderOnce for Select {
                 .id("select-menu-dropdown")
                 .absolute()
                 .right_0()
-                .w(px(self.width))
+                .w(units(self.width))
                 .max_h(px(menu_h))
                 .opacity(p)
                 .bg(theme.background())
                 .border_1()
                 .border_color(theme.elevated().opacity(0.5))
-                .rounded(px(12.0))
+                .rounded(Radius::XLarge.rems())
                 .shadow_lg()
                 .p_1p5()
-                .gap(px(2.0))
+                .gap(Spacing::XXSmall.rems())
                 .flex()
                 .flex_col()
                 .overflow_scroll()

@@ -1,7 +1,4 @@
-pub mod badge;
 pub mod button;
-pub mod card;
-pub mod chip;
 pub mod input;
 pub mod list_row;
 pub mod segmented;
@@ -13,10 +10,7 @@ pub mod switch;
 pub mod tile;
 pub mod tooltip;
 
-pub use badge::{Badge, BadgeSize, BadgeVariant};
 pub use button::{Button, ButtonSize, ButtonVariant, IconButton};
-pub use card::Card;
-pub use chip::{Chip, ChipSize};
 pub use input::{Input, InputState};
 pub use list_row::ListRow;
 pub use segmented::SegmentedControl;

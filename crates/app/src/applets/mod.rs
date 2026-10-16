@@ -44,7 +44,7 @@ impl AppletKind {
                 size::DEVICE_PANEL
             }
             Self::Wallpapers => size::LAUNCHER,
-            Self::TrayMenu(_) => 240.0,
+            Self::TrayMenu(_) => size::NAVIGATION_LIST,
             _ => size::PANEL,
         }
     }

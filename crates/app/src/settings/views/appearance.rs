@@ -5,7 +5,7 @@ use gpui::{
 use services::{AppConfig, AppState, BarPosition};
 use ui::components::SegmentedControl;
 use ui::theme::Theme;
-use ui::tokens::{Spacing, TextSize, units};
+use ui::tokens::{Spacing, TextSize, size, units};
 
 use super::SettingsView;
 use super::common::{card, control_row, heading, hero_header, row_divider, slider_row, toggle_row};
@@ -168,7 +168,7 @@ impl SettingsView for AppearanceView {
                     .child(control_row(
                         "Position",
                         None,
-                        div().w(units(160.0)).child(position),
+                        div().w(units(size::PANEL_MIN_WIDTH)).child(position),
                         &theme,
                     ))
                     .child(row_divider(&theme))

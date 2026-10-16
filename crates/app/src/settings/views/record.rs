@@ -1,9 +1,10 @@
 use gpui::{
     AnyElement, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled,
-    Window, div, px,
+    Window, div,
 };
 use services::{AppState, RecordService};
 use ui::theme::Theme;
+use ui::tokens::{Spacing, TextSize};
 
 use super::SettingsView;
 use super::common::{card, control_row, hero_header, pill_button, row_divider, toggle_row};
@@ -79,7 +80,7 @@ impl SettingsView for RecordView {
         div()
             .flex()
             .flex_col()
-            .gap(px(16.0))
+            .gap(Spacing::XLarge.rems())
             .w_full()
             .min_w_0()
             // Hero Header
@@ -96,7 +97,7 @@ impl SettingsView for RecordView {
                     Some(&String::from("Monitor or screen to capture during recording.")),
                     div()
                         .flex()
-                        .gap(px(6.0))
+                        .gap(Spacing::Small.rems())
                         .children(monitor_options.into_iter().enumerate().map(|(idx, (val, label))| {
                             let is_selected = config.record.output == val;
                             let val_str = val.clone();
@@ -127,7 +128,7 @@ impl SettingsView for RecordView {
                         Some(&String::from("Smoothness of the screen recording capture.")),
                         div()
                             .flex()
-                            .gap(px(6.0))
+                            .gap(Spacing::Small.rems())
                             .children(fps_options.into_iter().enumerate().map(|(idx, fps)| {
                                 let is_selected = config.record.fps == fps;
                                 pill_button(
@@ -153,7 +154,7 @@ impl SettingsView for RecordView {
                         Some(&String::from("Capture scale for the selected monitor.")),
                         div()
                             .flex()
-                            .gap(px(6.0))
+                            .gap(Spacing::Small.rems())
                             .children(res_options.into_iter().enumerate().map(|(idx, (val, label))| {
                                 let is_selected = config.record.resolution == val;
                                 let val_str = val.to_string();
@@ -181,7 +182,7 @@ impl SettingsView for RecordView {
                         Some(&String::from("Bitrate and compression of the video encoder.")),
                         div()
                             .flex()
-                            .gap(px(6.0))
+                            .gap(Spacing::Small.rems())
                             .children(quality_options.into_iter().enumerate().map(|(idx, (val, label))| {
                                 let is_selected = config.record.quality == val;
                                 let val_str = val.to_string();
@@ -209,7 +210,7 @@ impl SettingsView for RecordView {
                         Some(&String::from("Final file format (MP4 or MKV).")),
                         div()
                             .flex()
-                            .gap(px(6.0))
+                            .gap(Spacing::Small.rems())
                             .children(container_options.into_iter().enumerate().map(|(idx, (val, label))| {
                                 let is_selected = config.record.container == val;
                                 let val_str = val.to_string();
@@ -240,7 +241,7 @@ impl SettingsView for RecordView {
                         Some(&String::from("Default audio captured during recording.")),
                         div()
                             .flex()
-                            .gap(px(6.0))
+                            .gap(Spacing::Small.rems())
                             .children(audio_options.into_iter().enumerate().map(|(idx, (val, label))| {
                                 let is_selected = config.record.audio == val;
                                 let val_str = val.to_string();
@@ -288,22 +289,22 @@ impl SettingsView for RecordView {
                         .flex()
                         .flex_row()
                         .items_center()
-                        .gap(px(6.0))
-                        .px(px(12.0))
-                        .py(px(5.0))
+                        .gap(Spacing::Small.rems())
+                        .px(Spacing::Large.rems())
+                        .py(Spacing::Small.rems())
                         .rounded_full()
                         .bg(theme.accent().opacity(0.12))
                         .border_1()
                         .border_color(theme.accent().opacity(0.3))
                         .child(
                             div()
-                                .size(px(6.0))
+                                .size(Spacing::Small.rems())
                                 .rounded_full()
                                 .bg(theme.accent()),
                         )
                         .child(
                             div()
-                                .text_size(px(12.0))
+                                .text_size(TextSize::XSmall.pixels(theme.font_size))
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(theme.accent())
                                 .child("gpu-screen-recorder (GPU)"),

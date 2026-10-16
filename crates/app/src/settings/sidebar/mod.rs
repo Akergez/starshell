@@ -1,9 +1,10 @@
 pub mod items;
 
 use gpui::{
-    AnyElement, Context, FontWeight, IntoElement, ParentElement, Styled, div, prelude::*, px, svg,
+    AnyElement, Context, FontWeight, IntoElement, ParentElement, Styled, div, prelude::*, svg,
 };
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
 use crate::settings::Settings;
 use crate::settings::style;
@@ -62,8 +63,8 @@ impl Sidebar {
             .id("settings-tabs-scroll")
             .flex()
             .flex_col()
-            .gap(px(6.0))
-            .w(px(176.0))
+            .gap(Spacing::Small.rems())
+            .w(units(size::PANEL_MIN_WIDTH))
             .max_w(gpui::relative(0.5))
             .h_full()
             .min_h_0()
@@ -85,17 +86,17 @@ impl Sidebar {
                     .id(("settings-tab", tab as usize))
                     .flex()
                     .items_center()
-                    .gap(px(12.0))
+                    .gap(Spacing::Large.rems())
                     .w_full()
                     .min_w_0()
                     .whitespace_nowrap()
-                    .h(px(48.0))
-                    .px(px(14.0))
+                    .h(units(size::TILE))
+                    .px(Spacing::XLarge.rems())
                     .flex_shrink_0()
-                    .rounded(px(10.0))
+                    .rounded(Radius::XLarge.rems())
                     .when(selected, |s| s.bg(style::surface(theme)))
                     .text_color(foreground)
-                    .text_size(px(14.0))
+                    .text_size(TextSize::Small.pixels(theme.font_size))
                     .font_weight(if selected {
                         FontWeight::MEDIUM
                     } else {
@@ -109,7 +110,7 @@ impl Sidebar {
                     .child(
                         svg()
                             .path(icon)
-                            .size(px(18.0))
+                            .size(IconSize::Large.rems())
                             .flex_shrink_0()
                             .text_color(foreground),
                     )

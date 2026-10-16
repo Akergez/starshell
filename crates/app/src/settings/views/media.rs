@@ -4,11 +4,12 @@ use crate::settings::Settings;
 use crate::settings::style;
 use gpui::{
     AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled,
-    Window, div, prelude::*, px, svg,
+    Window, div, prelude::*, svg,
 };
 use services::AppState;
 use ui::components::{IconButton, Slider, SliderRow};
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
 pub struct MediaView {
     show_output_devices: bool,
@@ -190,13 +191,13 @@ impl SettingsView for MediaView {
 
         // Output devices list (Capsule native style)
         let show_out_devices = self.show_output_devices;
-        let mut out_devices_list = div().flex().flex_col().gap(px(6.0)).w_full();
+        let mut out_devices_list = div().flex().flex_col().gap(Spacing::Small.rems()).w_full();
         if status.audio_sinks.is_empty() {
             out_devices_list = out_devices_list.child(
                 div()
-                    .text_size(px(12.0))
+                    .text_size(TextSize::XSmall.pixels(theme.font_size))
                     .text_color(theme.text_muted())
-                    .p(px(8.0))
+                    .p(Spacing::Medium.rems())
                     .child(String::from("No audio output devices found")),
             );
         } else {
@@ -223,11 +224,11 @@ impl SettingsView for MediaView {
                     div()
                         .id(ElementId::Name(format!("sink-{}", sink.name).into()))
                         .w_full()
-                        .p(px(10.0))
+                        .p(Spacing::Large.rems())
                         .rounded(ui::tokens::Radius::Medium.rems())
                         .flex()
                         .items_center()
-                        .gap(px(12.0))
+                        .gap(Spacing::Large.rems())
                         .bg(if is_selected {
                             style::accent_card(&theme)
                         } else {
@@ -252,13 +253,13 @@ impl SettingsView for MediaView {
                         }))
                         .child(
                             div()
-                                .size(px(28.0))
+                                .size(units(size::APPLICATION_ICON))
                                 .rounded_full()
                                 .bg(style::background(&theme))
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(svg().path(icon).size(px(15.0)).text_color(
+                                .child(svg().path(icon).size(IconSize::Medium.rems()).text_color(
                                     if is_selected {
                                         theme.accent()
                                     } else {
@@ -272,17 +273,17 @@ impl SettingsView for MediaView {
                                 .min_w_0()
                                 .flex()
                                 .flex_col()
-                                .gap(px(2.0))
+                                .gap(Spacing::XXSmall.rems())
                                 .child(
                                     div()
-                                        .text_size(px(13.0))
+                                        .text_size(TextSize::Small.pixels(theme.font_size))
                                         .font_weight(FontWeight::MEDIUM)
                                         .text_ellipsis()
                                         .child(sink.description.clone()),
                                 )
                                 .child(
                                     div()
-                                        .text_size(px(11.0))
+                                        .text_size(TextSize::XSmall.pixels(theme.font_size))
                                         .text_color(theme.text_muted())
                                         .text_ellipsis()
                                         .child(sink.name.clone()),
@@ -294,13 +295,13 @@ impl SettingsView for MediaView {
 
         // Input devices list
         let show_in_devices = self.show_input_devices;
-        let mut in_devices_list = div().flex().flex_col().gap(px(6.0)).w_full();
+        let mut in_devices_list = div().flex().flex_col().gap(Spacing::Small.rems()).w_full();
         if status.audio_sources.is_empty() {
             in_devices_list = in_devices_list.child(
                 div()
-                    .text_size(px(12.0))
+                    .text_size(TextSize::XSmall.pixels(theme.font_size))
                     .text_color(theme.text_muted())
-                    .p(px(8.0))
+                    .p(Spacing::Medium.rems())
                     .child(String::from("No audio input devices found")),
             );
         } else {
@@ -311,11 +312,11 @@ impl SettingsView for MediaView {
                     div()
                         .id(ElementId::Name(format!("source-{}", source.name).into()))
                         .w_full()
-                        .p(px(10.0))
+                        .p(Spacing::Large.rems())
                         .rounded(ui::tokens::Radius::Medium.rems())
                         .flex()
                         .items_center()
-                        .gap(px(12.0))
+                        .gap(Spacing::Large.rems())
                         .bg(if is_selected {
                             style::accent_card(&theme)
                         } else {
@@ -340,19 +341,22 @@ impl SettingsView for MediaView {
                         }))
                         .child(
                             div()
-                                .size(px(28.0))
+                                .size(units(size::APPLICATION_ICON))
                                 .rounded_full()
                                 .bg(style::background(&theme))
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(svg().path("mic.svg").size(px(15.0)).text_color(
-                                    if is_selected {
-                                        theme.accent()
-                                    } else {
-                                        theme.text_muted()
-                                    },
-                                )),
+                                .child(
+                                    svg()
+                                        .path("mic.svg")
+                                        .size(IconSize::Medium.rems())
+                                        .text_color(if is_selected {
+                                            theme.accent()
+                                        } else {
+                                            theme.text_muted()
+                                        }),
+                                ),
                         )
                         .child(
                             div()
@@ -360,17 +364,17 @@ impl SettingsView for MediaView {
                                 .min_w_0()
                                 .flex()
                                 .flex_col()
-                                .gap(px(2.0))
+                                .gap(Spacing::XXSmall.rems())
                                 .child(
                                     div()
-                                        .text_size(px(13.0))
+                                        .text_size(TextSize::Small.pixels(theme.font_size))
                                         .font_weight(FontWeight::MEDIUM)
                                         .text_ellipsis()
                                         .child(source.description.clone()),
                                 )
                                 .child(
                                     div()
-                                        .text_size(px(11.0))
+                                        .text_size(TextSize::XSmall.pixels(theme.font_size))
                                         .text_color(theme.text_muted())
                                         .text_ellipsis()
                                         .child(source.name.clone()),
@@ -381,13 +385,13 @@ impl SettingsView for MediaView {
         }
 
         // Music players list
-        let mut players_list = div().flex().flex_col().gap(px(6.0)).w_full();
+        let mut players_list = div().flex().flex_col().gap(Spacing::Small.rems()).w_full();
         if config.mpris.players.is_empty() {
             players_list = players_list.child(
                 div()
-                    .text_size(px(12.0))
+                    .text_size(TextSize::XSmall.pixels(theme.font_size))
                     .text_color(theme.text_muted())
-                    .p(px(8.0))
+                    .p(Spacing::Medium.rems())
                     .child(String::from("No music players configured.")),
             );
         } else {
@@ -399,19 +403,19 @@ impl SettingsView for MediaView {
                         .items_center()
                         .justify_between()
                         .w_full()
-                        .p(px(10.0))
+                        .p(Spacing::Large.rems())
                         .rounded(ui::tokens::Radius::Medium.rems())
                         .bg(style::surface(&theme))
                         .child(
                             div()
-                                .text_size(px(13.0))
+                                .text_size(TextSize::Small.pixels(theme.font_size))
                                 .font_weight(FontWeight::MEDIUM)
                                 .child(p_name),
                         )
                         .child(
                             IconButton::new(format!("remove-player-{}", idx), "close.svg")
-                                .size(22.0)
-                                .icon_size(10.0)
+                                .size(size::BAR_CHIP)
+                                .icon_size(IconSize::Indicator.value())
                                 .on_click(cx.listener(move |_this, _, _, cx| {
                                     if cx.has_global::<AppState>() {
                                         let _ = cx.global::<AppState>().config.update(|cfg| {
@@ -430,7 +434,7 @@ impl SettingsView for MediaView {
         div()
             .flex()
             .flex_col()
-            .gap(px(16.0))
+            .gap(Spacing::XLarge.rems())
             .w_full()
             .min_w_0()
             // Header
@@ -445,8 +449,8 @@ impl SettingsView for MediaView {
                 style::card(&theme)
                     .flex()
                     .flex_col()
-                    .gap(px(14.0))
-                    .p(px(16.0))
+                    .gap(Spacing::XLarge.rems())
+                    .p(Spacing::XLarge.rems())
                     .w_full()
                     .child(
                         div()
@@ -460,13 +464,13 @@ impl SettingsView for MediaView {
                                     .flex_col()
                                     .child(
                                         div()
-                                            .text_size(px(14.0))
+                                            .text_size(TextSize::Small.pixels(theme.font_size))
                                             .font_weight(FontWeight::MEDIUM)
                                             .child(String::from("Audio Output")),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                                             .text_color(theme.text_muted())
                                             .child(String::from("Volume control and playback device selection.")),
                                     ),
@@ -476,10 +480,10 @@ impl SettingsView for MediaView {
                                     .id("toggle-choose-output-device")
                                     .flex()
                                     .items_center()
-                                    .gap(px(6.0))
+                                    .gap(Spacing::Small.rems())
                                     .cursor_pointer()
-                                    .p(px(6.0))
-                                    .rounded(px(6.0))
+                                    .p(Spacing::Small.rems())
+                                    .rounded(Radius::Medium.rems())
                                     .hover(|s| s.bg(style::hover(&theme)))
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         if let Some(media) = this.view_as_mut::<MediaView>() {
@@ -489,7 +493,7 @@ impl SettingsView for MediaView {
                                     }))
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                                             .text_color(theme.accent())
                                             .child(if show_out_devices {
                                                 String::from("Hide devices")
@@ -500,7 +504,7 @@ impl SettingsView for MediaView {
                                     .child(
                                         svg()
                                             .path(if show_out_devices { "chevron-down.svg" } else { "chevron-right.svg" })
-                                            .size(px(14.0))
+                                            .size(IconSize::Small.rems())
                                             .text_color(theme.accent()),
                                     ),
                             ),
@@ -513,8 +517,8 @@ impl SettingsView for MediaView {
                 style::card(&theme)
                     .flex()
                     .flex_col()
-                    .gap(px(14.0))
-                    .p(px(16.0))
+                    .gap(Spacing::XLarge.rems())
+                    .p(Spacing::XLarge.rems())
                     .w_full()
                     .child(
                         div()
@@ -528,13 +532,13 @@ impl SettingsView for MediaView {
                                     .flex_col()
                                     .child(
                                         div()
-                                            .text_size(px(14.0))
+                                            .text_size(TextSize::Small.pixels(theme.font_size))
                                             .font_weight(FontWeight::MEDIUM)
                                             .child(String::from("Audio Input (Microphone)")),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                                             .text_color(theme.text_muted())
                                             .child(String::from("Volume control and capture device selection.")),
                                     ),
@@ -544,10 +548,10 @@ impl SettingsView for MediaView {
                                     .id("toggle-choose-input-device")
                                     .flex()
                                     .items_center()
-                                    .gap(px(6.0))
+                                    .gap(Spacing::Small.rems())
                                     .cursor_pointer()
-                                    .p(px(6.0))
-                                    .rounded(px(6.0))
+                                    .p(Spacing::Small.rems())
+                                    .rounded(Radius::Medium.rems())
                                     .hover(|s| s.bg(style::hover(&theme)))
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         if let Some(media) = this.view_as_mut::<MediaView>() {
@@ -557,7 +561,7 @@ impl SettingsView for MediaView {
                                     }))
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                                             .text_color(theme.accent())
                                             .child(if show_in_devices {
                                                 String::from("Hide devices")
@@ -568,7 +572,7 @@ impl SettingsView for MediaView {
                                     .child(
                                         svg()
                                             .path(if show_in_devices { "chevron-down.svg" } else { "chevron-right.svg" })
-                                            .size(px(14.0))
+                                            .size(IconSize::Small.rems())
                                             .text_color(theme.accent()),
                                     ),
                             ),
@@ -581,8 +585,8 @@ impl SettingsView for MediaView {
                 style::card(&theme)
                     .flex()
                     .flex_col()
-                    .gap(px(14.0))
-                    .p(px(16.0))
+                    .gap(Spacing::XLarge.rems())
+                    .p(Spacing::XLarge.rems())
                     .w_full()
                     .child(toggle_row(
                         ElementId::Name("toggle-media-lockscreen".into()),
@@ -599,7 +603,7 @@ impl SettingsView for MediaView {
                             cx.notify();
                         }),
                     ))
-                    .child(div().w_full().h(px(1.0)).bg(style::border(&theme)))
+                    .child(div().w_full().h(Spacing::Hairline.rems()).bg(style::border(&theme)))
                     .child(
                         div()
                             .flex()
@@ -612,13 +616,13 @@ impl SettingsView for MediaView {
                                     .flex_col()
                                     .child(
                                         div()
-                                            .text_size(px(14.0))
+                                            .text_size(TextSize::Small.pixels(theme.font_size))
                                             .font_weight(FontWeight::MEDIUM)
                                             .child(String::from("Music Players (MPRIS)")),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                                             .text_color(theme.text_muted())
                                             .child(String::from("MPRIS services tracked for media playback (e.g. Spotify, Fastpotify).")),
                                     ),
@@ -628,10 +632,10 @@ impl SettingsView for MediaView {
                                     .id("btn-add-music-player")
                                     .flex()
                                     .items_center()
-                                    .gap(px(6.0))
+                                    .gap(Spacing::Small.rems())
                                     .cursor_pointer()
-                                    .p(px(6.0))
-                                    .rounded(px(6.0))
+                                    .p(Spacing::Small.rems())
+                                    .rounded(Radius::Medium.rems())
                                     .hover(|s| s.bg(style::hover(&theme)))
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         if let Some(media) = this.view_as_mut::<MediaView>() {
@@ -641,11 +645,11 @@ impl SettingsView for MediaView {
                                     }))
                                     .child(
                                         div()
-                                            .text_size(px(12.0))
+                                            .text_size(TextSize::XSmall.pixels(theme.font_size))
                                             .text_color(theme.accent())
                                             .child(String::from("Add")),
                                     )
-                                    .child(svg().path("plus.svg").size(px(14.0)).text_color(theme.accent())),
+                                    .child(svg().path("plus.svg").size(IconSize::Small.rems()).text_color(theme.accent())),
                             ),
                     )
                     .when(self.is_adding_player, |s| {
@@ -658,12 +662,12 @@ impl SettingsView for MediaView {
                         s.child(
                             div()
                                 .w_full()
-                                .p(px(10.0))
+                                .p(Spacing::Large.rems())
                                 .rounded(ui::tokens::Radius::Medium.rems())
                                 .bg(style::surface(&theme))
                                 .border_1()
                                 .border_color(theme.accent())
-                                .text_size(px(13.0))
+                                .text_size(TextSize::Small.pixels(theme.font_size))
                                 .text_color(if self.new_player_input.is_empty() {
                                     theme.text_muted()
                                 } else {

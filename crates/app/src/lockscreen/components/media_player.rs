@@ -1,10 +1,11 @@
 use gpui::{
     ColorExt, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, StyledImage, div, img, px, svg,
+    StatefulInteractiveElement, Styled, StyledImage, div, img, svg,
 };
 use services::{AppState, MprisService};
 use std::path::PathBuf;
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
 use crate::lockscreen::LockScreen;
 
@@ -30,9 +31,9 @@ pub fn render_lockscreen_media_player(
 
     let art_thumb = if let Some(ref art_path) = active_track.local_art_path {
         div()
-            .w(px(32.0))
-            .h(px(32.0))
-            .rounded(px(8.0))
+            .w(units(size::CONTROL))
+            .h(units(size::CONTROL))
+            .rounded(Radius::Large.rems())
             .overflow_hidden()
             .flex_shrink_0()
             .child(
@@ -43,9 +44,9 @@ pub fn render_lockscreen_media_player(
             .into_any_element()
     } else {
         div()
-            .w(px(32.0))
-            .h(px(32.0))
-            .rounded(px(8.0))
+            .w(units(size::CONTROL))
+            .h(units(size::CONTROL))
+            .rounded(Radius::Large.rems())
             .bg(theme.accent().opacity(0.15))
             .flex()
             .items_center()
@@ -54,7 +55,7 @@ pub fn render_lockscreen_media_player(
             .child(
                 svg()
                     .path("music.svg")
-                    .size(px(16.0))
+                    .size(IconSize::Medium.rems())
                     .text_color(theme.accent()),
             )
             .into_any_element()
@@ -66,10 +67,10 @@ pub fn render_lockscreen_media_player(
         .flex_row()
         .items_center()
         .w_full()
-        .h(px(46.0))
-        .px(px(8.0))
-        .gap(px(8.0))
-        .rounded(px(24.0))
+        .h(units(size::PLAYBACK))
+        .px(Spacing::Medium.rems())
+        .gap(Spacing::Medium.rems())
+        .rounded_full()
         .bg(theme.elevated().opacity(0.35))
         .border_1()
         .border_color(theme.elevated().opacity(0.2))
@@ -85,7 +86,7 @@ pub fn render_lockscreen_media_player(
                     div()
                         .font_family(theme.font_family())
                         .font_weight(FontWeight::BOLD)
-                        .text_size(px(11.5))
+                        .text_size(TextSize::XSmall.pixels(theme.font_size))
                         .text_color(theme.text())
                         .truncate()
                         .child(active_track.title),
@@ -93,7 +94,7 @@ pub fn render_lockscreen_media_player(
                 .child(
                     div()
                         .font_family(theme.font_family())
-                        .text_size(px(10.0))
+                        .text_size(TextSize::XSmall.pixels(theme.font_size))
                         .text_color(theme.text_muted())
                         .truncate()
                         .child(active_track.artist),
@@ -104,13 +105,13 @@ pub fn render_lockscreen_media_player(
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(px(3.0))
+                .gap(Spacing::XSmall.rems())
                 .flex_shrink_0()
                 .child(
                     div()
                         .id("ls-mpris-prev")
-                        .w(px(24.0))
-                        .h(px(24.0))
+                        .w(units(size::BAR_CHIP))
+                        .h(units(size::BAR_CHIP))
                         .rounded_full()
                         .flex()
                         .items_center()
@@ -128,15 +129,15 @@ pub fn render_lockscreen_media_player(
                         .child(
                             svg()
                                 .path("skip-back.svg")
-                                .size(px(12.0))
+                                .size(IconSize::XSmall.rems())
                                 .text_color(theme.text_muted()),
                         ),
                 )
                 .child(
                     div()
                         .id("ls-mpris-play-pause")
-                        .w(px(26.0))
-                        .h(px(26.0))
+                        .w(units(size::BAR_CHIP))
+                        .h(units(size::BAR_CHIP))
                         .rounded_full()
                         .bg(theme.accent().opacity(0.2))
                         .hover(|s| s.bg(theme.accent().opacity(0.35)))
@@ -155,15 +156,15 @@ pub fn render_lockscreen_media_player(
                         .child(
                             svg()
                                 .path(if is_playing { "pause.svg" } else { "play.svg" })
-                                .size(px(12.0))
+                                .size(IconSize::XSmall.rems())
                                 .text_color(theme.accent()),
                         ),
                 )
                 .child(
                     div()
                         .id("ls-mpris-next")
-                        .w(px(24.0))
-                        .h(px(24.0))
+                        .w(units(size::BAR_CHIP))
+                        .h(units(size::BAR_CHIP))
                         .rounded_full()
                         .flex()
                         .items_center()
@@ -181,7 +182,7 @@ pub fn render_lockscreen_media_player(
                         .child(
                             svg()
                                 .path("skip-forward.svg")
-                                .size(px(12.0))
+                                .size(IconSize::XSmall.rems())
                                 .text_color(theme.text_muted()),
                         ),
                 ),
