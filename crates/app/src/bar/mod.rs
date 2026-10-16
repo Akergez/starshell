@@ -1,8 +1,8 @@
 mod icons;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, DisplayId, ElementId, Entity, FontWeight, Hsla,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, SharedString,
+    AnyElement, App, ClickEvent, Context, DisplayId, ElementId, Entity, ExternalPaths, FontWeight,
+    Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement, Render, SharedString,
     StatefulInteractiveElement, Styled, Subscription, Window, div, img, prelude::FluentBuilder,
     svg,
 };
@@ -261,7 +261,14 @@ impl Bar {
                 } else {
                     chip
                 };
-                self.applet_chip(AppletKind::Shelf, chip, theme, current)
+                chip.selected(current == Some(Surface::Applet(AppletKind::Shelf)))
+                    .render(theme)
+                    .on_click(self.toggle(Surface::Applet(AppletKind::Shelf)))
+                    .on_drop(|paths: &ExternalPaths, _, cx| {
+                        cx.global::<AppState>().shelf.add_paths(paths.paths());
+                        ShellState::refresh_now(cx);
+                    })
+                    .into_any_element()
             }
             BarModule::System => self.applet_chip(
                 AppletKind::System,

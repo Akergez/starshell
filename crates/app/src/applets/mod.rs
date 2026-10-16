@@ -1,10 +1,14 @@
 pub mod audio;
 pub mod calendar;
+pub mod clipboard;
 pub mod common;
 pub mod control_center;
 pub mod displays;
+pub mod emoji;
 pub mod media;
 pub mod notifications;
+pub mod record;
+pub mod shelf;
 pub mod system;
 
 use gpui::{AppContext, Context, Pixels, Window};
@@ -104,6 +108,34 @@ pub fn build(surface: Surface, window: &mut Window, cx: &mut Context<Overlay>) -
             view: cx.new(calendar::CalendarApplet::new).into(),
             focus: None,
         },
+        Surface::Applet(AppletKind::Clipboard) => {
+            let view = cx.new(clipboard::ClipboardApplet::new);
+            Content {
+                focus: Some(view.read(cx).focus_handle()),
+                view: view.into(),
+            }
+        }
+        Surface::Applet(AppletKind::Emoji) => {
+            let view = cx.new(emoji::EmojiApplet::new);
+            Content {
+                focus: Some(view.read(cx).focus_handle()),
+                view: view.into(),
+            }
+        }
+        Surface::Applet(AppletKind::Shelf) => {
+            let view = cx.new(shelf::ShelfApplet::new);
+            Content {
+                focus: Some(view.read(cx).focus_handle()),
+                view: view.into(),
+            }
+        }
+        Surface::Applet(AppletKind::Record) => {
+            let view = cx.new(record::RecordApplet::new);
+            Content {
+                focus: Some(view.read(cx).focus_handle()),
+                view: view.into(),
+            }
+        }
         _ => common::placeholder(surface, cx),
     }
 }
