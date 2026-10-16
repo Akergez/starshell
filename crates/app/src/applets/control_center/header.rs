@@ -1,11 +1,10 @@
 use gpui::{AnyElement, Context, FontWeight, IntoElement, ParentElement, Styled, div, svg};
-use services::AppState;
+use services::SystemService;
 use ui::components::{Button, ButtonVariant, IconButton};
 use ui::theme::Theme;
 use ui::tokens::{IconSize, Spacing, TextSize};
 
 use super::ControlCenter;
-use crate::applets::common::run_command;
 use crate::bar::battery_icon;
 use crate::shell::Shell;
 use crate::shell::state::Snapshot;
@@ -87,41 +86,65 @@ pub fn render(
         .into_any_element()
 }
 
+#[derive(Clone, Copy)]
+enum PowerAction {
+    Sleep,
+    Reboot,
+    PowerOff,
+}
+
+impl PowerAction {
+    fn run(self) {
+        services::spawn_tokio(async move {
+            let result = match self {
+                Self::Sleep => SystemService::suspend().await,
+                Self::Reboot => SystemService::reboot().await,
+                Self::PowerOff => SystemService::poweroff().await,
+            };
+            if let Err(error) = result {
+                services::log_error!("Power", "{error}");
+            }
+        });
+    }
+}
+
 pub fn power_actions(theme: &Theme, _cx: &mut Context<ControlCenter>) -> AnyElement {
-    let action = |id: &'static str,
-                  icon: &'static str,
-                  label: &'static str,
-                  pick: fn(&services::PowerActions) -> &String| {
-        div().flex_1().min_w_0().child(
-            Button::new(id)
-                .icon(icon)
-                .label(label)
-                .variant(ButtonVariant::Outline)
-                .w_full(true)
-                .on_click(move |_, _, cx| {
-                    let config = cx.global::<AppState>().config.get();
-                    let command = pick(&config.control_center.power_actions).clone();
-                    Shell::close(cx);
-                    run_command(&command);
-                }),
-        )
-    };
+    let action =
+        |id: &'static str, icon: &'static str, label: &'static str, action: PowerAction| {
+            div().flex_1().min_w_0().child(
+                Button::new(id)
+                    .icon(icon)
+                    .label(label)
+                    .variant(ButtonVariant::Outline)
+                    .w_full(true)
+                    .on_click(move |_, _, cx| {
+                        Shell::close(cx);
+                        action.run();
+                    }),
+            )
+        };
     div()
         .flex()
         .w_full()
         .gap(Spacing::Small.rems())
         .text_color(theme.text())
-        .child(action("power-sleep", "moon.svg", "Sleep", |actions| {
-            &actions.sleep
-        }))
+        .child(action(
+            "power-sleep",
+            "moon.svg",
+            "Sleep",
+            PowerAction::Sleep,
+        ))
         .child(action(
             "power-reboot",
             "rotate-ccw.svg",
             "Reboot",
-            |actions| &actions.reboot,
+            PowerAction::Reboot,
         ))
-        .child(action("power-off", "power.svg", "Power off", |actions| {
-            &actions.poweroff
-        }))
+        .child(action(
+            "power-off",
+            "power.svg",
+            "Power off",
+            PowerAction::PowerOff,
+        ))
         .into_any_element()
 }

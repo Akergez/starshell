@@ -3,7 +3,7 @@ use gpui::{
     ParentElement, Pixels, Render, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, px,
 };
-use services::BarPosition;
+use services::BarEdge;
 use ui::components::fade_in;
 use ui::theme::Theme;
 use ui::tokens::{Spacing, size, units_to_pixels};
@@ -95,8 +95,8 @@ impl Render for Overlay {
         let font_size = theme.font_size;
         let viewport = window.viewport_size();
         let bar = cx.global::<services::AppState>().config.get().bar.clone();
-        let hidden_bar = if bar.auto_hide {
-            units_to_pixels(bar.clamped_size() - size::BAR_HIDDEN_STRIP, font_size)
+        let hidden_bar = if bar.autohide {
+            units_to_pixels(bar.clamped_height() - size::BAR_HIDDEN_STRIP, font_size)
         } else {
             px(0.0)
         };
@@ -104,7 +104,7 @@ impl Render for Overlay {
         let applet_gap = gap + hidden_bar;
         let inset = Spacing::XLarge.pixels(font_size);
         let width = self.width(font_size);
-        let bottom = Shell::bar_position(cx) == BarPosition::Bottom;
+        let bottom = Shell::bar_position(cx) == BarEdge::Bottom;
         let max_height = (viewport.height - gap - hidden_bar - inset).max(px(0.0));
         let content = fade_in(
             ("overlay-content", self.generation),

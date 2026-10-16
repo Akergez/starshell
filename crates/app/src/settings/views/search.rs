@@ -373,7 +373,7 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
                 )
             }
             SearchControl::ToggleBarAutoHide => {
-                let is_on = config.bar.auto_hide;
+                let is_on = config.bar.autohide;
                 toggle_row(
                     ElementId::Name(format!("search-toggle-{}", def.id).into()),
                     &title,
@@ -382,7 +382,7 @@ pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settin
                     theme,
                     cx.listener(|_this, _, _, cx| {
                         let _ = cx.global::<AppState>().config.update(|cfg| {
-                            cfg.bar.auto_hide = !cfg.bar.auto_hide;
+                            cfg.bar.autohide = !cfg.bar.autohide;
                         });
                         cx.notify();
                     }),

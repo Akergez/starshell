@@ -9,7 +9,7 @@ use gpui::{
     layer_shell::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions},
     px,
 };
-use services::{AppState, BarPosition};
+use services::{AppState, BarEdge};
 use ui::theme::Theme;
 use ui::tokens::{size, units_to_pixels};
 
@@ -61,12 +61,12 @@ impl Shell {
     }
 
     pub fn bar_height(cx: &App) -> Pixels {
-        let size = cx.global::<AppState>().config.get().bar.clamped_size();
+        let size = cx.global::<AppState>().config.get().bar.clamped_height();
         units_to_pixels(size, cx.global::<Theme>().font_size).round()
     }
 
-    pub fn bar_position(cx: &App) -> BarPosition {
-        cx.global::<AppState>().config.get().bar.position
+    pub fn bar_position(cx: &App) -> BarEdge {
+        cx.global::<AppState>().config.get().bar.edge
     }
 
     pub fn toggle(surface: Surface, placement: Placement, cx: &mut App) {
@@ -214,8 +214,8 @@ impl Shell {
 fn bar_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
     let height = Shell::bar_height(cx);
     let edge = match Shell::bar_position(cx) {
-        BarPosition::Top => Anchor::TOP,
-        BarPosition::Bottom => Anchor::BOTTOM,
+        BarEdge::Top => Anchor::TOP,
+        BarEdge::Bottom => Anchor::BOTTOM,
     };
     WindowOptions {
         display_id: display,
@@ -231,7 +231,7 @@ fn bar_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
             namespace: "starshell-bar".to_string(),
             layer: Layer::Top,
             anchor: edge | Anchor::LEFT | Anchor::RIGHT,
-            exclusive_zone: Some(if cx.global::<AppState>().config.get().bar.auto_hide {
+            exclusive_zone: Some(if cx.global::<AppState>().config.get().bar.autohide {
                 units_to_pixels(size::BAR_HIDDEN_STRIP, cx.global::<Theme>().font_size)
             } else {
                 height

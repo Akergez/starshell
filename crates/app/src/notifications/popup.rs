@@ -9,7 +9,7 @@ use gpui::{
     layer_shell::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions},
     px,
 };
-use services::{BarPosition, NotificationItem, NotificationStore};
+use services::{BarEdge, NotificationItem, NotificationStore};
 use ui::components::fade_in;
 use ui::theme::Theme;
 use ui::tokens::{Spacing, size, units_to_pixels};
@@ -69,8 +69,8 @@ fn window_options(cx: &App) -> WindowOptions {
     let font_size = cx.global::<Theme>().font_size;
     let gap = Spacing::Medium.pixels(font_size);
     let edge = match Shell::bar_position(cx) {
-        BarPosition::Top => Anchor::TOP,
-        BarPosition::Bottom => Anchor::BOTTOM,
+        BarEdge::Top => Anchor::TOP,
+        BarEdge::Bottom => Anchor::BOTTOM,
     };
     WindowOptions {
         titlebar: None,

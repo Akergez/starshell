@@ -26,9 +26,22 @@ The interface follows the [Starshell design specification](starshell-design/READ
 
 ## Features
 ### Bar
-- **Configurable modules**: launcher, workspaces, media, clock, tray, notifications, clipboard, recorder, shelf, system, audio, displays and control center, arranged under `[bar]` in `start`, `center` and `end`.
+- **Configurable modules**: `launcher`, `workspaces`, `media`, `clock`, `tray`, `notifications`, `clipboard`, `recorder`, `shelf`, `system`, `audio`, `displays` and `control-center`, arranged in `[bar.layout]`.
 - **One applet at a time**: an applet opens at the click point, never covers the bar, and closes on Escape or an outside click.
 - **Auto-hide**: optionally keep only a thin strip that reveals the bar on hover.
+
+```toml
+[bar]
+height = 28            # design units, scaled by the theme font size
+edge = "top"           # or "bottom"
+autohide = false
+autohide_delay_ms = 500
+
+[bar.layout]
+left = ["launcher", "workspaces", "media"]
+middle = ["clock"]
+right = ["recorder", "tray", "notifications", "system", "audio", "displays", "control-center"]
+```
 
 ### Control Center
 - **Battery header** with time left or until full, and Sleep, Reboot and Power off actions.

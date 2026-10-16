@@ -2,7 +2,7 @@ use gpui::{
     AnyElement, App, Context, ElementId, IntoElement, ParentElement, Styled, Window, div,
     prelude::*,
 };
-use services::{AppConfig, AppState, BarPosition};
+use services::{AppConfig, AppState, BarConfig, BarEdge};
 use ui::components::SegmentedControl;
 use ui::theme::Theme;
 use ui::tokens::{Spacing, TextSize, size, units};
@@ -13,7 +13,7 @@ use crate::settings::Settings;
 use crate::settings::appearance::{AppearanceStatus, set_font_size};
 
 const FONT_SIZES: (f32, f32) = (12.0, 22.0);
-const BAR_SIZES: (f32, f32) = (22.0, 48.0);
+const BAR_SIZES: (f32, f32) = BarConfig::HEIGHT_RANGE;
 
 pub struct AppearanceView;
 
@@ -70,23 +70,23 @@ impl SettingsView for AppearanceView {
         });
         let bar_listener = cx.listener(|_, fraction: &f32, _, cx| {
             let size = value(*fraction, BAR_SIZES);
-            update_config(cx, |config| config.bar.size = size);
+            update_config(cx, |config| config.bar.height = size);
             cx.notify();
         });
         let position = SegmentedControl::new("setting-bar-position")
             .option("Top")
             .option("Bottom")
-            .selected(Some(match config.bar.position {
-                BarPosition::Top => 0,
-                BarPosition::Bottom => 1,
+            .selected(Some(match config.bar.edge {
+                BarEdge::Top => 0,
+                BarEdge::Bottom => 1,
             }))
             .on_select(|index, _, cx| {
                 let position = if index == 0 {
-                    BarPosition::Top
+                    BarEdge::Top
                 } else {
-                    BarPosition::Bottom
+                    BarEdge::Bottom
                 };
-                update_config(cx, |config| config.bar.position = position);
+                update_config(cx, |config| config.bar.edge = position);
             });
 
         div()
@@ -181,8 +181,8 @@ impl SettingsView for AppearanceView {
                     .child(slider_row(
                         ElementId::Name("setting-bar-size".into()),
                         "Height",
-                        &format!("{:.0} units", config.bar.clamped_size()),
-                        fraction(config.bar.clamped_size(), BAR_SIZES),
+                        &format!("{:.0} units", config.bar.clamped_height()),
+                        fraction(config.bar.clamped_height(), BAR_SIZES),
                         &theme,
                         move |fraction, window, cx| bar_listener(&fraction, window, cx),
                     ))
@@ -191,9 +191,9 @@ impl SettingsView for AppearanceView {
                         ElementId::Name("setting-bar-auto-hide".into()),
                         "Auto-hide",
                         Some("Leave a thin strip that reveals the bar on hover"),
-                        config.bar.auto_hide,
+                        config.bar.autohide,
                         &theme,
-                        toggle(cx, |config| config.bar.auto_hide = !config.bar.auto_hide),
+                        toggle(cx, |config| config.bar.autohide = !config.bar.autohide),
                     )),
             )
             .into_any_element()

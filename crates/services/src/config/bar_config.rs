@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum BarPosition {
+pub enum BarEdge {
     #[default]
     Top,
     Bottom,
@@ -17,7 +17,7 @@ pub enum BarModule {
     Tray,
     Notifications,
     Clipboard,
-    Record,
+    Recorder,
     Shelf,
     System,
     Audio,
@@ -26,77 +26,68 @@ pub enum BarModule {
 }
 
 impl BarModule {
-    pub fn parse(name: &str) -> Option<Self> {
-        let normalized = name
-            .trim()
-            .to_ascii_lowercase()
-            .replace(['-', '_', ' '], "");
-        Some(match normalized.as_str() {
-            "launcher" | "launcherbtn" | "apps" => Self::Launcher,
-            "workspaces" => Self::Workspaces,
-            "media" | "mpris" | "player" => Self::Media,
-            "clock" | "calendar" => Self::Clock,
-            "tray" | "systray" => Self::Tray,
-            "notifications" | "notification" => Self::Notifications,
-            "clipboard" => Self::Clipboard,
-            "record" | "recorder" => Self::Record,
-            "shelf" => Self::Shelf,
-            "system" | "sysinfo" => Self::System,
-            "audio" | "volume" => Self::Audio,
-            "displays" | "brightness" => Self::Displays,
-            "controlcenter" | "controls" | "settings" | "quicksettings" => Self::ControlCenter,
-            _ => return None,
-        })
-    }
+    pub const ALL: [BarModule; 13] = [
+        Self::Launcher,
+        Self::Workspaces,
+        Self::Media,
+        Self::Clock,
+        Self::Tray,
+        Self::Notifications,
+        Self::Clipboard,
+        Self::Recorder,
+        Self::Shelf,
+        Self::System,
+        Self::Audio,
+        Self::Displays,
+        Self::ControlCenter,
+    ];
 
-    pub fn name(self) -> &'static str {
+    pub fn key(self) -> &'static str {
         match self {
-            Self::Launcher => "Launcher",
-            Self::Workspaces => "Workspaces",
-            Self::Media => "Media",
-            Self::Clock => "Clock",
-            Self::Tray => "Tray",
-            Self::Notifications => "Notifications",
-            Self::Clipboard => "Clipboard",
-            Self::Record => "Record",
-            Self::Shelf => "Shelf",
-            Self::System => "System",
-            Self::Audio => "Audio",
-            Self::Displays => "Displays",
-            Self::ControlCenter => "ControlCenter",
+            Self::Launcher => "launcher",
+            Self::Workspaces => "workspaces",
+            Self::Media => "media",
+            Self::Clock => "clock",
+            Self::Tray => "tray",
+            Self::Notifications => "notifications",
+            Self::Clipboard => "clipboard",
+            Self::Recorder => "recorder",
+            Self::Shelf => "shelf",
+            Self::System => "system",
+            Self::Audio => "audio",
+            Self::Displays => "displays",
+            Self::ControlCenter => "control-center",
         }
     }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|module| module.key() == key.trim())
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct BarConfig {
-    pub size: f32,
-    pub position: BarPosition,
-    pub auto_hide: bool,
-    pub hide_delay_ms: u64,
-    pub start: Vec<String>,
-    pub center: Vec<String>,
-    pub end: Vec<String>,
+pub struct BarLayout {
+    pub left: Vec<String>,
+    pub middle: Vec<String>,
+    pub right: Vec<String>,
 }
 
-impl Default for BarConfig {
+impl Default for BarLayout {
     fn default() -> Self {
-        let names = |modules: &[BarModule]| {
+        let keys = |modules: &[BarModule]| {
             modules
                 .iter()
-                .map(|module| module.name().to_string())
+                .map(|module| module.key().to_string())
                 .collect()
         };
         Self {
-            size: 28.0,
-            position: BarPosition::Top,
-            auto_hide: false,
-            hide_delay_ms: 500,
-            start: names(&[BarModule::Launcher, BarModule::Workspaces, BarModule::Media]),
-            center: names(&[BarModule::Clock]),
-            end: names(&[
-                BarModule::Record,
+            left: keys(&[BarModule::Launcher, BarModule::Workspaces, BarModule::Media]),
+            middle: keys(&[BarModule::Clock]),
+            right: keys(&[
+                BarModule::Recorder,
                 BarModule::Tray,
                 BarModule::Notifications,
                 BarModule::System,
@@ -108,44 +99,50 @@ impl Default for BarConfig {
     }
 }
 
-impl BarConfig {
-    pub fn modules(names: &[String]) -> Vec<BarModule> {
-        let mut modules = Vec::with_capacity(names.len());
-        for module in names.iter().filter_map(|name| BarModule::parse(name)) {
-            if !modules.contains(&module) {
-                modules.push(module);
+impl BarLayout {
+    pub fn resolve(keys: &[String]) -> Vec<BarModule> {
+        let mut modules = Vec::with_capacity(keys.len());
+        for key in keys {
+            match BarModule::from_key(key) {
+                Some(module) if !modules.contains(&module) => modules.push(module),
+                Some(_) => {}
+                None => crate::log_warn!("Config", "Unknown bar module '{key}'"),
             }
         }
         modules
     }
-
-    pub fn clamped_size(&self) -> f32 {
-        self.size.clamp(22.0, 48.0)
-    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct PowerActions {
-    pub sleep: String,
-    pub reboot: String,
-    pub poweroff: String,
+pub struct BarConfig {
+    pub height: f32,
+    pub edge: BarEdge,
+    pub autohide: bool,
+    pub autohide_delay_ms: u64,
+    pub layout: BarLayout,
 }
 
-impl Default for PowerActions {
+impl Default for BarConfig {
     fn default() -> Self {
         Self {
-            sleep: "systemctl suspend".to_string(),
-            reboot: "systemctl reboot".to_string(),
-            poweroff: "systemctl poweroff".to_string(),
+            height: Self::DEFAULT_HEIGHT,
+            edge: BarEdge::Top,
+            autohide: false,
+            autohide_delay_ms: 500,
+            layout: BarLayout::default(),
         }
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ControlCenterConfig {
-    pub power_actions: PowerActions,
+impl BarConfig {
+    pub const DEFAULT_HEIGHT: f32 = 28.0;
+    pub const HEIGHT_RANGE: (f32, f32) = (22.0, 48.0);
+
+    pub fn clamped_height(&self) -> f32 {
+        self.height
+            .clamp(Self::HEIGHT_RANGE.0, Self::HEIGHT_RANGE.1)
+    }
 }
 
 #[cfg(test)]
@@ -153,58 +150,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn module_names_accept_aliases_and_skip_unknown_entries() {
-        let names = [
-            "LauncherBtn",
-            "Mpris",
-            "SysInfo",
-            "Systray",
-            "KeyboardLayout",
-            "Settings",
-            "mpris",
-        ]
-        .map(String::from);
+    fn layout_keeps_known_modules_once_in_order() {
+        let keys = ["clock", "control-center", "nope", "clock", "audio"].map(String::from);
         assert_eq!(
-            BarConfig::modules(&names),
-            vec![
-                BarModule::Launcher,
-                BarModule::Media,
-                BarModule::System,
-                BarModule::Tray,
-                BarModule::ControlCenter,
-            ]
+            BarLayout::resolve(&keys),
+            vec![BarModule::Clock, BarModule::ControlCenter, BarModule::Audio]
         );
     }
 
     #[test]
-    fn existing_bar_sections_parse_with_defaults() {
-        let config: BarConfig =
-            toml::from_str("size = 30.0\nposition = 'bottom'\npadding = 12.0\nshow_border = true")
-                .expect("bar config");
-        assert_eq!(config.size, 30.0);
-        assert_eq!(config.position, BarPosition::Bottom);
-        assert!(!config.auto_hide);
-        assert!(!config.end.is_empty());
+    fn every_module_key_round_trips() {
+        for module in BarModule::ALL {
+            assert_eq!(BarModule::from_key(module.key()), Some(module));
+        }
     }
 
     #[test]
-    fn every_module_name_round_trips() {
-        for module in [
-            BarModule::Launcher,
-            BarModule::Workspaces,
-            BarModule::Media,
-            BarModule::Clock,
-            BarModule::Tray,
-            BarModule::Notifications,
-            BarModule::Clipboard,
-            BarModule::Record,
-            BarModule::Shelf,
-            BarModule::System,
-            BarModule::Audio,
-            BarModule::Displays,
-            BarModule::ControlCenter,
-        ] {
-            assert_eq!(BarModule::parse(module.name()), Some(module));
-        }
+    fn bar_section_parses_with_defaults() {
+        let config: BarConfig =
+            toml::from_str("height = 32.0\nedge = 'bottom'\n[layout]\nleft = ['clock']")
+                .expect("bar config");
+        assert_eq!(config.height, 32.0);
+        assert_eq!(config.edge, BarEdge::Bottom);
+        assert!(!config.autohide);
+        assert_eq!(config.layout.left, vec!["clock".to_string()]);
+        assert!(!config.layout.right.is_empty());
+        assert_eq!(
+            BarConfig {
+                height: 100.0,
+                ..config
+            }
+            .clamped_height(),
+            48.0
+        );
     }
 }

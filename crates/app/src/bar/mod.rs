@@ -6,7 +6,7 @@ use gpui::{
     Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, img,
     prelude::FluentBuilder, svg,
 };
-use services::{AppState, BarConfig, BarModule, BarPosition, RecordStatus};
+use services::{AppState, BarConfig, BarEdge, BarLayout, BarModule, RecordStatus};
 use ui::theme::{Theme, mix};
 use ui::tokens::{IconSize, Radius, Spacing, TextSize, motion, size, units};
 
@@ -25,8 +25,8 @@ pub struct Bar {
     _observe: Subscription,
 }
 
-fn auto_hide(cx: &App) -> bool {
-    cx.global::<AppState>().config.get().bar.auto_hide
+fn autohide_enabled(cx: &App) -> bool {
+    cx.global::<AppState>().config.get().bar.autohide
 }
 
 impl Bar {
@@ -39,7 +39,7 @@ impl Bar {
         Self {
             display,
             state,
-            revealed: !auto_hide(cx),
+            revealed: !autohide_enabled(cx),
             applied_region: None,
             hide: None,
             _observe: observe,
@@ -47,7 +47,7 @@ impl Bar {
     }
 
     fn apply_input_region(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let full = self.revealed || !auto_hide(cx);
+        let full = self.revealed || !autohide_enabled(cx);
         if self.applied_region == Some(full) {
             return;
         }
@@ -60,8 +60,8 @@ impl Bar {
         let strip =
             ui::tokens::units_to_pixels(size::BAR_HIDDEN_STRIP, cx.global::<Theme>().font_size);
         let top = match Shell::bar_position(cx) {
-            BarPosition::Top => gpui::px(0.0),
-            BarPosition::Bottom => viewport.height - strip,
+            BarEdge::Top => gpui::px(0.0),
+            BarEdge::Bottom => viewport.height - strip,
         };
         window.set_input_region(Some(&[gpui::Bounds {
             origin: gpui::point(gpui::px(0.0), top),
@@ -78,7 +78,7 @@ impl Bar {
     }
 
     fn hovered(&mut self, hovered: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if !auto_hide(cx) {
+        if !autohide_enabled(cx) {
             return;
         }
         if hovered {
@@ -87,7 +87,7 @@ impl Bar {
             return;
         }
         let delay = std::time::Duration::from_millis(
-            cx.global::<AppState>().config.get().bar.hide_delay_ms,
+            cx.global::<AppState>().config.get().bar.autohide_delay_ms,
         );
         self.hide = Some(cx.spawn_in(window, async move |this, cx| {
             loop {
@@ -308,7 +308,7 @@ impl Bar {
                 theme,
                 current,
             ),
-            BarModule::Record => {
+            BarModule::Recorder => {
                 let chip = Chip::new("bar-record");
                 let chip = match snapshot.record {
                     RecordStatus::Stopped => chip.icon("video.svg"),
@@ -531,29 +531,35 @@ impl Render for Bar {
         let bar: &BarConfig = &config.bar;
         let snapshot = self.state.read(cx).snapshot.clone();
         let current = Shell::current(cx);
-        let bottom = bar.position == BarPosition::Bottom;
+        let bottom = bar.edge == BarEdge::Bottom;
         let start = self.section(
-            &BarConfig::modules(&bar.start),
+            &BarLayout::resolve(&bar.layout.left),
             &snapshot,
             theme,
             current,
             cx,
         );
         let center = self.section(
-            &BarConfig::modules(&bar.center),
+            &BarLayout::resolve(&bar.layout.middle),
             &snapshot,
             theme,
             current,
             cx,
         );
-        let end = self.section(&BarConfig::modules(&bar.end), &snapshot, theme, current, cx);
+        let end = self.section(
+            &BarLayout::resolve(&bar.layout.right),
+            &snapshot,
+            theme,
+            current,
+            cx,
+        );
 
-        let hidden_offset = if self.revealed || !bar.auto_hide {
+        let hidden_offset = if self.revealed || !bar.autohide {
             0.0
         } else if bottom {
-            bar.clamped_size() - size::BAR_HIDDEN_STRIP
+            bar.clamped_height() - size::BAR_HIDDEN_STRIP
         } else {
-            size::BAR_HIDDEN_STRIP - bar.clamped_size()
+            size::BAR_HIDDEN_STRIP - bar.clamped_height()
         };
 
         let content = div()

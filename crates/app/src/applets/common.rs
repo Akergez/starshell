@@ -6,25 +6,6 @@ use ui::theme::Theme;
 use crate::bar::volume_icon;
 use crate::shell::state::ShellState;
 
-pub fn run_command(command: &str) {
-    let command = command.trim().to_string();
-    if command.is_empty() {
-        return;
-    }
-    services::spawn_tokio(async move {
-        let mut process = tokio::process::Command::new("sh");
-        process
-            .arg("-c")
-            .arg(&command)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
-        if let Err(error) = process.status().await {
-            services::log_error!("Shell", "Failed to run '{command}': {error}");
-        }
-    });
-}
-
 pub fn output_label(audio: &SystemStatus) -> String {
     audio
         .audio_sinks

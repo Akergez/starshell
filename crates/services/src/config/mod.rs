@@ -5,7 +5,7 @@ pub mod mpris_config;
 pub mod record_config;
 pub mod ui_config;
 
-pub use bar_config::{BarConfig, BarModule, BarPosition, ControlCenterConfig, PowerActions};
+pub use bar_config::{BarConfig, BarEdge, BarLayout, BarModule};
 pub use defaults::Defaults;
 pub use lock_screen_config::{LockScreenConfig, LockscreenConfig};
 pub use mpris_config::MprisConfig;
@@ -40,9 +40,6 @@ pub struct AppConfig {
 
     #[serde(default)]
     pub bar: BarConfig,
-
-    #[serde(default)]
-    pub control_center: ControlCenterConfig,
 }
 
 impl AppConfig {

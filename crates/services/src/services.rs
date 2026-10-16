@@ -35,8 +35,8 @@ pub use app_state::AppState;
 pub use clipboard::{ClipboardItem, ClipboardService, Snippet};
 pub use compositor::{CompositorService, WorkspaceInfo};
 pub use config::{
-    AppConfig, BarConfig, BarModule, BarPosition, ConfigService, ControlCenterConfig, Defaults,
-    LockScreenConfig, LockscreenConfig, MprisConfig, PowerActions, UIConfig, UiConfig,
+    AppConfig, BarConfig, BarEdge, BarLayout, BarModule, ConfigService, Defaults, LockScreenConfig,
+    LockscreenConfig, MprisConfig, UIConfig, UiConfig,
 };
 pub use emoji::{EmojiItem, EmojiService};
 pub use idle::{IdleEvent, IdleService};
