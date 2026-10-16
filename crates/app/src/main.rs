@@ -2,7 +2,9 @@ pub mod applets;
 pub mod bar;
 pub mod launcher;
 pub mod lockscreen;
+pub mod notifications;
 pub mod panel;
+pub mod polkit;
 pub mod settings;
 pub mod shell;
 
@@ -95,6 +97,8 @@ fn run_application() {
 
         shell::state::ShellState::init(cx);
         shell::Shell::init(cx);
+        polkit::PolkitAgent::init(cx);
+        notifications::popup::init(cx);
         shell::ipc::start(cx);
         ipc_subscriber.start();
     });

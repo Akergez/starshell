@@ -1,7 +1,11 @@
 pub mod audio;
+pub mod calendar;
 pub mod common;
 pub mod control_center;
 pub mod displays;
+pub mod media;
+pub mod notifications;
+pub mod system;
 
 use gpui::{AppContext, Context, Pixels, Window};
 use ui::tokens::size;
@@ -72,6 +76,32 @@ pub fn build(surface: Surface, window: &mut Window, cx: &mut Context<Overlay>) -
         },
         Surface::Applet(AppletKind::Displays) => Content {
             view: cx.new(displays::DisplaysApplet::new).into(),
+            focus: None,
+        },
+        Surface::Polkit => {
+            let agent = crate::polkit::PolkitAgent::global(cx);
+            Content {
+                focus: Some(agent.read(cx).focus_handle()),
+                view: agent.into(),
+            }
+        }
+        Surface::Applet(AppletKind::Notifications) => {
+            let view = cx.new(notifications::NotificationsApplet::new);
+            Content {
+                focus: Some(view.read(cx).focus_handle()),
+                view: view.into(),
+            }
+        }
+        Surface::Applet(AppletKind::Media) => Content {
+            view: cx.new(media::MediaApplet::new).into(),
+            focus: None,
+        },
+        Surface::Applet(AppletKind::System) => Content {
+            view: cx.new(system::SystemApplet::new).into(),
+            focus: None,
+        },
+        Surface::Applet(AppletKind::Calendar) => Content {
+            view: cx.new(calendar::CalendarApplet::new).into(),
             focus: None,
         },
         _ => common::placeholder(surface, cx),
