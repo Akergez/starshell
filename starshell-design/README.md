@@ -232,6 +232,9 @@ The same rows and cards as in the control center, without nested screens.
   a "Change brightness together" switch.
 - **System**, **media player** — `panel` width, initial height
   `applet_height`.
+- **Keyboard layout** is a chip, not an applet: the XKB indicator of the
+  active layout ("EN", "RU") in medium weight; a click switches to the next
+  layout. It is hidden while only one layout is configured.
 
 ## 7. Launcher
 

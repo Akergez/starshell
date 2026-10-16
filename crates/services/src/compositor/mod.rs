@@ -1,4 +1,5 @@
 pub mod hyprland;
+pub mod keyboard;
 pub mod kwin;
 pub mod mangowm;
 pub mod niri;
@@ -7,7 +8,9 @@ use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::broadcast;
+use tokio::sync::{Notify, broadcast};
+
+pub use keyboard::KeyboardLayouts;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceInfo {
@@ -38,6 +41,7 @@ pub trait Compositor: Send + Sync {
     }
     fn switch_workspace(&self, _id: i64) {}
     fn request_layer_focus(&self) {}
+    fn switch_keyboard_layout(&self) {}
     fn logout(&self) -> futures::future::BoxFuture<'_, anyhow::Result<()>> {
         Box::pin(crate::SystemService::logout())
     }
@@ -82,6 +86,8 @@ pub struct CompositorService {
     current_workspace: Arc<ArcSwap<WorkspaceInfo>>,
     workspaces: Arc<ArcSwap<Vec<WorkspaceInfo>>>,
     workspace_tx: broadcast::Sender<WorkspaceInfo>,
+    keyboard_layouts: Arc<ArcSwap<KeyboardLayouts>>,
+    keyboard_changed: Arc<Notify>,
     compositor: Arc<dyn Compositor>,
     backend: CompositorBackend,
     kwin: Option<kwin::KWin>,
@@ -124,6 +130,8 @@ impl CompositorService {
             current_workspace,
             workspaces,
             workspace_tx,
+            keyboard_layouts: Arc::new(ArcSwap::from_pointee(KeyboardLayouts::default())),
+            keyboard_changed: Arc::new(Notify::new()),
             compositor,
             backend,
             kwin,
@@ -253,6 +261,21 @@ impl CompositorService {
         self.compositor.switch_workspace(id);
     }
 
+    pub fn get_keyboard_layouts(&self) -> Arc<KeyboardLayouts> {
+        self.keyboard_layouts.load_full()
+    }
+
+    pub fn keyboard_changed(&self) -> Arc<Notify> {
+        self.keyboard_changed.clone()
+    }
+
+    pub fn switch_keyboard_layout(&self) {
+        let compositor = self.compositor.clone();
+        crate::spawn_tokio(async move {
+            let _ = crate::spawn_blocking(move || compositor.switch_keyboard_layout()).await;
+        });
+    }
+
     async fn run_workspace_events_loop(&self) {
         if let Some(backend) = &self.mango {
             mangowm::run_events_listener(
@@ -293,8 +316,13 @@ impl CompositorService {
             )
             .await;
         } else if self.backend == CompositorBackend::Niri {
-            niri::run_events_listener(self.current_workspace.clone(), self.workspace_tx.clone())
-                .await;
+            niri::run_events_listener(
+                self.current_workspace.clone(),
+                self.workspace_tx.clone(),
+                self.keyboard_layouts.clone(),
+                self.keyboard_changed.clone(),
+            )
+            .await;
         }
     }
 

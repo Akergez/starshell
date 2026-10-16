@@ -1,10 +1,10 @@
-use crate::compositor::{Compositor, WorkspaceInfo};
+use crate::compositor::{Compositor, KeyboardLayouts, WorkspaceInfo};
 use arc_swap::ArcSwap;
 use niri_ipc::{Request, Response, socket::Socket};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::broadcast;
+use tokio::sync::{Notify, broadcast};
 
 #[derive(Default)]
 pub struct Niri;
@@ -134,6 +134,17 @@ impl Compositor for Niri {
     }
 
     fn request_layer_focus(&self) {}
+
+    fn switch_keyboard_layout(&self) {
+        let _ = catch_unwind(|| {
+            let Ok(mut socket) = Socket::connect() else {
+                return;
+            };
+            let _ = socket.send(Request::Action(niri_ipc::Action::SwitchLayout {
+                layout: niri_ipc::LayoutSwitchTarget::Next,
+            }));
+        });
+    }
 }
 
 fn logout_with_socket(mut socket: Socket) -> anyhow::Result<()> {
@@ -149,6 +160,8 @@ fn logout_with_socket(mut socket: Socket) -> anyhow::Result<()> {
 pub async fn run_events_listener(
     current_workspace: Arc<ArcSwap<WorkspaceInfo>>,
     tx: broadcast::Sender<WorkspaceInfo>,
+    keyboard: Arc<ArcSwap<KeyboardLayouts>>,
+    keyboard_changed: Arc<Notify>,
 ) {
     tokio::task::spawn_blocking(move || {
         loop {
@@ -166,6 +179,19 @@ pub async fn run_events_listener(
                     let should_update = match event {
                         niri_ipc::Event::WorkspaceActivated { focused, .. } => focused,
                         niri_ipc::Event::WorkspacesChanged { .. } => true,
+                        niri_ipc::Event::KeyboardLayoutsChanged { keyboard_layouts } => {
+                            keyboard.store(Arc::new(KeyboardLayouts::new(
+                                keyboard_layouts.names,
+                                usize::from(keyboard_layouts.current_idx),
+                            )));
+                            keyboard_changed.notify_one();
+                            false
+                        }
+                        niri_ipc::Event::KeyboardLayoutSwitched { idx } => {
+                            keyboard.store(Arc::new(keyboard.load().switched(usize::from(idx))));
+                            keyboard_changed.notify_one();
+                            false
+                        }
                         _ => false,
                     };
 

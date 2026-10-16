@@ -33,7 +33,7 @@ pub use shelf::{ShelfItem, ShelfService};
 
 pub use app_state::AppState;
 pub use clipboard::{ClipboardItem, ClipboardService, Snippet};
-pub use compositor::{CompositorService, WorkspaceInfo};
+pub use compositor::{CompositorService, KeyboardLayouts, WorkspaceInfo};
 pub use config::{
     AppConfig, BarConfig, BarEdge, BarLayout, BarModule, ConfigService, Defaults, LockScreenConfig,
     LockscreenConfig, MprisConfig, UIConfig, UiConfig,

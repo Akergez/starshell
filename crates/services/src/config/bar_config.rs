@@ -19,6 +19,7 @@ pub enum BarModule {
     Clipboard,
     Recorder,
     Shelf,
+    KeyboardLayout,
     System,
     Audio,
     Displays,
@@ -26,7 +27,7 @@ pub enum BarModule {
 }
 
 impl BarModule {
-    pub const ALL: [BarModule; 13] = [
+    pub const ALL: [BarModule; 14] = [
         Self::Launcher,
         Self::Workspaces,
         Self::Media,
@@ -36,6 +37,7 @@ impl BarModule {
         Self::Clipboard,
         Self::Recorder,
         Self::Shelf,
+        Self::KeyboardLayout,
         Self::System,
         Self::Audio,
         Self::Displays,
@@ -53,6 +55,7 @@ impl BarModule {
             Self::Clipboard => "clipboard",
             Self::Recorder => "recorder",
             Self::Shelf => "shelf",
+            Self::KeyboardLayout => "keyboard-layout",
             Self::System => "system",
             Self::Audio => "audio",
             Self::Displays => "displays",
@@ -89,6 +92,7 @@ impl Default for BarLayout {
             right: keys(&[
                 BarModule::Recorder,
                 BarModule::Shelf,
+                BarModule::KeyboardLayout,
                 BarModule::Tray,
                 BarModule::Notifications,
                 BarModule::System,

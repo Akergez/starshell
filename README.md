@@ -26,7 +26,7 @@ The interface follows the [Starshell design specification](starshell-design/READ
 
 ## Features
 ### Bar
-- **Configurable modules**: `launcher`, `workspaces`, `media`, `clock`, `tray`, `notifications`, `clipboard`, `recorder`, `shelf`, `system`, `audio`, `displays` and `control-center`, arranged in `[bar.layout]`.
+- **Configurable modules**: `launcher`, `workspaces`, `media`, `clock`, `tray`, `notifications`, `clipboard`, `recorder`, `shelf`, `keyboard-layout`, `system`, `audio`, `displays` and `control-center`, arranged in `[bar.layout]`.
 - **One applet at a time**: an applet opens at the click point, never covers the bar, and closes on Escape or an outside click.
 - **Auto-hide**: optionally keep only a thin strip that reveals the bar on hover.
 

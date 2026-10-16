@@ -28,6 +28,7 @@ pub struct Snapshot {
     pub record: RecordStatus,
     pub record_seconds: u64,
     pub shelf_count: usize,
+    pub keyboard_layout: Option<String>,
 }
 
 impl Snapshot {
@@ -63,6 +64,12 @@ impl Snapshot {
             },
             record,
             shelf_count: state.shelf.count(),
+            keyboard_layout: {
+                let layouts = state.compositor.get_keyboard_layouts();
+                (layouts.names.len() > 1)
+                    .then(|| layouts.current_label().map(str::to_owned))
+                    .flatten()
+            },
         }
     }
 
@@ -132,6 +139,7 @@ impl ShellState {
     fn listen_for_events(cx: &mut Context<Self>) -> Task<()> {
         let state = cx.global::<AppState>();
         let audio_changed = state.system.audio_changed();
+        let keyboard_changed = state.compositor.keyboard_changed();
         let mut workspace_changes = state.compositor.on_change_workspace();
         let mut notifications = NotificationStore::global().subscribe();
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<()>();
@@ -140,6 +148,7 @@ impl ShellState {
             loop {
                 tokio::select! {
                     _ = audio_changed.notified() => {}
+                    _ = keyboard_changed.notified() => {}
                     change = workspace_changes.recv() => {
                         if matches!(change, Err(tokio::sync::broadcast::error::RecvError::Closed)) {
                             tokio::time::sleep(Duration::from_secs(1)).await;

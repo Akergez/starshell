@@ -389,6 +389,14 @@ impl Bar {
                     })
                     .into_any_element()
             }
+            BarModule::KeyboardLayout => Chip::new("bar-keyboard-layout")
+                .label(snapshot.keyboard_layout.clone()?)
+                .render(theme)
+                .font_weight(FontWeight::MEDIUM)
+                .on_click(|_, _, cx| {
+                    cx.global::<AppState>().compositor.switch_keyboard_layout();
+                })
+                .into_any_element(),
             BarModule::System => self.applet_chip(
                 AppletKind::System,
                 Chip::new("bar-system").icon("cpu.svg"),

@@ -236,6 +236,7 @@ mod tests {
             record: services::RecordStatus::Stopped,
             record_seconds: 0,
             shelf_count: 0,
+            keyboard_layout: None,
         }
     }
 
