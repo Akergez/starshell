@@ -237,9 +237,9 @@ The same rows and cards as in the control center, without nested screens.
 
 - Window `launcher` × `applet_height`, top center, `launcher_offset` from the
   top, above everything, exclusive input.
-- Skeleton: query line with a search icon → result list → footer (prefix
-  hints in XSmall muted on the left, keys on the right: Open Enter,
-  Complete Tab, Actions Right click, Close/Clear Esc).
+- Skeleton: query line with a search icon → result list → footer with the
+  prefix hints in XSmall muted. Key hints are left out: completion and
+  actions only exist for some plugins.
 - Placeholder: "Search apps, windows and files".
 - **Backend — pop-launcher**, no modes of its own. Every query goes to the
   service; an empty query shows open windows.

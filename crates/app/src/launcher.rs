@@ -343,23 +343,6 @@ impl Launcher {
     }
 }
 
-fn key_hint(theme: &Theme, action: &'static str, key: &'static str) -> AnyElement {
-    div()
-        .flex()
-        .items_center()
-        .gap(Spacing::XSmall.rems())
-        .child(action)
-        .child(
-            div()
-                .px(Spacing::XSmall.rems())
-                .rounded(Radius::Small.rems())
-                .bg(theme.elevated())
-                .text_color(theme.text())
-                .child(key),
-        )
-        .into_any_element()
-}
-
 impl Render for Launcher {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>().clone();
@@ -387,12 +370,6 @@ impl Render for Launcher {
                 .children(rows)
                 .into_any_element(),
         };
-        let escape_label = if self.query.is_empty() {
-            "Close"
-        } else {
-            "Clear"
-        };
-
         panel(&theme)
             .id("launcher")
             .track_focus(&self.focus)
@@ -433,17 +410,7 @@ impl Render for Launcher {
                     .gap(Spacing::Medium.rems())
                     .text_size(TextSize::XSmall.pixels(theme.font_size))
                     .text_color(theme.text_muted())
-                    .child(div().min_w_0().truncate().child(PREFIX_HINTS))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_shrink_0()
-                            .gap(Spacing::Medium.rems())
-                            .child(key_hint(&theme, "Open", "Enter"))
-                            .child(key_hint(&theme, "Complete", "Tab"))
-                            .child(key_hint(&theme, "Actions", "Right click"))
-                            .child(key_hint(&theme, escape_label, "Esc")),
-                    ),
+                    .child(div().min_w_0().truncate().child(PREFIX_HINTS)),
             )
     }
 }
