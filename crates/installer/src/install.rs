@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 
 const DESKTOP_ENTRY_CONTENT: &str = r#"[Desktop Entry]
 Name=Starshell
-Comment=Desktop shell for niri
+Comment=Dynamic Island Shell for Linux
 Exec=/usr/local/bin/starshell
 Icon=starshell
 Terminal=false
@@ -98,69 +98,6 @@ pub fn create_desktop_entry(password: Option<&str>) -> Result<()> {
     )?;
 
     let _ = fs::remove_file(temp_desktop);
-    Ok(())
-}
-
-const SESSION_FILES: [(&str, &str, &str); 4] = [
-    (
-        include_str!("../session/starshell.desktop"),
-        "/usr/share/wayland-sessions/starshell.desktop",
-        "644",
-    ),
-    (
-        include_str!("../session/starshell-session"),
-        "/usr/local/bin/starshell-session",
-        "755",
-    ),
-    (
-        include_str!("../session/starshell.service"),
-        "/usr/local/lib/systemd/user/starshell.service",
-        "644",
-    ),
-    (
-        include_str!("../session/starshell-session.target"),
-        "/usr/local/lib/systemd/user/starshell-session.target",
-        "644",
-    ),
-];
-
-pub fn install_session(password: Option<&str>) -> Result<()> {
-    for (content, destination, mode) in SESSION_FILES {
-        let destination = Path::new(destination);
-        if let Some(parent) = destination.parent() {
-            run_sudo_cmd(
-                &["mkdir", "-p", parent.to_string_lossy().as_ref()],
-                password,
-            )?;
-        }
-        let file_name = destination
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let temp = std::env::temp_dir().join(format!(
-            "starshell-session-{}-{file_name}",
-            std::process::id()
-        ));
-        fs::write(&temp, content)?;
-        let copied = run_sudo_cmd(
-            &[
-                "install",
-                "-m",
-                mode,
-                temp.to_string_lossy().as_ref(),
-                destination.to_string_lossy().as_ref(),
-            ],
-            password,
-        );
-        let _ = fs::remove_file(&temp);
-        copied.with_context(|| format!("Failed to install {}", destination.display()))?;
-    }
-    let _ = Command::new("systemctl")
-        .args(["--user", "daemon-reload"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
     Ok(())
 }
 

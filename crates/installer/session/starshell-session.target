@@ -1,5 +1,0 @@
-[Unit]
-Description=Starshell desktop session
-BindsTo=niri.service
-After=niri.service
-Wants=starshell.service
