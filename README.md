@@ -12,45 +12,46 @@
 
 <div align="center">
 
-# Capsule
+# Starshell
 
-A Wayland desktop shell built with GPUI (the Zed UI framework), inspired by Dragon Ball's Capsule Corp.
+A Wayland desktop shell built with GPUI (the Zed UI framework): a bar, a control center, applets and a launcher.
 </div>
 
-
-
 ## Scope
-Capsule is an all-in-one desktop shell designed to be lightweight, responsive, and GPU-accelerated.
+Starshell is an all-in-one desktop shell designed to be lightweight, responsive and GPU-accelerated.
 
-In a typical tiling Wayland setup, you end up gluing together 5 or 6 separate daemons (Waybar, Rofi, Dunst, Wlogout, clipboard managers, and shell scripts) through IPC and duplicate styling. Capsule unifies this into a single process built around a contextual Dynamic Island that smoothly morphs its state—from an idle flip-clock to active launchers, media controls, and quick settings—without spawning or destroying windows.
+In a typical tiling Wayland setup you end up gluing together a bar, a launcher, a notification daemon, a power menu, a clipboard manager and shell scripts. Starshell replaces them with one process: a bar on every display whose modules open applets right next to where you click, a control center with quick toggles that expand in place, and a launcher driven by pop-launcher.
 
-Because it is written in Rust and powered by GPUI, it renders directly through the GPU at 60+ FPS with minimal RAM consumption, avoiding the runtime overhead of WebViews, Electron, or QML/JS engines.
-
-## Showcase
-https://github.com/user-attachments/assets/1725467b-43c9-4e39-ae71-d4b480713515
+The interface follows the [Starshell design specification](starshell-design/README.md): every size is a token that scales with the theme font, the palette is derived from a single accent color, and every interaction is animated unless reduce motion is on.
 
 ## Features
-### Dynamic Island & Shell
-- **Context-Aware Morphing**: Smooth spring-animated transitions between Idle (flip-clock / minimal status), Compact bar, and Expanded module views.
-- **Satellites & OSDs**: Non-intrusive floating overlays for volume, screen brightness, and media status that react to your compositor keybinds.
-- **Shelf**: Built-in scratchpad for temporary file staging and drag-and-drop workflows.
+### Bar
+- **Configurable modules**: launcher, workspaces, media, clock, tray, notifications, clipboard, recorder, shelf, system, audio, displays and control center, arranged under `[bar]` in `start`, `center` and `end`.
+- **One applet at a time**: an applet opens at the click point, never covers the bar, and closes on Escape or an outside click.
+- **Auto-hide**: optionally keep only a thin strip that reveals the bar on hover.
 
-### Launcher & Productivity
-- **Application Launcher**: Fast fuzzy-search application runner.
-- **Inline Calculator & Conversions**: Instant arithmetic evaluation (`15% of 2500`, `2^8`, `sin(45)`) and unit conversions directly in the search bar.
-- **Clipboard & Snippets**: Integrated clipboard history manager (via `cliphist`) and custom text snippets.
+### Control Center
+- **Battery header** with time left or until full, and Sleep, Reboot and Power off actions.
+- **Tiles** for Wi-Fi, Bluetooth, VPN, Performance, Microphone and Camera. The body toggles; the chevron expands networks, devices, VPN profiles or power profiles in place.
+- **Sliders** for output volume and every controllable display.
 
-### System Services & Control Center
-- **Audio Control**: Native PipeWire / WirePlumber integration with per-app volume sliders and live audio sink switching.
-- **Connectivity**: NetworkManager (Wi-Fi) and BlueZ (Bluetooth) toggles and device pairing.
-- **Media (MPRIS)**: Track metadata, album artwork display, and playback control.
-- **Session & Security**: Native Polkit authentication agent, screen recorder service, and power management menu.
+### Applets
+- **Audio**: outputs, per-application volume and output, inputs.
+- **Displays**: brightness over the backlight and DDC/CI, optionally together.
+- **Media, System, Calendar** and a **notification center** with actions, inline replies and do not disturb.
+- **Clipboard, Emoji, Shelf, Recorder, Themes and Wallpapers**.
+
+### Launcher
+- Backed by **pop-launcher**: applications, open windows, files, calculator and every installed plugin. Tab completes, right click shows actions, Escape clears and then closes.
+
+### Session
+- Notification popups, a Polkit authentication agent, a lock screen and a settings window.
 
 ## Theming & Templates
-Capsule includes a declarative theming engine that automatically synchronizes your system colors across your terminals, compositor, shell, and file managers in real time without external template dependencies.
+Starshell includes a declarative theming engine that automatically synchronizes your system colors across your terminals, compositor, shell, and file managers in real time without external template dependencies.
 
 ### 1. Creating Custom Themes
-Themes are stored in `~/.config/capsule/themes/presets/<Name>.toml`. Any `.toml` file placed here is automatically discovered by Capsule and selectable via the quick settings menu:
+Themes are stored in `~/.config/starshell/themes/presets/<Name>.toml`. Any `.toml` file placed here is automatically discovered by Starshell and selectable via the quick settings menu:
 
 ```toml
 mode = "Dark" # "Dark" | "Light"
@@ -82,7 +83,7 @@ hex = "#34C759"
 ```
 
 ### 2. Template Plugins
-Templates live in `~/.config/capsule/templates/` (either as `<app>.toml` or `<app>/template.toml`). When a theme changes, Capsule renders all active templates and updates your target configs.
+Templates live in `~/.config/starshell/templates/` (either as `<app>.toml` or `<app>/template.toml`). When a theme changes, Starshell renders all active templates and updates your target configs.
 
 A template definition supports:
 - **`target`**: Destination path (`~` and `$XDG_CONFIG_HOME` are automatically expanded).
@@ -116,13 +117,13 @@ bright7={{palette.15.strip}}
 name = "hyprland"
 description = "Hyprland borders and colors"
 enabled = true
-target = "~/.config/hypr/capsule_colors.lua"
+target = "~/.config/hypr/starshell_colors.lua"
 reload = "hyprctl reload"
 
 [hook]
 file = "~/.config/hypr/hyprland.lua"
-contains = "require(\"capsule_colors\")"
-inject = "colors = require(\"capsule_colors\")\n"
+contains = "require(\"starshell_colors\")"
+inject = "colors = require(\"starshell_colors\")\n"
 
 [template]
 content = """
@@ -175,9 +176,13 @@ cargo build --release
 ```
 
 ## Requirements
-Capsule is a Wayland desktop shell and expects a real Wayland runtime, not a bare X11 setup.
+Starshell is a Wayland desktop shell and expects a real Wayland runtime with layer-shell support, not a bare X11 setup.
 
-- A supported Wayland compositor such as Niri, Hyprland, or MangoWM.
+- A supported Wayland compositor such as Niri, Hyprland, Sway or MangoWM.
+- `pop-launcher` for the launcher.
+- NetworkManager (`nmcli`) for Wi-Fi and VPN; `nm-connection-editor` to edit VPN profiles.
+- `brightnessctl` for the built-in display, and optionally `ddcutil` for external monitors.
+- PAM development headers to build (`pam-devel` on Fedora, `libpam0g-dev` on Debian).
 - PipeWire and WirePlumber enabled and running.
 - The `wpctl`, `pactl`, and `parec` utilities available in `PATH`.
 - At least one visible audio device (sink/source) exposed by the system.
@@ -189,26 +194,26 @@ The provided flake supports `x86_64-linux` and `aarch64-linux`.
 
 ```bash
 nix run github:moiCR/Capsule
-nix build github:moiCR/Capsule#Capsule
+nix build github:moiCR/Capsule#starshell
 ```
 
 For a NixOS or Home Manager configuration, add this input to your flake:
 
 ```bash
-inputs.capsule.url = "github:moiCR/Capsule";
-inputs.capsule.inputs.nixpkgs.follows = "nixpkgs";
+inputs.starshell.url = "github:moiCR/Capsule";
+inputs.starshell.inputs.nixpkgs.follows = "nixpkgs";
 ```
 
 For NixOS:
 
 ```nix
-environment.systemPackages = [ inputs.capsule.packages.${pkgs.system}.default ];
+environment.systemPackages = [ inputs.starshell.packages.${pkgs.system}.default ];
 ```
 
 Or with Home Manager:
 
 ```nix
-home.packages = [ inputs.capsule.packages.${pkgs.system}.default ];
+home.packages = [ inputs.starshell.packages.${pkgs.system}.default ];
 ```
 
 ## Special Thanks

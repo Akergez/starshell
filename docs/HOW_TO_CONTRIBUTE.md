@@ -36,21 +36,13 @@ To prevent massive monoliths, Starshell enforces high cohesion and strict file m
 
 ## 3. UI Design Standards (`starshell-design`)
 
-Starshell features a solid, theme-aware desktop style. Any new UI work must follow these principles:
+The design specification is `starshell-design/README.md`. Any new UI work must follow it:
 
-1. **Opaque Surfaces**:
-   * Windows and content cards use solid, opaque backgrounds (`theme.surface()`, `theme.card()`, `theme.raised_card()`).
-   * Avoid desktop-bleed or decorative blurs, with the exception of media player artwork.
-2. **Consistent Radii**:
-   * Main cards use `CARD_RADIUS` (`16.0px`).
-   * Nested cards, controls, and chips use `INNER_RADIUS` (`12.0px`) or standard grid multiples (4px, 6px, 8px).
-3. **Adaptive Contrast (`on_accent`)**:
-   * When drawing text or icons over accent-colored elements (e.g., primary buttons or active chips), use `theme.on_accent()` to dynamically calculate luminance and pick optimal readable contrast.
-4. **Zero Idle CPU**:
-   * Animation loops must stop immediately when motion settles (`content_progress >= 1.0`).
-   * Never introduce continuous frame-polling in widgets or satellites.
-5. **Use the Standard Component Suite**:
-   * Always prefer standard components in `crates/ui/src/components/` (`Button`, `IconButton`, `Chip`, `Badge`, `Card`, `Tooltip`) over ad-hoc divs with manual mouse event handlers.
+1. **Tokens, not pixels**: sizes come from `ui::tokens` (`Spacing`, `Radius`, `TextSize`, `IconSize`, `size::*`, `units`) so the whole shell scales with the theme font size.
+2. **Palette roles**: colors come from `Theme` roles (`surface`, `elevated`, `element_selected`, `ghost_hover`, `border_variant`, `accent`, `text`, `text_muted`, ...), derived from a single accent.
+3. **Expand in place**: details open below what triggered them; only one applet is open at a time.
+4. **Animated interactions**: hover, press and selection use `tokens::motion` and stop as soon as they settle; reduce motion makes them instant.
+5. **Shared components**: prefer `Tile`, `ListRow`, `SegmentedControl`, `SliderRow`, `Slider`, `Switch`, `Button`, `IconButton` and the surface helpers in `crates/ui/src/components/` over ad-hoc elements.
 
 ---
 

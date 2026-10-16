@@ -1,8 +1,9 @@
-# Capsule
+# Starshell
 
 ## Project
 
-- Capsule is a shell for Tiling Windows Managers and Wayland Compositors built with Rust and GPUI.
+- Starshell is a shell for tiling window managers and Wayland compositors built with Rust and GPUI: a bar, a control center, applets and a launcher.
+- `starshell-design/README.md` is the design specification. Follow it for sizes, colors, layout and motion.
 - Prioritize maintainability, readability, and correctness over clever optimizations.
 - Preserve the project's minimal and contextual UI philosophy.
 
@@ -73,25 +74,30 @@
 
 ```
 crates/
-├── app/          Main binary, UI components (capsule, capsule modules, modules widgets)
-├── services/     System integration (D-Bus, compositor, audio, network, etc.)
-├── ui/           Shared components, theme system and language system
-└── assets/       Embedded SVG icons
+├── app/          Main binary
+│   ├── shell/          Window coordination, overlay, IPC and the state snapshot
+│   ├── bar/            The bar and its modules
+│   ├── applets/        Control center and every bar applet
+│   ├── launcher.rs     pop-launcher front end
+│   ├── notifications/  Notification cards and popups
+│   ├── polkit.rs       Authentication dialog
+│   ├── lockscreen/     Session lock
+│   └── settings/       Settings window
+├── services/     System integration (D-Bus, compositor, audio, network, VPN, displays, etc.)
+├── ui/           Design tokens, theme and shared components
+└── assets/       Embedded SVG icons and fonts
 ```
 
-## Capsule Modules Widgets
+## Design Tokens
 
-Each module should have its own widgets. Do not cram everything into the module file.
+- Never write pixel sizes in markup. Use `ui::tokens` (`Spacing`, `Radius`, `TextSize`, `IconSize`, `size::*`, `units`) so every size follows the theme font size.
+- Pixels appear only where the platform needs them (window sizes, input regions, exclusive zones) and are computed from tokens with `units_to_pixels`.
+- Colors come from palette roles on `Theme` (`surface`, `elevated`, `element_selected`, `ghost_hover`, `border_variant`, `accent`, `text`, `text_muted`, `error`, `warning`, `success`).
+- Animate hover, press and selection with `tokens::motion`; GPUI already honors reduce motion.
 
-```
-crates/
-├── app/
-    ├── modules/
-    │   ├── launcher.rs
-    ├── widgets/
-        ├── launcher/
-            ├── search_input.rs
-```
+## Applets
+
+Each applet is its own view under `applets/`, opened through `Shell::toggle` with a `Surface`. Keep an applet's model and worker next to it and its rendering in the same module unless it grows large.
 
 ## Multiples Instances
 

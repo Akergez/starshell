@@ -28,7 +28,15 @@ if hl.plugin.hyprglass then
     })
     
     hg.layer(
-	"starshell-panel",
+	"starshell-bar",
+	{exclude = true}
+    )
+    hg.layer(
+	"starshell-overlay",
+	{exclude = true}
+    )
+    hg.layer(
+	"starshell-notifications",
 	{exclude = true}
     )
     hg.layer(
