@@ -104,6 +104,25 @@ impl Shell {
         cx.defer(Self::close_now);
     }
 
+    pub fn replace(surface: Surface, cx: &mut App) {
+        cx.defer(move |cx| {
+            let shell = cx.global::<Shell>();
+            let display = shell.overlay_display;
+            let x = shell
+                .overlay
+                .and_then(|handle| handle.read(cx).ok())
+                .and_then(|overlay| overlay.anchor());
+            Self::open_now(surface, Placement { display, x }, cx);
+        });
+    }
+
+    pub fn open_settings(cx: &mut App) {
+        cx.defer(|cx| {
+            Self::close_now(cx);
+            crate::panel::SettingsPanel::open(cx);
+        });
+    }
+
     pub fn close_surface(surface: Surface, cx: &mut App) {
         cx.defer(move |cx| {
             if Self::current(cx) == Some(surface) {
@@ -274,7 +293,7 @@ fn display_width(display: Option<DisplayId>, cx: &App) -> Option<Pixels> {
         .map(|display| display.bounds().size.width)
 }
 
-fn initial_overlay_size(display: Option<DisplayId>, cx: &App) -> gpui::Size<Pixels> {
+pub(crate) fn initial_overlay_size(display: Option<DisplayId>, cx: &App) -> gpui::Size<Pixels> {
     if let Some(display) = cx
         .displays()
         .into_iter()

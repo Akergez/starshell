@@ -61,6 +61,10 @@ impl Overlay {
         cx.notify();
     }
 
+    pub fn anchor(&self) -> Option<Pixels> {
+        self.anchor
+    }
+
     fn request_focus(&self, window: &mut Window, cx: &mut Context<Self>) {
         let focus = self.content.focus.as_ref().unwrap_or(&self.focus);
         window.focus(focus, cx);

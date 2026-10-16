@@ -423,7 +423,7 @@ impl SettingsView for AppsView {
                     .child(control_row(
                         &String::from("Terminal"),
                         Some(&String::from(
-                            "Launched with 'capsule terminal' or terminal apps.",
+                            "Launched with 'starshell terminal' or terminal apps.",
                         )),
                         term_select,
                         &theme,
@@ -432,7 +432,7 @@ impl SettingsView for AppsView {
                     .child(control_row(
                         &String::from("Web Browser"),
                         Some(&String::from(
-                            "Launched with 'capsule browser' or system links.",
+                            "Launched with 'starshell browser' or system links.",
                         )),
                         browser_select,
                         &theme,
@@ -441,7 +441,7 @@ impl SettingsView for AppsView {
                     .child(control_row(
                         &String::from("Code / Text Editor"),
                         Some(&String::from(
-                            "Launched with 'capsule editor'. CLI editors run in terminal.",
+                            "Launched with 'starshell editor'. CLI editors run in terminal.",
                         )),
                         editor_select,
                         &theme,
@@ -450,7 +450,7 @@ impl SettingsView for AppsView {
                     .child(control_row(
                         &String::from("File Manager"),
                         Some(&String::from(
-                            "Launched with 'capsule files' or system file explorer.",
+                            "Launched with 'starshell files' or system file explorer.",
                         )),
                         file_manager_select,
                         &theme,

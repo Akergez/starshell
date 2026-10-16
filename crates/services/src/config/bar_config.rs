@@ -88,6 +88,7 @@ impl Default for BarLayout {
             middle: keys(&[BarModule::Clock]),
             right: keys(&[
                 BarModule::Recorder,
+                BarModule::Shelf,
                 BarModule::Tray,
                 BarModule::Notifications,
                 BarModule::System,

@@ -131,7 +131,9 @@ Top to bottom:
 1. **Header**: battery icon (color by state: error when ≤ critical, success
    while charging, warning when ≤ 20%, otherwise text) · "84%" (medium
    weight) · "≈ 2h 10m left / until full" (Small, muted, truncated) · on the
-   right a power icon-button, highlighted while open.
+   right icon-buttons: wallpapers (replaces the control center with the
+   wallpaper applet at the same spot), settings (closes the overlay and opens
+   the settings window), and power, highlighted while open.
    The power button expands, in place below the header, a row of actions:
    Sleep, Reboot, Power off.
 2. **Tile grid**, 2 columns, Medium gap, in this order:

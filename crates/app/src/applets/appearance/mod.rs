@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use catalog::{Catalog, WallpaperEntry};
 use gpui::{
-    AnyElement, Context, ElementId, InteractiveElement, IntoElement, ParentElement, Render,
-    StatefulInteractiveElement, Styled, Task, Window, div, img, prelude::FluentBuilder, svg,
+    AnyElement, Context, ElementId, InteractiveElement, IntoElement, ObjectFit, ParentElement,
+    Render, StatefulInteractiveElement, Styled, StyledImage, Task, Window, div, img,
+    prelude::FluentBuilder, svg,
 };
 use services::AppState;
 use ui::components::{Button, ButtonVariant, ListRow, caption, panel};
@@ -225,7 +226,7 @@ impl Render for WallpapersApplet {
                     .hover(move |style| style.border_color(hover))
                     .transitions(|transitions| transitions.border_color(motion::fast_cubic()))
                     .on_click(cx.listener(move |applet, _, _, cx| applet.set(path.clone(), cx)))
-                    .child(img(preview).size_full())
+                    .child(img(preview).size_full().object_fit(ObjectFit::Cover))
                     .into_any_element()
             })
             .collect();

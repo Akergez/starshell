@@ -29,7 +29,7 @@ impl LockScreenPanel {
             display_id: Some(display.id()),
             titlebar: None,
             window_bounds: Some(WindowBounds::Windowed(display.bounds())),
-            app_id: Some("capsule-lockscreen".to_string()),
+            app_id: Some("starshell-lockscreen".to_string()),
             linux_window_background: LinuxWindowBackground::Opaque,
             kind: WindowKind::SessionLock(SessionLockOptions {}),
             ..Default::default()
@@ -151,23 +151,29 @@ impl SettingsPanel {
     }
 
     pub fn window_options(cx: &gpui::App) -> WindowOptions {
-        let displays = cx.displays();
-        let display = displays.first();
-        let display_id = display.map(|d| d.id());
-
-        Self::surface_options(display_id)
+        let display_id = cx.displays().first().map(|display| display.id());
+        Self::surface_options(
+            display_id,
+            crate::shell::initial_overlay_size(display_id, cx),
+        )
     }
 
-    fn surface_options(display_id: Option<gpui::DisplayId>) -> WindowOptions {
+    fn surface_options(
+        display_id: Option<gpui::DisplayId>,
+        size: gpui::Size<gpui::Pixels>,
+    ) -> WindowOptions {
         WindowOptions {
             display_id,
             titlebar: None,
-            window_bounds: Some(WindowBounds::Windowed(gpui::Bounds::default())),
-            app_id: Some("capsule-settings".to_string()),
+            window_bounds: Some(WindowBounds::Windowed(gpui::Bounds {
+                origin: gpui::point(px(0.0), px(0.0)),
+                size,
+            })),
+            app_id: Some("starshell-settings".to_string()),
             inactive_frame_interval: None,
             linux_window_background: LinuxWindowBackground::Transparent,
             kind: WindowKind::LayerShell(LayerShellOptions {
-                namespace: "capsule-settings".to_string(),
+                namespace: "starshell-settings".to_string(),
                 layer: Layer::Overlay,
                 anchor: Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT,
                 exclusive_zone: Some(px(-1.0)),
@@ -222,18 +228,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn settings_surface_size_is_assigned_by_compositor() {
+    fn settings_surface_starts_with_a_drawable_size() {
+        let size = gpui::size(px(640.0), px(480.0));
         for display_id in [
             None,
             Some(gpui::DisplayId::new(1)),
             Some(gpui::DisplayId::new(2)),
         ] {
-            let options = SettingsPanel::surface_options(display_id);
+            let options = SettingsPanel::surface_options(display_id, size);
             assert_eq!(options.display_id, display_id);
-            assert_eq!(
-                options.window_bounds.unwrap().get_bounds().size,
-                gpui::Size::default()
-            );
+            let bounds = options.window_bounds.map(|bounds| bounds.get_bounds().size);
+            assert_eq!(bounds, Some(size));
             let WindowKind::LayerShell(layer) = options.kind else {
                 panic!("Settings must use layer shell");
             };

@@ -5,9 +5,10 @@ use ui::theme::Theme;
 use ui::tokens::{IconSize, Spacing, TextSize};
 
 use super::ControlCenter;
+use crate::applets::AppletKind;
 use crate::bar::battery_icon;
-use crate::shell::Shell;
 use crate::shell::state::Snapshot;
+use crate::shell::{Shell, Surface};
 
 pub fn render(
     snapshot: &Snapshot,
@@ -76,6 +77,16 @@ pub fn render(
                 .text_size(TextSize::Small.pixels(theme.font_size))
                 .text_color(theme.text_muted())
                 .child(subtitle),
+        )
+        .child(
+            IconButton::new("wallpapers-button", "wallpaper.svg")
+                .tooltip("Wallpapers")
+                .on_click(|_, _, cx| Shell::replace(Surface::Applet(AppletKind::Wallpapers), cx)),
+        )
+        .child(
+            IconButton::new("settings-button", "settings.svg")
+                .tooltip("Settings")
+                .on_click(|_, _, cx| Shell::open_settings(cx)),
         )
         .child(
             IconButton::new("power-button", "power.svg")
