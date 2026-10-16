@@ -569,9 +569,9 @@ impl Render for Bar {
         let hidden_offset = if self.revealed || !bar.autohide {
             0.0
         } else if bottom {
-            bar.clamped_height() - size::BAR_HIDDEN_STRIP
+            bar.clamped_height()
         } else {
-            size::BAR_HIDDEN_STRIP - bar.clamped_height()
+            -bar.clamped_height()
         };
 
         let content = div()

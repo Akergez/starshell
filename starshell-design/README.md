@@ -262,7 +262,9 @@ The same rows and cards as in the control center, without nested screens.
 | applet appearance | 140 ms | fade |
 | bar show/hide (auto-hide) | 180 ms | — |
 
-Auto-hide leaves a 2-unit strip; an open applet keeps the bar shown.
+Auto-hide slides the bar fully off screen and keeps an invisible 2-unit
+strip at the edge that reveals it on hover; an open applet keeps the bar
+shown.
 Under reduce motion all transitions are instant.
 
 ## 9. Verification
