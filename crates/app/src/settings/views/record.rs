@@ -1,21 +1,13 @@
 use gpui::{
-    AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement,
-    Styled, Window, div, px,
+    AnyElement, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled,
+    Window, div, px,
 };
 use services::{AppState, RecordService};
 use ui::theme::Theme;
 
-use super::common::{card, control_row, hero_header, pill_button, row_divider, toggle_row};
 use super::SettingsView;
+use super::common::{card, control_row, hero_header, pill_button, row_divider, toggle_row};
 use crate::settings::Settings;
-
-fn text(key: &str, cx: &App) -> String {
-    if cx.has_global::<AppState>() {
-        cx.global::<AppState>().language.get(key)
-    } else {
-        key.to_string()
-    }
-}
 
 pub struct RecordView {
     available_monitors: Vec<String>,
@@ -43,7 +35,7 @@ impl SettingsView for RecordView {
         };
 
         // Output monitors options
-        let screen_label = text("settings.record_output_fullscreen", cx);
+        let screen_label = String::from("Full Screen");
         let mut monitor_options = vec![("screen".to_string(), screen_label)];
         for m in &self.available_monitors {
             if m != "screen" {
@@ -53,17 +45,17 @@ impl SettingsView for RecordView {
 
         let fps_options = [30u32, 60, 120];
 
-        let native_label = text("settings.record_res_native", cx);
+        let native_label = String::from("Native");
         let res_options = [
             ("native", native_label),
             ("1920x1080", "1080p".to_string()),
             ("1280x720", "720p".to_string()),
         ];
 
-        let ultra_label = text("settings.record_quality_ultra", cx);
-        let very_high_label = text("settings.record_quality_very_high", cx);
-        let high_label = text("settings.record_quality_high", cx);
-        let medium_label = text("settings.record_quality_medium", cx);
+        let ultra_label = String::from("Ultra");
+        let very_high_label = String::from("Very High");
+        let high_label = String::from("High");
+        let medium_label = String::from("Medium");
         let quality_options = [
             ("ultra", ultra_label),
             ("very_high", very_high_label),
@@ -73,10 +65,10 @@ impl SettingsView for RecordView {
 
         let container_options = [("mp4", "MP4"), ("mkv", "MKV")];
 
-        let desktop_label = text("settings.record_audio_desktop", cx);
-        let mic_label = text("settings.record_audio_mic", cx);
-        let both_label = text("settings.record_audio_both", cx);
-        let none_label = text("settings.record_audio_none", cx);
+        let desktop_label = String::from("Desktop");
+        let mic_label = String::from("Microphone");
+        let both_label = String::from("Both");
+        let none_label = String::from("None");
         let audio_options = [
             ("desktop", desktop_label),
             ("mic", mic_label),
@@ -93,15 +85,15 @@ impl SettingsView for RecordView {
             // Hero Header
             .child(hero_header(
                 "play.svg",
-                &text("settings.record_header_title", cx),
-                &text("settings.record_header_subtitle", cx),
+                &String::from("Screen Recording"),
+                &String::from("Configure frame rate (FPS), resolution, video quality, and audio source for gpu-screen-recorder."),
                 &theme,
             ))
             // Video Output Card
             .child(
                 card(&theme).child(control_row(
-                    &text("settings.record_output_title", cx),
-                    Some(&text("settings.record_output_subtitle", cx)),
+                    &String::from("Video Output"),
+                    Some(&String::from("Monitor or screen to capture during recording.")),
                     div()
                         .flex()
                         .gap(px(6.0))
@@ -131,8 +123,8 @@ impl SettingsView for RecordView {
             .child(
                 card(&theme)
                     .child(control_row(
-                        &text("settings.record_fps_title", cx),
-                        Some(&text("settings.record_fps_subtitle", cx)),
+                        &String::from("Frames per Second (FPS)"),
+                        Some(&String::from("Smoothness of the screen recording capture.")),
                         div()
                             .flex()
                             .gap(px(6.0))
@@ -157,8 +149,8 @@ impl SettingsView for RecordView {
                     ))
                     .child(row_divider(&theme))
                     .child(control_row(
-                        &text("settings.record_resolution_title", cx),
-                        Some(&text("settings.record_resolution_subtitle", cx)),
+                        &String::from("Resolution"),
+                        Some(&String::from("Capture scale for the selected monitor.")),
                         div()
                             .flex()
                             .gap(px(6.0))
@@ -185,8 +177,8 @@ impl SettingsView for RecordView {
                     ))
                     .child(row_divider(&theme))
                     .child(control_row(
-                        &text("settings.record_quality_title", cx),
-                        Some(&text("settings.record_quality_subtitle", cx)),
+                        &String::from("Video Quality"),
+                        Some(&String::from("Bitrate and compression of the video encoder.")),
                         div()
                             .flex()
                             .gap(px(6.0))
@@ -213,8 +205,8 @@ impl SettingsView for RecordView {
                     ))
                     .child(row_divider(&theme))
                     .child(control_row(
-                        &text("settings.record_container_title", cx),
-                        Some(&text("settings.record_container_subtitle", cx)),
+                        &String::from("Container Format"),
+                        Some(&String::from("Final file format (MP4 or MKV).")),
                         div()
                             .flex()
                             .gap(px(6.0))
@@ -244,8 +236,8 @@ impl SettingsView for RecordView {
             .child(
                 card(&theme)
                     .child(control_row(
-                        &text("settings.record_audio_title", cx),
-                        Some(&text("settings.record_audio_subtitle", cx)),
+                        &String::from("Audio Source"),
+                        Some(&String::from("Default audio captured during recording.")),
                         div()
                             .flex()
                             .gap(px(6.0))
@@ -273,8 +265,8 @@ impl SettingsView for RecordView {
                     .child(row_divider(&theme))
                     .child(toggle_row(
                         ElementId::Name("record-cursor-toggle".into()),
-                        &text("settings.record_cursor_title", cx),
-                        Some(&text("settings.record_cursor_subtitle", cx)),
+                        &String::from("Capture Cursor"),
+                        Some(&String::from("Include mouse pointer in the recording.")),
                         config.record.include_cursor,
                         &theme,
                         cx.listener(|_this, _, _, cx| {
@@ -290,8 +282,8 @@ impl SettingsView for RecordView {
             // Engine Backend info badge
             .child(
                 card(&theme).child(control_row(
-                    &text("settings.record_backend_title", cx),
-                    Some(&text("settings.record_backend_subtitle", cx)),
+                    &String::from("Recording Engine"),
+                    Some(&String::from("Hardware-accelerated GPU backend (gpu-screen-recorder).")),
                     div()
                         .flex()
                         .flex_row()

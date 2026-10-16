@@ -55,7 +55,7 @@ pub(crate) fn initialize(cx: &mut App) {
                         .and_then(|result| result)
                         .map(Some)
                     } else {
-                        Err("settings.dynamic_no_wallpaper".to_owned())
+                        Err("Select a wallpaper to use dynamic colors.".to_owned())
                     }
                 } else {
                     Ok(None)
@@ -98,19 +98,17 @@ pub(crate) fn initialize(cx: &mut App) {
                 let theme = match palette {
                     Ok(Some(rgb)) => {
                         cx.global_mut::<AppearanceStatus>().error = None;
-                        Theme::from_wallpaper(rgb, settings.1, selected.font_family.clone())
+                        let mut theme =
+                            Theme::from_wallpaper(rgb, settings.1, selected.font_family.clone());
+                        theme.font_size = selected.font_size;
+                        theme
                     }
                     Ok(None) => {
                         cx.global_mut::<AppearanceStatus>().error = None;
                         selected.with_mode(settings.1)
                     }
                     Err(error) => {
-                        cx.global_mut::<AppearanceStatus>().error =
-                            Some(if error.starts_with("settings.") {
-                                cx.global::<AppState>().language.get(&error)
-                            } else {
-                                error
-                            });
+                        cx.global_mut::<AppearanceStatus>().error = Some(error);
                         selected.with_mode(settings.1)
                     }
                 };
@@ -129,15 +127,26 @@ pub(crate) fn persist_theme(theme: Theme, cx: &App) {
     let _ = cx.global::<AppearanceStatus>().persistence.send(theme);
 }
 
+pub(crate) fn set_font_size(font_size: f32, cx: &mut App) {
+    let manager = cx.global_mut::<ThemeManager>();
+    manager.selected_theme.font_size = font_size;
+    manager.current_theme.font_size = font_size;
+    let selected = manager.selected_theme.clone();
+    let current = manager.current_theme.clone();
+    if let Err(error) = ThemeManager::save_selected_theme(&selected) {
+        eprintln!("Failed to save selected theme: {error}");
+    }
+    persist_theme(current.clone(), cx);
+    transition_theme(current, cx);
+}
+
 pub(crate) fn transition_theme(theme: Theme, cx: &mut App) {
-    let duration = Duration::from_millis(
-        cx.global::<AppState>()
-            .config
-            .get()
-            .ui
-            .animation_duration_ms
-            .min(180) as u64,
-    );
+    let font_changed = cx.global::<Theme>().font_size != theme.font_size;
+    let duration = if cx.reduce_motion() {
+        Duration::ZERO
+    } else {
+        ui::tokens::motion::BAR
+    };
     let interval = cx
         .global::<AppState>()
         .compositor
@@ -150,6 +159,10 @@ pub(crate) fn transition_theme(theme: Theme, cx: &mut App) {
         .transition_to(theme, duration, Instant::now());
     let displayed = status.animator.theme().clone();
     cx.set_global(displayed);
+    if font_changed {
+        crate::shell::Shell::apply_rem_size(cx);
+        crate::shell::Shell::rebuild_bars(cx);
+    }
     cx.refresh_windows();
     if !running {
         return;

@@ -1,5 +1,4 @@
-use gpui::{ColorExt, Context, IntoElement};
-use services::AppState;
+use gpui::{ColorExt, IntoElement};
 use ui::components::{Input, InputState};
 use ui::theme::Theme;
 
@@ -8,22 +7,9 @@ pub fn render_auth_form(
     password_input: &InputState,
     auth_failed: bool,
     is_checking: bool,
-    cx: &mut Context<crate::lockscreen::LockScreen>,
 ) -> impl IntoElement {
-    let (enter_pwd, checking_text, incorrect_text) = if cx.has_global::<AppState>() {
-        let lang = &cx.global::<AppState>().language;
-        (
-            lang.get("lockscreen.enter_password"),
-            lang.get("lockscreen.checking"),
-            lang.get("lockscreen.incorrect_password"),
-        )
-    } else {
-        (
-            "Contraseña".to_string(),
-            "Verificando...".to_string(),
-            "Contraseña incorrecta".to_string(),
-        )
-    };
+    let (enter_pwd, checking_text, incorrect_text) =
+        ("Password", "Checking…", "Incorrect password");
 
     let placeholder = if is_checking {
         checking_text

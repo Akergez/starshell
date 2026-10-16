@@ -1,11 +1,9 @@
-use gpui::{
-    ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, px, svg,
-};
+use gpui::{ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, px, svg};
 use ui::components::{IconButton, Input};
 use ui::theme::Theme;
 
-use crate::capsule::widgets::style;
 use crate::settings::Settings;
+use crate::settings::style;
 
 pub fn render_header(
     search_input_state: &ui::components::InputState,
@@ -13,9 +11,7 @@ pub fn render_header(
     cx: &mut Context<Settings>,
 ) -> gpui::AnyElement {
     let placeholder = if cx.has_global::<services::AppState>() {
-        cx.global::<services::AppState>()
-            .language
-            .get("settings.search_short")
+        String::from("Search settings")
     } else {
         "Buscar...".to_string()
     };
@@ -96,7 +92,7 @@ pub fn render_header(
             IconButton::new("settings-close-btn", "close.svg")
                 .size(30.0)
                 .tooltip(if cx.has_global::<services::AppState>() {
-                    cx.global::<services::AppState>().language.get("common.close")
+                    String::from("Close")
                 } else {
                     "Cerrar".to_string()
                 })

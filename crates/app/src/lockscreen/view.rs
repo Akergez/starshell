@@ -321,12 +321,7 @@ impl Render for LockScreen {
                 )
             })
             .when_some(wifi_icon_opt, |d, icon| {
-                d.child(
-                    svg()
-                        .path(icon)
-                        .size(px(15.0))
-                        .text_color(theme.text()),
-                )
+                d.child(svg().path(icon).size(px(15.0)).text_color(theme.text()))
             });
 
         let content = if self.is_primary {
@@ -403,7 +398,6 @@ impl Render for LockScreen {
                             &self.password_input,
                             self.auth_failed,
                             self.is_checking,
-                            cx,
                         )),
                 )
         } else {

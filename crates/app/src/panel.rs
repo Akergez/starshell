@@ -8,100 +8,8 @@ use gpui::{
     session_lock::SessionLockOptions,
 };
 
-use services::IpcSubscriber;
-
 use crate::lockscreen::LockScreen;
 use crate::settings::Settings;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PanelMode {
-    Capsule,
-    LockScreen,
-    Settings,
-}
-
-pub struct CapsulePanel;
-
-impl CapsulePanel {
-    pub fn window_options(
-        module_manager: &crate::capsule::module::CapsuleModuleManager,
-        cx: &gpui::App,
-    ) -> WindowOptions {
-        let size = crate::capsule::Capsule::maximum_window_size(
-            module_manager,
-            cx.displays().first().map(|display| display.bounds().size),
-            cx,
-        );
-
-        let display_bounds = cx.displays().first().map(|d| d.bounds());
-        let exclusive_zone = if cx.has_global::<services::AppState>() {
-            let config = cx.global::<services::AppState>().config.get();
-            config.ui.exclusive_zone()
-        } else {
-            25.0 + 8.0
-        };
-
-        let mut options = WindowOptions {
-            titlebar: None,
-            window_bounds: display_bounds.map(WindowBounds::Windowed),
-            app_id: Some("capsule-panel".to_string()),
-            linux_window_background: LinuxWindowBackground::Transparent,
-            kind: WindowKind::LayerShell(LayerShellOptions {
-                namespace: "capsule-panel".to_string(),
-                layer: Layer::Top,
-                anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
-                margin: Some((px(0.0), px(0.0), px(0.0), px(0.0))),
-                exclusive_zone: Some(px(exclusive_zone)),
-                keyboard_interactivity: KeyboardInteractivity::OnDemand,
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-
-        options.inactive_frame_interval = None;
-        options.window_bounds = Some(WindowBounds::Windowed(gpui::Bounds {
-            origin: gpui::point(px(0.0), px(0.0)),
-            size,
-        }));
-
-        if let WindowKind::LayerShell(layer) = &mut options.kind {
-            layer.anchor = match cx
-                .global::<services::AppState>()
-                .config
-                .get()
-                .ui
-                .capsule_location
-            {
-                services::CapsuleLocation::Top => Anchor::TOP,
-                services::CapsuleLocation::Bottom => Anchor::BOTTOM,
-            };
-        }
-        options
-    }
-
-    pub fn open(
-        cx: &mut gpui::App,
-        ipc_subscriber: IpcSubscriber,
-    ) -> Option<WindowHandle<crate::capsule::Capsule>> {
-        let module_manager = crate::capsule::module::CapsuleModuleManager::new(cx);
-        let options = Self::window_options(&module_manager, cx);
-        let window = match cx.open_window(options, |window, cx| {
-            cx.new(|cx| {
-                crate::capsule::Capsule::with_module_manager(module_manager, window, cx)
-            })
-        }) {
-            Ok(window) => window,
-            Err(error) => {
-                eprintln!("Failed to open new Capsule window: {error}");
-                return None;
-            }
-        };
-        if let Ok(entity) = window.entity(cx) {
-            ipc_subscriber.start(cx, entity, crate::capsule::Capsule::handle_ipc_command);
-        }
-        Some(window)
-    }
-}
 
 static IS_LOCKSCREEN_OPEN: AtomicBool = AtomicBool::new(false);
 
@@ -270,9 +178,7 @@ impl SettingsPanel {
 
         let options = Self::window_options(cx);
 
-        match cx.open_window(options, |window, cx| {
-            cx.new(|cx| Settings::new(window, cx))
-        }) {
+        match cx.open_window(options, |window, cx| cx.new(|cx| Settings::new(window, cx))) {
             Ok(w) => Some(w),
             Err(err) => {
                 IS_SETTINGS_OPEN.store(false, Ordering::SeqCst);

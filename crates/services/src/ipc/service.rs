@@ -1,5 +1,4 @@
 use super::{IpcCommand, decode_command, encode_command, get_socket_path};
-use gpui::{App, Entity};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -78,7 +77,9 @@ impl IpcSubscriber {
             AcquireResult::Primary(subscriber) => Some(subscriber),
             AcquireResult::Secondary => None,
             AcquireResult::NotRunning => {
-                eprintln!("Error: Starshell daemon is not running. Start it first with 'Starshell'.");
+                eprintln!(
+                    "Error: Starshell daemon is not running. Start it first with 'starshell'."
+                );
                 std::process::exit(1);
             }
             AcquireResult::Error(err) => {
@@ -88,7 +89,7 @@ impl IpcSubscriber {
                     AcquireResult::Secondary => None,
                     AcquireResult::NotRunning => {
                         eprintln!(
-                            "Error: Starshell daemon is not running. Start it first with 'Starshell'."
+                            "Error: Starshell daemon is not running. Start it first with 'starshell'."
                         );
                         std::process::exit(1);
                     }
@@ -174,12 +175,7 @@ impl IpcSubscriber {
         }
     }
 
-    pub fn start<T: 'static>(
-        mut self,
-        _cx: &mut App,
-        _target_entity: Entity<T>,
-        _handler: fn(&mut T, IpcCommand, &mut gpui::Context<T>),
-    ) {
+    pub fn start(mut self) {
         if let Some(cmd) = self.initial_command.take() {
             push_ipc_command(cmd);
         }

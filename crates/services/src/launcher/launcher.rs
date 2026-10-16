@@ -172,6 +172,21 @@ impl LauncherService {
             .collect()
     }
 
+    pub fn launch_desktop_entry(&self, path: &Path) -> Result<()> {
+        let stem = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .context("Desktop entry has no name")?;
+        if let Some(app) = self.apps.load().iter().find(|app| app.id == stem) {
+            return Self::launch_app(app);
+        }
+        std::process::Command::new("gtk-launch")
+            .arg(stem)
+            .spawn()
+            .context("Failed to launch desktop entry")?;
+        Ok(())
+    }
+
     pub fn launch_app(app: &Application) -> Result<()> {
         let clean_exec = Self::clean_exec_command(&app.exec);
         if clean_exec.is_empty() {

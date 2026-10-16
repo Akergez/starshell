@@ -1,7 +1,12 @@
 pub mod calculator;
 pub mod launcher;
+pub mod pop;
 
 pub use launcher::LauncherService;
+pub use pop::{
+    ContextOption, IconSource, PopEvent, PopLauncher, PopRequest, PopResponse, SearchResult,
+    description_line,
+};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

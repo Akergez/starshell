@@ -1,3 +1,7 @@
+pub mod vpn;
+
+pub use vpn::{VpnKind, VpnProfile, VpnService, VpnState, VpnStatus};
+
 use crate::dbus_util::get_shared_system_conn;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -311,6 +315,41 @@ impl NetworkService {
                 .output()
                 .await;
             sleep(Duration::from_millis(500)).await;
+            if let Some(conn) = get_shared_system_conn().await
+                && let Ok(new_status) =
+                    timeout(Duration::from_secs(2), Self::fetch_status_async(&conn)).await
+                && let Ok(mut lock) = status_arc.lock()
+            {
+                *lock = new_status;
+            }
+        });
+    }
+
+    pub fn forget_wifi(&self, ssid: &str) {
+        self.run_and_refresh(
+            "nmcli",
+            vec![
+                "connection".into(),
+                "delete".into(),
+                "id".into(),
+                ssid.into(),
+            ],
+        );
+    }
+
+    pub fn forget_bluetooth(&self, mac: &str) {
+        self.run_and_refresh("bluetoothctl", vec!["remove".into(), mac.into()]);
+    }
+
+    fn run_and_refresh(&self, program: &'static str, args: Vec<String>) {
+        let status_arc = self.status.clone();
+        crate::spawn_tokio(async move {
+            let _ = timeout(
+                Duration::from_secs(5),
+                tokio::process::Command::new(program).args(&args).output(),
+            )
+            .await;
+            sleep(Duration::from_millis(300)).await;
             if let Some(conn) = get_shared_system_conn().await
                 && let Ok(new_status) =
                     timeout(Duration::from_secs(2), Self::fetch_status_async(&conn)).await

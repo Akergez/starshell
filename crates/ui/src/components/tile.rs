@@ -106,7 +106,6 @@ fn zone(id: ElementId, base: Hsla, theme: &Theme) -> gpui::Stateful<gpui::Div> {
     let active = mix(base, theme.text(), 0.12);
     div()
         .id(id)
-        .h_full()
         .flex()
         .items_center()
         .bg(gpui::transparent_black())
@@ -173,9 +172,9 @@ impl RenderOnce for Tile {
         div()
             .id(self.id.clone())
             .flex()
-            .w_full()
+            .flex_1()
+            .flex_basis(gpui::relative(0.0))
             .min_w_0()
-            .h_full()
             .min_h(units(size::TILE))
             .overflow_hidden()
             .rounded(Radius::Large.rems())
@@ -193,7 +192,6 @@ impl RenderOnce for Tile {
                     div()
                         .flex_shrink_0()
                         .w(Spacing::Hairline.rems())
-                        .h_full()
                         .bg(theme.border_variant()),
                 )
                 .child(

@@ -1,14 +1,16 @@
+pub mod bar_config;
 pub mod defaults;
 pub mod lock_screen_config;
 pub mod mpris_config;
 pub mod record_config;
 pub mod ui_config;
 
+pub use bar_config::{BarConfig, BarModule, BarPosition, ControlCenterConfig, PowerActions};
 pub use defaults::Defaults;
 pub use lock_screen_config::{LockScreenConfig, LockscreenConfig};
 pub use mpris_config::MprisConfig;
 pub use record_config::RecordConfig;
-pub use ui_config::{CapsuleLocation, CapsuleStyle, UIConfig, UiConfig};
+pub use ui_config::{UIConfig, UiConfig};
 
 use arc_swap::ArcSwap;
 use serde::{Deserialize, Serialize};
@@ -35,6 +37,12 @@ pub struct AppConfig {
 
     #[serde(default)]
     pub record: RecordConfig,
+
+    #[serde(default)]
+    pub bar: BarConfig,
+
+    #[serde(default)]
+    pub control_center: ControlCenterConfig,
 }
 
 impl AppConfig {
@@ -42,10 +50,7 @@ impl AppConfig {
         let config_path = Self::get_config_path();
         match fs::read_to_string(&config_path) {
             Ok(content) => match toml::from_str::<AppConfig>(&content) {
-                Ok(mut cfg) => {
-                    cfg.ui.capsule_round = cfg.ui.capsule_round.clamp(0.0, 24.0);
-                    cfg
-                }
+                Ok(cfg) => cfg,
                 Err(error) => {
                     eprintln!("Invalid config {}: {error}", config_path.display());
                     AppConfig::default()
@@ -99,7 +104,6 @@ fn merge_tables(target: &mut toml::Table, source: toml::Table) {
     }
 }
 
-
 #[derive(Clone)]
 pub struct ConfigService {
     config: Arc<ArcSwap<AppConfig>>,
@@ -126,8 +130,7 @@ impl ConfigService {
         self.config.load_full()
     }
 
-    pub fn set(&self, mut new_config: AppConfig) -> std::io::Result<()> {
-        new_config.ui.capsule_round = new_config.ui.capsule_round.clamp(0.0, 24.0);
+    pub fn set(&self, new_config: AppConfig) -> std::io::Result<()> {
         AppConfig::save(&new_config)?;
         let arc_config = Arc::new(new_config);
         self.config.store(arc_config.clone());
@@ -141,7 +144,6 @@ impl ConfigService {
     {
         let mut current = (**self.config.load()).clone();
         f(&mut current);
-        current.ui.capsule_round = current.ui.capsule_round.clamp(0.0, 24.0);
         AppConfig::save(&current)?;
         let arc_config = Arc::new(current);
         self.config.store(arc_config.clone());
@@ -171,8 +173,8 @@ mod tests {
             "[bar]\nsize = 30.0\n[osd]\nposition = 'right'\n[ui]\nforeign = 1\n"
                 .parse()
                 .expect("existing config");
-        let content = AppConfig::merged_content(existing, &AppConfig::default())
-            .expect("merged config");
+        let content =
+            AppConfig::merged_content(existing, &AppConfig::default()).expect("merged config");
         let merged: toml::Table = content.parse().expect("merged table");
         assert_eq!(merged["osd"]["position"].as_str(), Some("right"));
         assert_eq!(merged["ui"]["foreign"].as_integer(), Some(1));

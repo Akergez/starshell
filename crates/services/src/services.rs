@@ -5,9 +5,9 @@ pub mod compositor;
 pub mod config;
 pub mod dbus_util;
 pub mod emoji;
+pub mod icons;
 pub mod idle;
 pub mod ipc;
-pub mod language;
 pub mod launcher;
 pub mod logger;
 pub mod lyrics;
@@ -25,15 +25,18 @@ pub mod wallpaper;
 
 pub use calendar::CalendarService;
 
-pub use network::{BluetoothDeviceItem, NetworkService, NetworkStatus, WifiAccessPoint};
+pub use network::{
+    BluetoothDeviceItem, NetworkService, NetworkStatus, VpnKind, VpnProfile, VpnService, VpnState,
+    VpnStatus, WifiAccessPoint,
+};
 pub use shelf::{ShelfItem, ShelfService};
 
 pub use app_state::AppState;
 pub use clipboard::{ClipboardItem, ClipboardService, Snippet};
 pub use compositor::{CompositorService, WorkspaceInfo};
 pub use config::{
-    AppConfig, CapsuleLocation, CapsuleStyle, ConfigService, Defaults, LockScreenConfig,
-    LockscreenConfig, MprisConfig, UIConfig, UiConfig,
+    AppConfig, BarConfig, BarModule, BarPosition, ConfigService, ControlCenterConfig, Defaults,
+    LockScreenConfig, LockscreenConfig, MprisConfig, PowerActions, UIConfig, UiConfig,
 };
 pub use emoji::{EmojiItem, EmojiService};
 pub use idle::{IdleEvent, IdleService};
@@ -41,8 +44,10 @@ pub use ipc::{
     IpcCommand, IpcMessage, IpcSubscriber, decode_command, pop_ipc_command, push_ipc_command,
     wait_for_ipc_command,
 };
-pub use language::{LangService, LanguageInfo};
-pub use launcher::{Application, LauncherService};
+pub use launcher::{
+    Application, ContextOption, IconSource, LauncherService, PopEvent, PopLauncher, PopRequest,
+    PopResponse, SearchResult, description_line,
+};
 pub use logger::init_logger;
 pub use lyrics::{LyricLine, LyricsService, TrackLyrics};
 pub use mpris::{MediaTrack, MprisService};
@@ -56,7 +61,10 @@ pub use power::{BatteryStatus, PowerProfile, PowerService};
 pub use record::{
     RecordAudio, RecordBackend, RecordOptions, RecordService, RecordStatus, RecordTarget,
 };
-pub use system::{AudioSink, AudioSource, SystemService, SystemStatus};
+pub use system::{
+    AppStream, AudioSink, AudioSource, CaptureStatus, Display, DisplayBackend, DisplayService,
+    SystemService, SystemStatus,
+};
 pub use tray::{SniHostService, SniItem, TrayAction, TrayService};
 
 use std::sync::OnceLock;

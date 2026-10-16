@@ -1,37 +1,32 @@
 use gpui::{
-    AnyElement, App, Bounds, Div, ElementId, FontWeight, IntoElement,
-    ParentElement, Pixels, Styled, Window, div, prelude::*, px, svg,
+    AnyElement, App, Bounds, Div, ElementId, FontWeight, IntoElement, ParentElement, Pixels,
+    Styled, Window, div, prelude::*, svg,
 };
 use ui::components::{Button, ButtonSize, ButtonVariant, Slider, Switch};
 use ui::theme::Theme;
+use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
-use crate::capsule::widgets::style;
-
-pub fn hero_header(
-    icon: &'static str,
-    title: &str,
-    subtitle: &str,
-    theme: &Theme,
-) -> AnyElement {
+pub fn hero_header(icon: &'static str, title: &str, subtitle: &str, theme: &Theme) -> AnyElement {
     div()
         .flex()
         .items_center()
-        .gap(px(14.0))
+        .gap(Spacing::Large.rems())
         .w_full()
         .min_w_0()
-        .py(px(4.0))
+        .py(Spacing::XSmall.rems())
         .child(
             div()
-                .size(px(38.0))
-                .rounded_full()
-                .bg(style::surface(theme))
+                .size(units(size::CONTROL + Spacing::Small.value()))
+                .flex_shrink_0()
+                .rounded(Radius::Large.rems())
+                .bg(theme.elevated())
                 .flex()
                 .items_center()
                 .justify_center()
                 .child(
                     svg()
                         .path(icon)
-                        .size(px(18.0))
+                        .size(IconSize::Large.rems())
                         .text_color(theme.accent()),
                 ),
         )
@@ -40,17 +35,17 @@ pub fn hero_header(
                 .flex()
                 .flex_col()
                 .min_w_0()
-                .gap(px(2.0))
+                .gap(Spacing::XXSmall.rems())
                 .child(
                     div()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .text_size(px(22.0))
+                        .text_size(TextSize::XLarge.pixels(theme.font_size))
                         .text_color(theme.text())
                         .child(title.to_owned()),
                 )
                 .child(
                     div()
-                        .text_size(px(13.0))
+                        .text_size(TextSize::Small.pixels(theme.font_size))
                         .text_color(theme.text_muted())
                         .child(subtitle.to_owned()),
                 ),
@@ -59,34 +54,71 @@ pub fn hero_header(
 }
 
 pub fn card(theme: &Theme) -> Div {
-    style::card(theme, style::CARD_RADIUS)
+    div()
         .flex()
         .flex_col()
         .w_full()
         .min_w_0()
         .flex_shrink_0()
         .overflow_hidden()
+        .rounded(Radius::Large.rems())
+        .bg(theme.elevated())
 }
 
 pub fn heading(title: &str, theme: &Theme) -> Div {
     div()
-        .px(px(18.0))
-        .pt(px(14.0))
-        .pb(px(4.0))
-        .text_size(px(15.0))
-        .line_height(px(20.0))
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_color(theme.text())
+        .px(Spacing::Large.rems())
+        .pt(Spacing::Large.rems())
+        .pb(Spacing::XSmall.rems())
+        .text_size(TextSize::Small.pixels(theme.font_size))
+        .font_weight(FontWeight::MEDIUM)
+        .text_color(theme.text_muted())
         .child(title.to_owned())
 }
 
 pub fn row_divider(theme: &Theme) -> AnyElement {
     div()
         .w_full()
-        .h(px(1.0))
+        .h(Spacing::Hairline.rems())
         .flex_shrink_0()
-        .bg(style::border(theme))
+        .bg(theme.border_variant())
         .into_any_element()
+}
+
+fn row_text(title: &str, subtitle: Option<&str>, theme: &Theme) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .flex_1()
+        .min_w_0()
+        .pr(Spacing::Large.rems())
+        .child(
+            div()
+                .min_w_0()
+                .truncate()
+                .text_color(theme.text())
+                .child(title.to_string()),
+        )
+        .when_some(subtitle, |column, subtitle| {
+            column.child(
+                div()
+                    .text_size(TextSize::Small.pixels(theme.font_size))
+                    .text_color(theme.text_muted())
+                    .child(subtitle.to_string()),
+            )
+        })
+}
+
+fn row() -> Div {
+    div()
+        .flex()
+        .items_center()
+        .justify_between()
+        .w_full()
+        .min_w_0()
+        .flex_shrink_0()
+        .px(Spacing::Large.rems())
+        .py(Spacing::Medium.rems())
 }
 
 pub fn control_row(
@@ -95,49 +127,9 @@ pub fn control_row(
     control: impl IntoElement,
     theme: &Theme,
 ) -> AnyElement {
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .w_full()
-        .min_w_0()
-        .flex_shrink_0()
-        .px(px(18.0))
-        .py(px(12.0))
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_w_0()
-                .pr(px(16.0))
-                .child(
-                    div()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_size(px(14.0))
-                        .line_height(px(20.0))
-                        .min_w_0()
-                        .text_ellipsis()
-                        .text_color(theme.text())
-                        .child(title.to_string()),
-                )
-                .when_some(subtitle, |this, sub| {
-                    this.child(
-                        div()
-                            .text_size(px(12.0))
-                            .text_color(theme.text_muted())
-                            .child(sub.to_string()),
-                    )
-                }),
-        )
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .flex_shrink_0()
-                .child(control),
-        )
+    row()
+        .child(row_text(title, subtitle, theme))
+        .child(div().flex().items_center().flex_shrink_0().child(control))
         .into_any_element()
 }
 
@@ -149,47 +141,9 @@ pub fn toggle_row(
     theme: &Theme,
     on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .w_full()
-        .min_w_0()
-        .flex_shrink_0()
-        .px(px(18.0))
-        .py(px(12.0))
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_w_0()
-                .pr(px(16.0))
-                .child(
-                    div()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_size(px(14.0))
-                        .line_height(px(20.0))
-                        .min_w_0()
-                        .text_ellipsis()
-                        .text_color(theme.text())
-                        .child(title.to_string()),
-                )
-                .when_some(subtitle, |this, sub| {
-                    this.child(
-                        div()
-                            .text_size(px(12.0))
-                            .text_color(theme.text_muted())
-                            .child(sub.to_string()),
-                    )
-                }),
-        )
-        .child(
-            Switch::new(id)
-                .checked(is_on)
-                .on_click(on_click),
-        )
+    row()
+        .child(row_text(title, subtitle, theme))
+        .child(Switch::new(id).checked(is_on).on_click(on_click))
         .into_any_element()
 }
 
@@ -207,44 +161,26 @@ pub fn slider_row(
         .w_full()
         .min_w_0()
         .flex_shrink_0()
-        .px(px(18.0))
-        .py(px(10.0))
-        .gap(px(8.0))
+        .px(Spacing::Large.rems())
+        .py(Spacing::Medium.rems())
+        .gap(Spacing::Small.rems())
         .child(
             div()
                 .flex()
-                .flex_row()
                 .items_center()
                 .justify_between()
                 .w_full()
                 .min_w_0()
+                .child(div().min_w_0().truncate().child(title.to_string()))
                 .child(
                     div()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_size(px(14.0))
-                        .line_height(px(20.0))
-                        .min_w_0()
-                        .text_ellipsis()
-                        .text_color(theme.text())
-                        .child(title.to_string()),
-                )
-                .child(
-                    div()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_size(px(12.0))
-                        .line_height(px(16.0))
-                        .px(px(8.0))
-                        .py(px(3.0))
-                        .rounded(px(8.0))
-                        .bg(style::raised(theme))
                         .flex_shrink_0()
-                        .text_color(theme.text())
+                        .text_size(TextSize::Small.pixels(theme.font_size))
+                        .text_color(theme.text_muted())
                         .child(display_val.to_string()),
                 ),
         )
-        .child(
-            Slider::new(id).value(pct).on_change(on_change),
-        )
+        .child(Slider::new(id).value(pct).on_change(on_change))
         .into_any_element()
 }
 
@@ -258,13 +194,8 @@ pub fn pill_button(
     Button::new(id)
         .label(label.to_string())
         .selected(is_selected)
-        .variant(if is_selected {
-            ButtonVariant::Primary
-        } else {
-            ButtonVariant::Secondary
-        })
+        .variant(ButtonVariant::Outline)
         .size(ButtonSize::Sm)
-        .pill(true)
         .on_click(on_click)
         .into_any_element()
 }

@@ -125,7 +125,11 @@ pub fn check_package_installed(pkg: &str, helper: &Option<AurHelper>) -> bool {
 }
 
 pub fn get_installed_starshell_version() -> Option<String> {
-    let paths = ["starshell", "/usr/local/bin/starshell", "/usr/bin/starshell"];
+    let paths = [
+        "starshell",
+        "/usr/local/bin/starshell",
+        "/usr/bin/starshell",
+    ];
     for p in paths {
         if let Ok(out) = Command::new(p).arg("--version").output() {
             if out.status.success() {
@@ -182,8 +186,12 @@ pub fn stop_starshell_process() {
     std::thread::sleep(std::time::Duration::from_millis(300));
 
     if is_starshell_running() {
-        let _ = Command::new("pkill").args(["-9", "-x", "starshell"]).status();
-        let _ = Command::new("pkill").args(["-9", "-x", "Starshell"]).status();
+        let _ = Command::new("pkill")
+            .args(["-9", "-x", "starshell"])
+            .status();
+        let _ = Command::new("pkill")
+            .args(["-9", "-x", "Starshell"])
+            .status();
     }
 }
 

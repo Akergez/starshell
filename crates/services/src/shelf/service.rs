@@ -20,7 +20,7 @@ impl ShelfService {
     pub fn new() -> Self {
         let (change_tx, _) = broadcast::channel(16);
         crate::spawn_blocking(|| {
-            super::icon_resolver::warm_icon_cache();
+            crate::icons::warm_icon_cache();
         });
         Self {
             items: Arc::new(Mutex::new(Vec::new())),

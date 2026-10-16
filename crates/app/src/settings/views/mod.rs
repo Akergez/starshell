@@ -1,4 +1,4 @@
-use gpui::{AnyElement, Context, KeyDownEvent, MouseMoveEvent, MouseUpEvent, Window};
+use gpui::{AnyElement, Context, KeyDownEvent, Window};
 
 pub mod appearance;
 pub mod apps;
@@ -18,20 +18,6 @@ pub trait SettingsView: 'static {
         &mut self,
         _event: &KeyDownEvent,
         _window: &mut Window,
-        _cx: &mut Context<Settings>,
-    ) -> bool {
-        false
-    }
-    fn handle_mouse_move(
-        &mut self,
-        _event: &MouseMoveEvent,
-        _cx: &mut Context<Settings>,
-    ) -> bool {
-        false
-    }
-    fn handle_mouse_up(
-        &mut self,
-        _event: &MouseUpEvent,
         _cx: &mut Context<Settings>,
     ) -> bool {
         false

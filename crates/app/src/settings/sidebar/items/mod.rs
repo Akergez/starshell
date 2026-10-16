@@ -37,14 +37,8 @@ impl SidebarItem for TabSidebarItem {
         self.tab
     }
 
-    fn title(&self, cx: &App) -> String {
-        if cx.has_global::<services::AppState>() {
-            cx.global::<services::AppState>()
-                .language
-                .get(self.title_key)
-        } else {
-            self.title_key.to_string()
-        }
+    fn title(&self, _cx: &App) -> String {
+        self.title_key.to_string()
     }
 
     fn icon(&self) -> &'static str {

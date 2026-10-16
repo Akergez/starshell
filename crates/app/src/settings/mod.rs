@@ -4,6 +4,7 @@ pub(crate) mod header;
 pub(crate) mod input;
 pub(crate) mod layout;
 pub(crate) mod sidebar;
+pub(crate) mod style;
 pub mod views;
 
 use std::time::{Duration, Instant};
@@ -37,14 +38,10 @@ pub struct Settings {
 impl Settings {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
-        let animation_duration_ms = if cx.has_global::<services::AppState>() {
-            cx.global::<services::AppState>()
-                .config
-                .get()
-                .ui
-                .animation_duration_ms as u64
+        let animation_duration_ms = if cx.reduce_motion() {
+            0
         } else {
-            250
+            ui::tokens::motion::BAR.as_millis() as u64
         };
 
         let views: Vec<(SettingsTab, Box<dyn SettingsView>)> = vec![
@@ -113,16 +110,10 @@ impl Settings {
             self.search_input.focused = false;
             self.scroll_handle.scroll_to_item(0);
 
-            let duration = if cx.has_global::<services::AppState>() {
-                Duration::from_millis(
-                    cx.global::<services::AppState>()
-                        .config
-                        .get()
-                        .ui
-                        .animation_duration_ms as u64,
-                )
+            let duration = if cx.reduce_motion() {
+                Duration::ZERO
             } else {
-                Duration::from_millis(200)
+                ui::tokens::motion::FAST
             };
             self.animator.start_section_transition(duration);
             if !self.frame_pending {

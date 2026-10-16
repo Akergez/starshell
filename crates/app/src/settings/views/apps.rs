@@ -2,24 +2,15 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Context, ElementId, IntoElement, ParentElement, Styled, Window,
-    div, px, svg,
+    AnyElement, Context, ElementId, IntoElement, ParentElement, Styled, Window, div, px, svg,
 };
 use services::{AppState, Application};
 use ui::components::select::{Select, SelectItem};
 use ui::theme::Theme;
 
-use super::common::{card, control_row, hero_header, row_divider};
 use super::SettingsView;
+use super::common::{card, control_row, hero_header, row_divider};
 use crate::settings::Settings;
-
-fn text(key: &str, cx: &App) -> String {
-    if cx.has_global::<AppState>() {
-        cx.global::<AppState>().language.get(key)
-    } else {
-        key.to_string()
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AppsField {
@@ -144,10 +135,7 @@ fn find_matching_app<'a>(cmd: &str, apps: &'a [Application]) -> Option<&'a Appli
     })
 }
 
-fn filter_apps_for_field<'a>(
-    field: AppsField,
-    apps: &'a [Application],
-) -> Vec<&'a Application> {
+fn filter_apps_for_field<'a>(field: AppsField, apps: &'a [Application]) -> Vec<&'a Application> {
     let mut filtered: Vec<&'a Application> = apps
         .iter()
         .filter(|app| {
@@ -286,7 +274,7 @@ fn render_select_for_field(
     cx: &mut Context<Settings>,
 ) -> AnyElement {
     let matched_app = find_matching_app(current_value, apps);
-    let placeholder = text("settings.select_app", cx);
+    let placeholder = String::from("Select application...");
     let display_name = if let Some(app) = matched_app {
         app.name.clone()
     } else if current_value.is_empty() {
@@ -424,36 +412,44 @@ impl SettingsView for AppsView {
             .min_w_0()
             .child(hero_header(
                 "grid-dots.svg",
-                &text("settings.apps_header_title", cx),
-                &text("settings.apps_header_subtitle", cx),
+                &String::from("Default Applications"),
+                &String::from("Tools and binaries executed by Capsule for your primary tasks."),
                 &theme,
             ))
             .child(
                 card(&theme)
                     .child(control_row(
-                        &text("settings.terminal_title", cx),
-                        Some(&text("settings.terminal_subtitle", cx)),
+                        &String::from("Terminal"),
+                        Some(&String::from(
+                            "Launched with 'capsule terminal' or terminal apps.",
+                        )),
                         term_select,
                         &theme,
                     ))
                     .child(row_divider(&theme))
                     .child(control_row(
-                        &text("settings.browser_title", cx),
-                        Some(&text("settings.browser_subtitle", cx)),
+                        &String::from("Web Browser"),
+                        Some(&String::from(
+                            "Launched with 'capsule browser' or system links.",
+                        )),
                         browser_select,
                         &theme,
                     ))
                     .child(row_divider(&theme))
                     .child(control_row(
-                        &text("settings.editor_title", cx),
-                        Some(&text("settings.editor_subtitle", cx)),
+                        &String::from("Code / Text Editor"),
+                        Some(&String::from(
+                            "Launched with 'capsule editor'. CLI editors run in terminal.",
+                        )),
                         editor_select,
                         &theme,
                     ))
                     .child(row_divider(&theme))
                     .child(control_row(
-                        &text("settings.file_manager_title", cx),
-                        Some(&text("settings.file_manager_subtitle", cx)),
+                        &String::from("File Manager"),
+                        Some(&String::from(
+                            "Launched with 'capsule files' or system file explorer.",
+                        )),
                         file_manager_select,
                         &theme,
                     )),

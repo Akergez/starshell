@@ -1,21 +1,14 @@
-use super::common::{hero_header, toggle_row};
 use super::SettingsView;
-use crate::capsule::widgets::style;
+use super::common::{hero_header, toggle_row};
 use crate::settings::Settings;
+use crate::settings::style;
 use gpui::{
-    AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled, Window, div, prelude::*, px, svg,
+    AnyElement, App, ColorExt, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled,
+    Window, div, prelude::*, px, svg,
 };
 use services::AppState;
 use ui::components::{IconButton, Slider, SliderRow};
 use ui::theme::Theme;
-
-fn text(key: &str, cx: &App) -> String {
-    if cx.has_global::<AppState>() {
-        cx.global::<AppState>().language.get(key)
-    } else {
-        key.to_string()
-    }
-}
 
 pub struct MediaView {
     show_output_devices: bool,
@@ -75,7 +68,12 @@ impl SettingsView for MediaView {
                 if !clean.is_empty() && cx.has_global::<AppState>() {
                     let state = cx.global::<AppState>();
                     let _ = state.config.update(|cfg| {
-                        if !cfg.mpris.players.iter().any(|p| p.eq_ignore_ascii_case(&clean)) {
+                        if !cfg
+                            .mpris
+                            .players
+                            .iter()
+                            .any(|p| p.eq_ignore_ascii_case(&clean))
+                        {
                             cfg.mpris.players.push(clean);
                         }
                     });
@@ -150,7 +148,11 @@ impl SettingsView for MediaView {
             SliderRow::mute_button(
                 "settings-output-mute",
                 &theme,
-                if out_muted { "volume-x.svg" } else { "volume-2.svg" },
+                if out_muted {
+                    "volume-x.svg"
+                } else {
+                    "volume-2.svg"
+                },
                 out_muted,
             )
             .on_click(|_, _, cx| {
@@ -159,7 +161,7 @@ impl SettingsView for MediaView {
                     let _ = system.toggle_mute().await;
                 });
             }),
-            text("settings.output_volume", cx),
+            "Output",
             Slider::new("settings-output-slider")
                 .color(active_color)
                 .on_change(Self::volume_listener(false, cx)),
@@ -179,7 +181,7 @@ impl SettingsView for MediaView {
                     let _ = system.toggle_input_mute().await;
                 });
             }),
-            text("settings.input_volume", cx),
+            "Input",
             Slider::new("settings-input-slider")
                 .color(in_active_color)
                 .on_change(Self::volume_listener(true, cx)),
@@ -195,7 +197,7 @@ impl SettingsView for MediaView {
                     .text_size(px(12.0))
                     .text_color(theme.text_muted())
                     .p(px(8.0))
-                    .child(text("settings.no_audio_output_devices", cx)),
+                    .child(String::from("No audio output devices found")),
             );
         } else {
             for sink in &status.audio_sinks {
@@ -222,7 +224,7 @@ impl SettingsView for MediaView {
                         .id(ElementId::Name(format!("sink-{}", sink.name).into()))
                         .w_full()
                         .p(px(10.0))
-                        .rounded(px(style::INNER_RADIUS))
+                        .rounded(ui::tokens::Radius::Medium.rems())
                         .flex()
                         .items_center()
                         .gap(px(12.0))
@@ -299,7 +301,7 @@ impl SettingsView for MediaView {
                     .text_size(px(12.0))
                     .text_color(theme.text_muted())
                     .p(px(8.0))
-                    .child(text("settings.no_audio_input_devices", cx)),
+                    .child(String::from("No audio input devices found")),
             );
         } else {
             for source in &status.audio_sources {
@@ -310,7 +312,7 @@ impl SettingsView for MediaView {
                         .id(ElementId::Name(format!("source-{}", source.name).into()))
                         .w_full()
                         .p(px(10.0))
-                        .rounded(px(style::INNER_RADIUS))
+                        .rounded(ui::tokens::Radius::Medium.rems())
                         .flex()
                         .items_center()
                         .gap(px(12.0))
@@ -386,41 +388,41 @@ impl SettingsView for MediaView {
                     .text_size(px(12.0))
                     .text_color(theme.text_muted())
                     .p(px(8.0))
-                    .child(text("settings.music_players_empty", cx)),
+                    .child(String::from("No music players configured.")),
             );
         } else {
             for (idx, player) in config.mpris.players.iter().enumerate() {
-            let p_name = player.clone();
-            players_list = players_list.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .w_full()
-                    .p(px(10.0))
-                    .rounded(px(style::INNER_RADIUS))
-                    .bg(style::surface(&theme))
-                    .child(
-                        div()
-                            .text_size(px(13.0))
-                            .font_weight(FontWeight::MEDIUM)
-                            .child(p_name),
-                    )
-                    .child(
-                        IconButton::new(format!("remove-player-{}", idx), "close.svg")
-                            .size(22.0)
-                            .icon_size(10.0)
-                            .on_click(cx.listener(move |_this, _, _, cx| {
-                                if cx.has_global::<AppState>() {
-                                    let _ = cx.global::<AppState>().config.update(|cfg| {
-                                        if idx < cfg.mpris.players.len() {
-                                            cfg.mpris.players.remove(idx);
-                                        }
-                                    });
-                                }
-                            })),
-                    ),
-            );
+                let p_name = player.clone();
+                players_list = players_list.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .w_full()
+                        .p(px(10.0))
+                        .rounded(ui::tokens::Radius::Medium.rems())
+                        .bg(style::surface(&theme))
+                        .child(
+                            div()
+                                .text_size(px(13.0))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(p_name),
+                        )
+                        .child(
+                            IconButton::new(format!("remove-player-{}", idx), "close.svg")
+                                .size(22.0)
+                                .icon_size(10.0)
+                                .on_click(cx.listener(move |_this, _, _, cx| {
+                                    if cx.has_global::<AppState>() {
+                                        let _ = cx.global::<AppState>().config.update(|cfg| {
+                                            if idx < cfg.mpris.players.len() {
+                                                cfg.mpris.players.remove(idx);
+                                            }
+                                        });
+                                    }
+                                })),
+                        ),
+                );
             }
         }
 
@@ -434,13 +436,13 @@ impl SettingsView for MediaView {
             // Header
             .child(hero_header(
                 "music.svg",
-                &text("settings.media_header_title", cx),
-                &text("settings.media_header_subtitle", cx),
+                &String::from("Media"),
+                &String::from("Media player control and authorized MPRIS services."),
                 &theme,
             ))
             // 1. Output Audio Card
             .child(
-                style::card(&theme, style::CARD_RADIUS)
+                style::card(&theme)
                     .flex()
                     .flex_col()
                     .gap(px(14.0))
@@ -460,13 +462,13 @@ impl SettingsView for MediaView {
                                         div()
                                             .text_size(px(14.0))
                                             .font_weight(FontWeight::MEDIUM)
-                                            .child(text("settings.output_volume_title", cx)),
+                                            .child(String::from("Audio Output")),
                                     )
                                     .child(
                                         div()
                                             .text_size(px(12.0))
                                             .text_color(theme.text_muted())
-                                            .child(text("settings.output_volume_subtitle", cx)),
+                                            .child(String::from("Volume control and playback device selection.")),
                                     ),
                             )
                             .child(
@@ -490,9 +492,9 @@ impl SettingsView for MediaView {
                                             .text_size(px(12.0))
                                             .text_color(theme.accent())
                                             .child(if show_out_devices {
-                                                text("settings.hide_devices", cx)
+                                                String::from("Hide devices")
                                             } else {
-                                                text("settings.choose_device", cx)
+                                                String::from("Choose device")
                                             }),
                                     )
                                     .child(
@@ -508,7 +510,7 @@ impl SettingsView for MediaView {
             )
             // 2. Input Audio Card
             .child(
-                style::card(&theme, style::CARD_RADIUS)
+                style::card(&theme)
                     .flex()
                     .flex_col()
                     .gap(px(14.0))
@@ -528,13 +530,13 @@ impl SettingsView for MediaView {
                                         div()
                                             .text_size(px(14.0))
                                             .font_weight(FontWeight::MEDIUM)
-                                            .child(text("settings.input_volume_title", cx)),
+                                            .child(String::from("Audio Input (Microphone)")),
                                     )
                                     .child(
                                         div()
                                             .text_size(px(12.0))
                                             .text_color(theme.text_muted())
-                                            .child(text("settings.input_volume_subtitle", cx)),
+                                            .child(String::from("Volume control and capture device selection.")),
                                     ),
                             )
                             .child(
@@ -558,9 +560,9 @@ impl SettingsView for MediaView {
                                             .text_size(px(12.0))
                                             .text_color(theme.accent())
                                             .child(if show_in_devices {
-                                                text("settings.hide_devices", cx)
+                                                String::from("Hide devices")
                                             } else {
-                                                text("settings.choose_device", cx)
+                                                String::from("Choose device")
                                             }),
                                     )
                                     .child(
@@ -576,7 +578,7 @@ impl SettingsView for MediaView {
             )
             // 3. Media Player & MPRIS Options Card
             .child(
-                style::card(&theme, style::CARD_RADIUS)
+                style::card(&theme)
                     .flex()
                     .flex_col()
                     .gap(px(14.0))
@@ -584,8 +586,8 @@ impl SettingsView for MediaView {
                     .w_full()
                     .child(toggle_row(
                         ElementId::Name("toggle-media-lockscreen".into()),
-                        &text("settings.show_media_title", cx),
-                        Some(&text("settings.show_media_subtitle", cx)),
+                        &String::from("Media Player"),
+                        Some(&String::from("Shows MPRIS controls and lyrics on lockscreen.")),
                         config.lockscreen.show_media_player,
                         &theme,
                         cx.listener(|_this, _, _, cx| {
@@ -612,13 +614,13 @@ impl SettingsView for MediaView {
                                         div()
                                             .text_size(px(14.0))
                                             .font_weight(FontWeight::MEDIUM)
-                                            .child(text("settings.music_players_title", cx)),
+                                            .child(String::from("Music Players (MPRIS)")),
                                     )
                                     .child(
                                         div()
                                             .text_size(px(12.0))
                                             .text_color(theme.text_muted())
-                                            .child(text("settings.music_players_subtitle", cx)),
+                                            .child(String::from("MPRIS services tracked for media playback (e.g. Spotify, Fastpotify).")),
                                     ),
                             )
                             .child(
@@ -641,13 +643,13 @@ impl SettingsView for MediaView {
                                         div()
                                             .text_size(px(12.0))
                                             .text_color(theme.accent())
-                                            .child(text("settings.music_players_add", cx)),
+                                            .child(String::from("Add")),
                                     )
                                     .child(svg().path("plus.svg").size(px(14.0)).text_color(theme.accent())),
                             ),
                     )
                     .when(self.is_adding_player, |s| {
-                        let placeholder = text("settings.music_players_placeholder", cx);
+                        let placeholder = String::from("App name...");
                         let text_val = if self.new_player_input.is_empty() {
                             &placeholder
                         } else {
@@ -657,7 +659,7 @@ impl SettingsView for MediaView {
                             div()
                                 .w_full()
                                 .p(px(10.0))
-                                .rounded(px(style::INNER_RADIUS))
+                                .rounded(ui::tokens::Radius::Medium.rems())
                                 .bg(style::surface(&theme))
                                 .border_1()
                                 .border_color(theme.accent())

@@ -41,6 +41,11 @@ pub enum IpcCommand {
     ShowRecord,
     ToggleShelf,
     ShowShelf,
+    ToggleAudio,
+    ToggleDisplays,
+    ToggleMedia,
+    ToggleCalendar,
+    ToggleSystem,
 }
 
 impl FromStr for IpcCommand {
@@ -107,6 +112,15 @@ impl FromStr for IpcCommand {
                 Ok(IpcCommand::ToggleShelf)
             }
             "show-shelf" | "show shelf" => Ok(IpcCommand::ShowShelf),
+            "toggle-audio" | "toggle audio" | "audio" | "volume" => Ok(IpcCommand::ToggleAudio),
+            "toggle-displays" | "toggle displays" | "displays" | "brightness" => {
+                Ok(IpcCommand::ToggleDisplays)
+            }
+            "toggle-media" | "toggle media" | "media" | "player" => Ok(IpcCommand::ToggleMedia),
+            "toggle-calendar" | "toggle calendar" | "calendar" => Ok(IpcCommand::ToggleCalendar),
+            "toggle-system" | "toggle system" | "system" | "sysinfo" => {
+                Ok(IpcCommand::ToggleSystem)
+            }
             _ => anyhow::bail!("Unknown IPC command: '{s}'"),
         }
     }
@@ -143,6 +157,11 @@ pub fn encode_command(command: &IpcCommand) -> String {
         IpcCommand::ShowRecord => "show-record".to_string(),
         IpcCommand::ToggleShelf => "toggle-shelf".to_string(),
         IpcCommand::ShowShelf => "show-shelf".to_string(),
+        IpcCommand::ToggleAudio => "toggle-audio".to_string(),
+        IpcCommand::ToggleDisplays => "toggle-displays".to_string(),
+        IpcCommand::ToggleMedia => "toggle-media".to_string(),
+        IpcCommand::ToggleCalendar => "toggle-calendar".to_string(),
+        IpcCommand::ToggleSystem => "toggle-system".to_string(),
     }
 }
 

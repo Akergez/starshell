@@ -1,7 +1,9 @@
+pub mod applets;
+pub mod bar;
 pub mod lockscreen;
-pub mod capsule;
 pub mod panel;
 pub mod settings;
+pub mod shell;
 
 use assets::Assets;
 use gpui_platform::application;
@@ -41,7 +43,7 @@ fn run_application() {
     if let Some(ref raw) = cmd_arg {
         let normalized = raw.trim().to_lowercase();
         if normalized == "--version" || normalized == "-v" || normalized == "version" {
-            println!("Capsule {}", env!("CARGO_PKG_VERSION"));
+            println!("Starshell {}", env!("CARGO_PKG_VERSION"));
             return;
         }
 
@@ -52,7 +54,7 @@ fn run_application() {
 
         if services::decode_command(raw).is_none() {
             eprintln!("Error: Unknown command '{raw}'.");
-            eprintln!("Run 'Capsule --help' for a list of available commands.");
+            eprintln!("Run 'starshell --help' for a list of available commands.");
             std::process::exit(1);
         }
     }
@@ -79,49 +81,62 @@ fn run_application() {
         let app_state = services::AppState::new();
         cx.set_global(app_state);
 
+        let ui_config = cx.global::<services::AppState>().config.get().ui.clone();
+        cx.set_reduce_motion(ui_config.reduce_motion);
         let mut theme_manager = ui::theme::theme_manager::ThemeManager::new();
         theme_manager.current_theme = theme_manager
             .selected_theme
             .clone()
-            .with_mode(cx.global::<services::AppState>().config.get().ui.dark_mode);
+            .with_mode(ui_config.dark_mode);
         cx.set_global(theme_manager.current_theme.clone());
         cx.set_global(theme_manager);
         settings::appearance::initialize(cx);
 
-        panel::CapsulePanel::open(cx, ipc_subscriber);
+        shell::state::ShellState::init(cx);
+        shell::Shell::init(cx);
+        shell::ipc::start(cx);
+        ipc_subscriber.start();
     });
 }
 
 fn print_help() {
     println!(
-        r#"Capsule - Dynamic Island & Dashboard for Wayland
+        r#"Starshell - bar, control center and launcher for Wayland
 
 USAGE:
-    Capsule [COMMAND]
+    starshell [COMMAND]
 
 COMMANDS:
-    (no args)           Start Capsule daemon process
-    toggle-launcher     Toggle application launcher (alias: launcher)
-    toggle-dashboard    Toggle main dashboard panel (alias: dashboard)
-    toggle-themes       Toggle theme selector (aliases: themes, select-theme)
-    toggle-wallpapers   Toggle wallpaper selector (aliases: wallpapers, select-wallpaper)
-    show-themes         Show theme selector
-    show-wallpapers     Show wallpaper selector
-    toggle-notification Toggle notification panel (alias: notifications)
-    toggle-clipboard    Toggle clipboard history manager (alias: clipboard, clip)
-    show-launcher       Show application launcher
-    show-dashboard      Show main dashboard panel
-    show-notification   Show notification panel
-    show-clipboard      Show clipboard history manager
-    lock                Lock screen (alias: lockscreen)
-    terminal            Launch default terminal (alias: term)
-    browser             Launch default browser (alias: web)
-    editor              Launch default editor (alias: edit)
-    settings            Open settings application (alias: config, preferences)
-    toggle-record       Toggle screen recording module (alias: record)
-    hide                Hide panels and return to compact pill (alias: close)
-    quit                Stop running Capsule daemon (alias: exit)
-    ping                Check if Capsule daemon is running
+    (no args)           Start the Starshell daemon
+    toggle-launcher     Toggle the launcher (alias: launcher)
+    toggle-dashboard    Toggle the control center (alias: dashboard)
+    toggle-audio        Toggle the audio applet (alias: audio)
+    toggle-displays     Toggle the displays applet (alias: displays)
+    toggle-media        Toggle the media player applet (alias: media)
+    toggle-calendar     Toggle the calendar applet (alias: calendar)
+    toggle-system       Toggle the system applet (alias: system)
+    toggle-notification Toggle the notification center (alias: notifications)
+    toggle-clipboard    Toggle clipboard history (aliases: clipboard, clip)
+    toggle-emoji        Toggle the emoji picker (alias: emoji)
+    toggle-shelf        Toggle the file shelf (alias: shelf)
+    toggle-record       Toggle the screen recorder (alias: record)
+    toggle-themes       Toggle the theme selector (aliases: themes, select-theme)
+    toggle-wallpapers   Toggle the wallpaper selector (aliases: wallpapers, select-wallpaper)
+    show-launcher       Show the launcher
+    show-dashboard      Show the control center
+    show-notification   Show the notification center
+    show-clipboard      Show clipboard history
+    show-themes         Show the theme selector
+    show-wallpapers     Show the wallpaper selector
+    lock                Lock the screen (alias: lockscreen)
+    terminal            Launch the default terminal (alias: term)
+    browser             Launch the default browser (alias: web)
+    editor              Launch the default editor (alias: edit)
+    files               Launch the default file manager
+    settings            Open settings (aliases: config, preferences)
+    hide                Close the open applet (alias: close)
+    quit                Stop the running daemon (alias: exit)
+    ping                Check whether the daemon is running
     help, --help, -h    Print this help message"#
     );
 }

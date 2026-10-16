@@ -17,6 +17,111 @@ pub struct AudioSource {
     pub is_default: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AppStream {
+    pub index: u32,
+    pub name: String,
+    pub icon_name: Option<String>,
+    pub volume: u32,
+    pub muted: bool,
+    pub sink: String,
+}
+
+pub fn parse_app_streams(inputs: &str, sinks: &str) -> Vec<AppStream> {
+    let sink_names: std::collections::HashMap<u64, String> =
+        serde_json::from_str::<Vec<serde_json::Value>>(sinks)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|sink| Some((sink["index"].as_u64()?, sink["name"].as_str()?.to_string())))
+            .collect();
+    serde_json::from_str::<Vec<serde_json::Value>>(inputs)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|input| {
+            let properties = &input["properties"];
+            let name = properties["application.name"]
+                .as_str()
+                .or_else(|| properties["application.process.binary"].as_str())?
+                .to_string();
+            let volume = input["volume"]
+                .as_object()
+                .and_then(|channels| channels.values().next())
+                .and_then(|channel| channel["value_percent"].as_str())
+                .and_then(|percent| percent.trim_end_matches('%').parse().ok())
+                .unwrap_or(100);
+            Some(AppStream {
+                index: input["index"].as_u64()? as u32,
+                name,
+                icon_name: properties["application.icon_name"]
+                    .as_str()
+                    .map(str::to_string),
+                volume,
+                muted: input["mute"].as_bool().unwrap_or(false),
+                sink: input["sink"]
+                    .as_u64()
+                    .and_then(|sink| sink_names.get(&sink).cloned())
+                    .unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+async fn pactl_json(args: &[&str]) -> String {
+    let output = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        Command::new("pactl")
+            .args(["-f", "json"])
+            .args(args)
+            .output(),
+    )
+    .await;
+    match output {
+        Ok(Ok(output)) if output.status.success() => {
+            String::from_utf8_lossy(&output.stdout).into_owned()
+        }
+        _ => String::new(),
+    }
+}
+
+pub async fn fetch_app_streams() -> Vec<AppStream> {
+    let (inputs, sinks) = tokio::join!(
+        pactl_json(&["list", "sink-inputs"]),
+        pactl_json(&["list", "sinks", "short"]),
+    );
+    parse_app_streams(&inputs, &sinks)
+}
+
+pub async fn set_stream_volume(index: u32, percent: u32) -> Result<()> {
+    run_pactl(&[
+        "set-sink-input-volume",
+        &index.to_string(),
+        &format!("{percent}%"),
+    ])
+    .await
+}
+
+pub async fn toggle_stream_mute(index: u32) -> Result<()> {
+    run_pactl(&["set-sink-input-mute", &index.to_string(), "toggle"]).await
+}
+
+pub async fn move_stream(index: u32, sink_name: &str) -> Result<()> {
+    run_pactl(&["move-sink-input", &index.to_string(), sink_name]).await
+}
+
+async fn run_pactl(args: &[&str]) -> Result<()> {
+    let output = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        Command::new("pactl").args(args).output(),
+    )
+    .await??;
+    anyhow::ensure!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    Ok(())
+}
+
 pub async fn monitor_audio_levels(sender: tokio::sync::watch::Sender<[f32; 12]>) {
     loop {
         if sender.is_closed() {
@@ -492,7 +597,9 @@ pub async fn parse_wpctl_sources() -> Vec<AudioSource> {
     sources
 }
 
-pub async fn listen_pactl_events(on_change: impl Fn() -> tokio::task::JoinHandle<()> + Send + Sync + 'static) {
+pub async fn listen_pactl_events(
+    on_change: impl Fn() -> tokio::task::JoinHandle<()> + Send + Sync + 'static,
+) {
     loop {
         if let Ok(mut child) = Command::new("pactl")
             .arg("subscribe")
@@ -506,10 +613,7 @@ pub async fn listen_pactl_events(on_change: impl Fn() -> tokio::task::JoinHandle
                 let _ = on_change();
                 let mut reader = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = reader.next_line().await {
-                    if line.contains("sink")
-                        || line.contains("source")
-                        || line.contains("server")
-                    {
+                    if line.contains("sink") || line.contains("source") || line.contains("server") {
                         let _ = on_change();
                     }
                 }
@@ -518,5 +622,26 @@ pub async fn listen_pactl_events(on_change: impl Fn() -> tokio::task::JoinHandle
             let _ = child.wait().await;
         }
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+}
+
+#[cfg(test)]
+mod stream_tests {
+    use super::*;
+
+    #[test]
+    fn only_application_streams_are_listed_with_their_output() {
+        let inputs = r#"[
+            {"index":72,"sink":4294967295,"mute":false,"volume":{"aux0":{"value_percent":"100%"}},"properties":{"media.name":"Speakers DSP Out"}},
+            {"index":80,"sink":58,"mute":true,"volume":{"front-left":{"value_percent":"42%"}},"properties":{"application.name":"Firefox","application.icon_name":"firefox"}}
+        ]"#;
+        let sinks = r#"[{"index":58,"name":"alsa_output.headphones"}]"#;
+        let streams = parse_app_streams(inputs, sinks);
+        assert_eq!(streams.len(), 1);
+        assert_eq!(streams[0].name, "Firefox");
+        assert_eq!(streams[0].volume, 42);
+        assert!(streams[0].muted);
+        assert_eq!(streams[0].sink, "alsa_output.headphones");
+        assert_eq!(streams[0].icon_name.as_deref(), Some("firefox"));
     }
 }

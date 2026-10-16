@@ -1,7 +1,7 @@
 use super::{HEIGHT, Settings, WIDTH, header, views};
-use crate::capsule::widgets::style;
 use gpui::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, prelude::*, px};
 use ui::theme::Theme;
+use ui::tokens::{Radius, Spacing};
 
 pub(crate) fn render_settings(
     settings: &mut Settings,
@@ -9,16 +9,6 @@ pub(crate) fn render_settings(
     cx: &mut Context<Settings>,
 ) -> AnyElement {
     let theme = cx.global::<Theme>().clone();
-    let capsule_radius = if cx.has_global::<services::AppState>() {
-        cx.global::<services::AppState>()
-            .config
-            .get()
-            .ui
-            .capsule_round
-    } else {
-        24.0
-    };
-
     let viewport = window.viewport_size();
     let width = (f32::from(viewport.width) - 48.0).clamp(0.0, WIDTH);
     let height = (f32::from(viewport.height) - 48.0).clamp(0.0, HEIGHT);
@@ -36,9 +26,10 @@ pub(crate) fn render_settings(
     };
 
     let header = header::render_header(&settings.search_input, &theme, cx);
-    let sidebar_element = settings
-        .sidebar
-        .render(settings.active_tab, !query.is_empty(), &theme, cx);
+    let sidebar_element =
+        settings
+            .sidebar
+            .render(settings.active_tab, !query.is_empty(), &theme, cx);
 
     let card = div()
         .id("settings-modal-card")
@@ -57,42 +48,19 @@ pub(crate) fn render_settings(
         .max_h_full()
         .flex()
         .flex_col()
-        .gap(px(20.0))
-        .p(px(24.0))
+        .gap(Spacing::XLarge.rems())
+        .p(Spacing::XXLarge.rems())
         .flex_shrink_0()
-        .rounded(px(capsule_radius))
-        .bg(style::background(&theme))
+        .rounded(Radius::XLarge.rems())
+        .bg(theme.surface())
         .border_1()
-        .border_color(style::border(&theme))
+        .border_color(theme.border_variant())
         .shadow_xl()
         .font_family(theme.font_family())
+        .text_size(theme.font_size())
         .text_color(theme.text())
         .overflow_hidden()
         .opacity(settings.animator.card_opacity)
-        .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {
-            if let Some((_, view)) = this.views.iter_mut().find(|(t, _)| *t == this.active_tab) {
-                if view.handle_mouse_move(event, cx) {
-                    cx.notify();
-                }
-            }
-        }))
-        .capture_any_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-            if let Some((_, view)) = this.views.iter_mut().find(|(t, _)| *t == this.active_tab) {
-                if view.handle_mouse_up(event, cx) {
-                    cx.notify();
-                }
-            }
-        }))
-        .on_mouse_up(
-            gpui::MouseButton::Left,
-            cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
-                if let Some((_, view)) = this.views.iter_mut().find(|(t, _)| *t == this.active_tab) {
-                    if view.handle_mouse_up(event, cx) {
-                        cx.notify();
-                    }
-                }
-            }),
-        )
         .child(header)
         .child(
             div()
@@ -126,34 +94,10 @@ pub(crate) fn render_settings(
                 ),
         );
 
-    let entity = cx.entity().downgrade();
-    let entity_move = entity.clone();
-    let entity_up = entity.clone();
-
     div()
         .id("settings-window-root")
         .track_focus(&settings.focus_handle)
         .on_key_down(cx.listener(Settings::handle_key_down))
-        .on_mouse_move_all(move |event, phase, _hitbox, _window, cx| {
-            if phase == gpui::DispatchPhase::Bubble {
-                let _ = entity_move.update(cx, |this, cx| {
-                    if let Some((_, view)) = this.views.iter_mut().find(|(t, _)| *t == this.active_tab) {
-                        if view.handle_mouse_move(event, cx) {
-                            cx.notify();
-                        }
-                    }
-                });
-            }
-        })
-        .on_mouse_up_all(move |event, _phase, _hitbox, _window, cx| {
-            let _ = entity_up.update(cx, |this, cx| {
-                if let Some((_, view)) = this.views.iter_mut().find(|(t, _)| *t == this.active_tab) {
-                    if view.handle_mouse_up(event, cx) {
-                        cx.notify();
-                    }
-                }
-            });
-        })
         .relative()
         .size_full()
         .overflow_hidden()

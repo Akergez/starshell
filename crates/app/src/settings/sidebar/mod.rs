@@ -5,8 +5,8 @@ use gpui::{
 };
 use ui::theme::Theme;
 
-use crate::capsule::widgets::style;
 use crate::settings::Settings;
+use crate::settings::style;
 pub use items::{SettingsTab, SidebarItem, TabSidebarItem};
 
 pub struct Sidebar {
@@ -18,32 +18,32 @@ impl Sidebar {
         let items: Vec<Box<dyn SidebarItem>> = vec![
             Box::new(TabSidebarItem::new(
                 SettingsTab::Appearance,
-                "settings.tab_appearance",
+                "Appearance",
                 "palette.svg",
             )),
             Box::new(TabSidebarItem::new(
                 SettingsTab::Apps,
-                "settings.tab_apps",
+                "Applications",
                 "grid-dots.svg",
             )),
             Box::new(TabSidebarItem::new(
                 SettingsTab::Media,
-                "settings.tab_media",
+                "Media",
                 "music.svg",
             )),
             Box::new(TabSidebarItem::new(
                 SettingsTab::LockScreen,
-                "settings.tab_lockscreen",
+                "Lock Screen",
                 "lock.svg",
             )),
             Box::new(TabSidebarItem::new(
                 SettingsTab::System,
-                "settings.tab_system",
+                "System",
                 "settings.svg",
             )),
             Box::new(TabSidebarItem::new(
                 SettingsTab::Record,
-                "settings.tab_record",
+                "Recording",
                 "play.svg",
             )),
         ];

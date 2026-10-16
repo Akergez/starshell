@@ -6,11 +6,13 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 pub mod audio;
 pub mod brightness;
 mod capture;
+pub mod displays;
 pub mod power;
 mod usage;
 
-pub use audio::{AudioSink, AudioSource};
+pub use audio::{AppStream, AudioSink, AudioSource};
 pub use capture::CaptureStatus;
+pub use displays::{Display, DisplayBackend, DisplayService};
 pub use usage::UsageStatus;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -22,6 +24,7 @@ pub struct SystemStatus {
     pub brightness: u32,
     pub audio_sinks: Vec<AudioSink>,
     pub audio_sources: Vec<AudioSource>,
+    pub streams: Vec<AppStream>,
 }
 
 #[derive(Clone)]
@@ -202,6 +205,7 @@ impl SystemService {
         let brightness = brightness::fetch_brightness().await.unwrap_or(100);
         let audio_sinks = audio::fetch_audio_sinks().await;
         let audio_sources = audio::fetch_audio_sources().await;
+        let streams = audio::fetch_app_streams().await;
 
         let current = self.status.load();
         let vol_muted = output.unwrap_or((current.volume, current.is_muted));
@@ -214,6 +218,7 @@ impl SystemService {
             brightness,
             audio_sinks,
             audio_sources,
+            streams,
         };
 
         self.status.store(Arc::new(new_status));
@@ -239,6 +244,29 @@ impl SystemService {
 
     pub async fn set_default_source(&self, source_name: &str) -> Result<()> {
         audio::set_default_source(source_name).await?;
+        self.refresh().await
+    }
+
+    pub async fn set_stream_volume(&self, index: u32, percent: u32) -> Result<()> {
+        let mut status = (**self.status.load()).clone();
+        for stream in status
+            .streams
+            .iter_mut()
+            .filter(|stream| stream.index == index)
+        {
+            stream.volume = percent;
+        }
+        self.status.store(Arc::new(status));
+        audio::set_stream_volume(index, percent).await
+    }
+
+    pub async fn toggle_stream_mute(&self, index: u32) -> Result<()> {
+        audio::toggle_stream_mute(index).await?;
+        self.refresh().await
+    }
+
+    pub async fn move_stream(&self, index: u32, sink_name: &str) -> Result<()> {
+        audio::move_stream(index, sink_name).await?;
         self.refresh().await
     }
 

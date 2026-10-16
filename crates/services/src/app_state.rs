@@ -1,7 +1,8 @@
 use crate::{
-    CalendarService, ClipboardService, CompositorService, ConfigService, IdleService, LangService,
-    LauncherService, LyricsService, MprisService, NetworkService, PolkitService, PowerService,
-    RecordService, ShelfService, SniHostService, SystemService, wallpaper::WallpaperService,
+    CalendarService, ClipboardService, CompositorService, ConfigService, DisplayService,
+    IdleService, LauncherService, LyricsService, MprisService, NetworkService, PolkitService,
+    PowerService, RecordService, ShelfService, SniHostService, SystemService, VpnService,
+    wallpaper::WallpaperService,
 };
 
 #[derive(Clone)]
@@ -10,17 +11,18 @@ pub struct AppState {
     pub launcher: LauncherService,
     pub mpris: MprisService,
     pub system: SystemService,
+    pub displays: DisplayService,
     pub lyrics: LyricsService,
     pub compositor: CompositorService,
     pub polkit: PolkitService,
     pub sni_host: SniHostService,
     pub wallpaper: WallpaperService,
     pub network: NetworkService,
+    pub vpn: VpnService,
     pub calendar: CalendarService,
     pub power: PowerService,
     pub clipboard: ClipboardService,
     pub idle: IdleService,
-    pub language: LangService,
     pub record: RecordService,
     pub shelf: ShelfService,
 }
@@ -43,11 +45,11 @@ impl AppState {
         let compositor = CompositorService::new();
         let wallpaper = WallpaperService::new(compositor.clone());
         let network = NetworkService::new();
+        let vpn = VpnService::new();
         let calendar = CalendarService::new();
         let power = PowerService::new();
         let clipboard = ClipboardService::new();
         let idle = IdleService::new(config.clone());
-        let language = LangService::new(&config.get().ui.language);
         let record = RecordService::new();
         let shelf = ShelfService::new();
 
@@ -56,17 +58,18 @@ impl AppState {
             launcher: LauncherService::new(),
             mpris: MprisService::new(config),
             system: SystemService::new(),
+            displays: DisplayService::new(),
             lyrics: LyricsService::new(),
             compositor,
             polkit: PolkitService::new(),
             sni_host,
             wallpaper,
             network,
+            vpn,
             calendar,
             power,
             clipboard,
             idle,
-            language,
             record,
             shelf,
         }

@@ -403,7 +403,9 @@ mod tests {
             *service.active_session.lock().await = Some(ActiveSession {
                 backend: RecordBackend::GpuScreenRecorder,
                 output_path: PathBuf::from("/tmp/fixture.mp4"),
-                ipc_socket_path: Some(PathBuf::from("/tmp/starshell-nonexistent-recorder-ipc.sock")),
+                ipc_socket_path: Some(PathBuf::from(
+                    "/tmp/starshell-nonexistent-recorder-ipc.sock",
+                )),
                 child_pid: 0,
                 child: None,
                 accumulated_active_duration: Duration::from_secs(5),

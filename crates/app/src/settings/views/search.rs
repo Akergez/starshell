@@ -1,31 +1,23 @@
 use gpui::{
-    AnyElement, App, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled, div,
+    AnyElement, Context, ElementId, FontWeight, IntoElement, ParentElement, Styled, div,
     prelude::*, px, svg,
 };
-use services::{AppState, CapsuleStyle};
+use services::AppState;
 use ui::theme::Theme;
 
 use super::common::{card, control_row, hero_header, row_divider, toggle_row};
-use crate::capsule::widgets::style;
-use crate::settings::sidebar::SettingsTab;
 use crate::settings::Settings;
+use crate::settings::sidebar::SettingsTab;
+use crate::settings::style;
 
-fn text(key: &str, cx: &App) -> String {
-    if cx.has_global::<AppState>() {
-        cx.global::<AppState>().language.get(key)
-    } else {
-        key.to_string()
-    }
-}
-
-fn tab_name(tab: SettingsTab, cx: &App) -> String {
+fn tab_name(tab: SettingsTab) -> String {
     match tab {
-        SettingsTab::Appearance => text("settings.tab_appearance", cx),
-        SettingsTab::Apps => text("settings.tab_apps", cx),
-        SettingsTab::Media => text("settings.tab_media", cx),
-        SettingsTab::LockScreen => text("settings.tab_lockscreen", cx),
-        SettingsTab::System => text("settings.tab_system", cx),
-        SettingsTab::Record => text("settings.tab_record", cx),
+        SettingsTab::Appearance => String::from("Appearance"),
+        SettingsTab::Apps => String::from("Applications"),
+        SettingsTab::Media => String::from("Media"),
+        SettingsTab::LockScreen => String::from("Lock Screen"),
+        SettingsTab::System => String::from("System"),
+        SettingsTab::Record => String::from("Recording"),
     }
 }
 
@@ -33,9 +25,9 @@ fn tab_name(tab: SettingsTab, cx: &App) -> String {
 pub enum SearchControl {
     ToggleDynamicColors,
     ToggleDarkMode,
-    ToggleConcaveStyle,
+    ToggleReduceMotion,
+    ToggleBarAutoHide,
     ToggleClock24,
-    ToggleLegacyCapsule,
     ToggleLockscreenClock,
     ToggleLockscreenMedia,
     ToggleRecordCursor,
@@ -44,200 +36,238 @@ pub enum SearchControl {
 
 struct SearchDefinition {
     id: &'static str,
-    title_key: &'static str,
-    desc_key: &'static str,
+    title: &'static str,
+    description: &'static str,
     tab: SettingsTab,
     keywords: &'static [&'static str],
     control: SearchControl,
 }
 
 const SEARCH_DEFINITIONS: &[SearchDefinition] = &[
-    // --- Appearance ---
     SearchDefinition {
         id: "dynamic-colors",
-        title_key: "settings.dynamic_colors",
-        desc_key: "settings.dynamic_colors_hint",
+        title: "Dynamic colors",
+        description: "Derive the accent from the wallpaper",
         tab: SettingsTab::Appearance,
-        keywords: &["colores", "dinamicos", "fondo", "wallpaper", "dynamic", "colors", "material", "tema"],
+        keywords: &[
+            "wallpaper",
+            "dynamic",
+            "colors",
+            "palette",
+            "accent",
+            "theme",
+        ],
         control: SearchControl::ToggleDynamicColors,
     },
     SearchDefinition {
         id: "dark-mode",
-        title_key: "settings.dark_mode",
-        desc_key: "settings.color_mode_hint",
+        title: "Dark mode",
+        description: "Independent of the selected theme",
         tab: SettingsTab::Appearance,
-        keywords: &["oscuro", "claro", "dark", "light", "modo", "mode", "color", "tema", "theme"],
+        keywords: &["dark", "light", "mode", "theme", "night"],
         control: SearchControl::ToggleDarkMode,
     },
     SearchDefinition {
-        id: "concave-style",
-        title_key: "settings.concave_style",
-        desc_key: "settings.style_description",
+        id: "font-size",
+        title: "Font size",
+        description: "Scales the whole interface",
         tab: SettingsTab::Appearance,
-        keywords: &["concavo", "modo concavo", "concave", "curvo", "estilo", "style", "flotante", "floating", "capsula"],
-        control: SearchControl::ToggleConcaveStyle,
+        keywords: &["font", "size", "scale", "text", "zoom", "units"],
+        control: SearchControl::Navigate(SettingsTab::Appearance),
+    },
+    SearchDefinition {
+        id: "reduce-motion",
+        title: "Reduce motion",
+        description: "Show every change instantly",
+        tab: SettingsTab::Appearance,
+        keywords: &["motion", "animation", "reduce", "accessibility"],
+        control: SearchControl::ToggleReduceMotion,
     },
     SearchDefinition {
         id: "clock-24",
-        title_key: "settings.clock_24",
-        desc_key: "settings.clock_format_hint",
+        title: "24-hour clock",
+        description: "Clock format in the bar",
         tab: SettingsTab::Appearance,
-        keywords: &["reloj", "clock", "24", "12", "hora", "time", "formato", "format"],
+        keywords: &["clock", "time", "24", "12", "format", "hour"],
         control: SearchControl::ToggleClock24,
     },
     SearchDefinition {
-        id: "capsule-location",
-        title_key: "settings.location_title",
-        desc_key: "settings.location_hint",
+        id: "bar-layout",
+        title: "Bar",
+        description: "Position and height of the bar",
         tab: SettingsTab::Appearance,
-        keywords: &["ubicacion", "posicion", "arriba", "abajo", "top", "bottom", "location", "position", "capsula"],
+        keywords: &[
+            "bar", "panel", "position", "top", "bottom", "height", "size",
+        ],
         control: SearchControl::Navigate(SettingsTab::Appearance),
     },
     SearchDefinition {
-        id: "dimensions-radii",
-        title_key: "settings.radii_heading",
-        desc_key: "settings.appearance_subtitle",
+        id: "bar-auto-hide",
+        title: "Auto-hide",
+        description: "Leave a thin strip that reveals the bar on hover",
         tab: SettingsTab::Appearance,
-        keywords: &["radio", "radius", "round", "esquinas", "satelites", "tarjetas", "altura", "height", "idle", "margen", "margin", "gap", "separacion"],
-        control: SearchControl::Navigate(SettingsTab::Appearance),
+        keywords: &["bar", "hide", "auto", "autohide"],
+        control: SearchControl::ToggleBarAutoHide,
     },
-    SearchDefinition {
-        id: "motion-duration",
-        title_key: "settings.anim_duration_title",
-        desc_key: "settings.motion_heading",
-        tab: SettingsTab::Appearance,
-        keywords: &["animacion", "animaciones", "duracion", "velocidad", "speed", "animation", "motion", "ms"],
-        control: SearchControl::Navigate(SettingsTab::Appearance),
-    },
-    SearchDefinition {
-        id: "legacy-capsule",
-        title_key: "settings.old_capsule",
-        desc_key: "settings.restart_hint",
-        tab: SettingsTab::Appearance,
-        keywords: &["antigua", "vieja", "old", "legacy", "clasica", "capsula", "obsoleta"],
-        control: SearchControl::ToggleLegacyCapsule,
-    },
-
-    // --- Apps ---
     SearchDefinition {
         id: "apps-defaults",
-        title_key: "settings.apps_title",
-        desc_key: "settings.apps_subtitle",
+        title: "Default Applications",
+        description: "Tools and binaries Starshell runs for your primary tasks.",
         tab: SettingsTab::Apps,
-        keywords: &["aplicaciones", "apps", "terminal", "consola", "browser", "navegador", "web", "editor", "codigo", "code", "archivos", "files", "explorador"],
+        keywords: &[
+            "apps",
+            "terminal",
+            "console",
+            "browser",
+            "web",
+            "editor",
+            "code",
+            "files",
+            "file manager",
+        ],
         control: SearchControl::Navigate(SettingsTab::Apps),
     },
-
-    // --- Media ---
     SearchDefinition {
         id: "audio-output",
-        title_key: "settings.output_volume_title",
-        desc_key: "settings.output_volume_subtitle",
+        title: "Audio Output",
+        description: "Volume control and playback device selection.",
         tab: SettingsTab::Media,
-        keywords: &["audio", "volumen", "volume", "salida", "output", "altavoces", "speakers", "parlantes", "sonido", "sound"],
+        keywords: &[
+            "audio",
+            "volume",
+            "output",
+            "speakers",
+            "headphones",
+            "sound",
+        ],
         control: SearchControl::Navigate(SettingsTab::Media),
     },
     SearchDefinition {
         id: "audio-input",
-        title_key: "settings.input_volume_title",
-        desc_key: "settings.input_volume_subtitle",
+        title: "Audio Input (Microphone)",
+        description: "Volume control and capture device selection.",
         tab: SettingsTab::Media,
-        keywords: &["microfono", "mic", "input", "entrada", "audio", "grabacion", "voz", "sonido"],
+        keywords: &[
+            "microphone",
+            "mic",
+            "input",
+            "audio",
+            "recording",
+            "voice",
+            "sound",
+        ],
         control: SearchControl::Navigate(SettingsTab::Media),
     },
     SearchDefinition {
         id: "music-players",
-        title_key: "settings.music_players_title",
-        desc_key: "settings.music_players_subtitle",
+        title: "Music Players (MPRIS)",
+        description: "MPRIS services tracked for media playback (e.g. Spotify).",
         tab: SettingsTab::Media,
-        keywords: &["reproductores", "players", "musica", "music", "spotify", "mpris", "autorizados", "whitelist"],
+        keywords: &["players", "music", "spotify", "mpris", "whitelist", "media"],
         control: SearchControl::Navigate(SettingsTab::Media),
     },
-
-    // --- Lock Screen ---
     SearchDefinition {
         id: "lock-clock",
-        title_key: "settings.show_clock_title",
-        desc_key: "settings.show_clock_subtitle",
+        title: "Show Clock",
+        description: "Shows time and date in screen center.",
         tab: SettingsTab::LockScreen,
-        keywords: &["reloj", "bloqueo", "clock", "lockscreen", "hora", "fecha"],
+        keywords: &["clock", "lockscreen", "time", "date"],
         control: SearchControl::ToggleLockscreenClock,
     },
     SearchDefinition {
         id: "lock-media",
-        title_key: "settings.show_media_title",
-        desc_key: "settings.show_media_subtitle",
+        title: "Media Player",
+        description: "Shows MPRIS controls and lyrics on lockscreen.",
         tab: SettingsTab::LockScreen,
-        keywords: &["reproductor", "bloqueo", "lockscreen", "mpris", "musica", "music", "spotify", "cancion", "media"],
+        keywords: &[
+            "player",
+            "lockscreen",
+            "mpris",
+            "music",
+            "spotify",
+            "song",
+            "media",
+            "lyrics",
+        ],
         control: SearchControl::ToggleLockscreenMedia,
     },
     SearchDefinition {
         id: "lock-idle-timeout",
-        title_key: "settings.idle_timeout_title",
-        desc_key: "settings.lockscreen_header_subtitle",
+        title: "Idle Timeout",
+        description: "Lock the screen after a period of inactivity.",
         tab: SettingsTab::LockScreen,
-        keywords: &["inactividad", "bloqueo", "timeout", "idle", "suspension", "lock", "pantalla de bloqueo", "tiempo"],
+        keywords: &[
+            "idle",
+            "timeout",
+            "lock",
+            "lockscreen",
+            "inactivity",
+            "time",
+        ],
         control: SearchControl::Navigate(SettingsTab::LockScreen),
     },
     SearchDefinition {
         id: "lock-date-time-format",
-        title_key: "settings.time_format_title",
-        desc_key: "settings.date_format_title",
+        title: "Time Format",
+        description: "Date Format",
         tab: SettingsTab::LockScreen,
-        keywords: &["formato", "hora", "fecha", "format", "time", "date", "chrono", "reloj"],
+        keywords: &["format", "time", "date", "clock"],
         control: SearchControl::Navigate(SettingsTab::LockScreen),
-    },
-
-    // --- System ---
-    SearchDefinition {
-        id: "system-language",
-        title_key: "settings.language_title",
-        desc_key: "settings.language_subtitle",
-        tab: SettingsTab::System,
-        keywords: &["idioma", "lenguaje", "language", "español", "espanol", "spanish", "ingles", "english", "interfaz"],
-        control: SearchControl::Navigate(SettingsTab::System),
     },
     SearchDefinition {
         id: "system-power",
-        title_key: "settings.power_plan_title",
-        desc_key: "settings.power_plan_subtitle",
+        title: "Power Plan",
+        description: "Adjusts processor power and consumption via power-profiles-daemon.",
         tab: SettingsTab::System,
-        keywords: &["energia", "power", "bateria", "battery", "rendimiento", "performance", "perfil", "plan", "balanceado", "ahorro"],
+        keywords: &[
+            "power",
+            "battery",
+            "performance",
+            "profile",
+            "plan",
+            "balanced",
+            "saver",
+        ],
         control: SearchControl::Navigate(SettingsTab::System),
     },
-
-    // --- Record ---
     SearchDefinition {
         id: "record-output",
-        title_key: "settings.record_output_title",
-        desc_key: "settings.record_output_subtitle",
+        title: "Video Output",
+        description: "Monitor or screen to capture during recording.",
         tab: SettingsTab::Record,
-        keywords: &["grabacion", "record", "pantalla", "screen", "monitor", "video", "salida"],
+        keywords: &["record", "screen", "monitor", "video", "output"],
         control: SearchControl::Navigate(SettingsTab::Record),
     },
     SearchDefinition {
         id: "record-quality",
-        title_key: "settings.record_quality_title",
-        desc_key: "settings.record_fps_title",
+        title: "Video Quality",
+        description: "Resolution, frame rate and container.",
         tab: SettingsTab::Record,
-        keywords: &["fps", "resolucion", "calidad", "quality", "frame rate", "video", "1080p", "720p", "mkv", "mp4", "contenedor", "container"],
+        keywords: &[
+            "fps",
+            "resolution",
+            "quality",
+            "frame rate",
+            "video",
+            "1080p",
+            "720p",
+            "mkv",
+            "mp4",
+            "container",
+        ],
         control: SearchControl::Navigate(SettingsTab::Record),
     },
     SearchDefinition {
         id: "record-cursor",
-        title_key: "settings.record_cursor_title",
-        desc_key: "settings.record_cursor_subtitle",
+        title: "Capture Cursor",
+        description: "Include mouse pointer in the recording.",
         tab: SettingsTab::Record,
-        keywords: &["cursor", "puntero", "raton", "mouse", "pointer", "grabacion", "record"],
+        keywords: &["cursor", "mouse", "pointer", "record"],
         control: SearchControl::ToggleRecordCursor,
     },
 ];
 
-pub fn render_search_results(
-    query: &str,
-    theme: &Theme,
-    cx: &mut Context<Settings>,
-) -> AnyElement {
+pub fn render_search_results(query: &str, theme: &Theme, cx: &mut Context<Settings>) -> AnyElement {
     let query_clean = query.trim().to_lowercase();
     let query_words: Vec<&str> = query_clean.split_whitespace().collect();
 
@@ -250,15 +280,18 @@ pub fn render_search_results(
     let mut matched_rows = Vec::new();
 
     for def in SEARCH_DEFINITIONS {
-        let title = text(def.title_key, cx);
-        let desc = text(def.desc_key, cx);
-        let tab_str = tab_name(def.tab, cx);
+        let title = def.title.to_string();
+        let desc = def.description.to_string();
+        let tab_str = tab_name(def.tab);
 
         let matches = query_words.iter().all(|qw| {
             title.to_lowercase().contains(qw)
                 || desc.to_lowercase().contains(qw)
                 || tab_str.to_lowercase().contains(qw)
-                || def.keywords.iter().any(|k| k.to_lowercase().contains(qw) || qw.contains(&k.to_lowercase()))
+                || def
+                    .keywords
+                    .iter()
+                    .any(|k| k.to_lowercase().contains(qw) || qw.contains(&k.to_lowercase()))
         });
 
         if !matches {
@@ -304,8 +337,8 @@ pub fn render_search_results(
                     }),
                 )
             }
-            SearchControl::ToggleConcaveStyle => {
-                let is_on = config.ui.capsule_style == CapsuleStyle::Concave;
+            SearchControl::ToggleReduceMotion => {
+                let is_on = config.ui.reduce_motion;
                 toggle_row(
                     ElementId::Name(format!("search-toggle-{}", def.id).into()),
                     &title,
@@ -313,15 +346,9 @@ pub fn render_search_results(
                     is_on,
                     theme,
                     cx.listener(|_this, _, _, cx| {
-                        if cx.has_global::<AppState>() {
-                            let _ = cx.global::<AppState>().config.update(|cfg| {
-                                cfg.ui.capsule_style = if cfg.ui.capsule_style == CapsuleStyle::Normal {
-                                    CapsuleStyle::Concave
-                                } else {
-                                    CapsuleStyle::Normal
-                                };
-                            });
-                        }
+                        let _ = cx.global::<AppState>().config.update(|cfg| {
+                            cfg.ui.reduce_motion = !cfg.ui.reduce_motion;
+                        });
                         cx.notify();
                     }),
                 )
@@ -344,8 +371,8 @@ pub fn render_search_results(
                     }),
                 )
             }
-            SearchControl::ToggleLegacyCapsule => {
-                let is_on = !config.ui.use_new_capsule;
+            SearchControl::ToggleBarAutoHide => {
+                let is_on = config.bar.auto_hide;
                 toggle_row(
                     ElementId::Name(format!("search-toggle-{}", def.id).into()),
                     &title,
@@ -353,11 +380,9 @@ pub fn render_search_results(
                     is_on,
                     theme,
                     cx.listener(|_this, _, _, cx| {
-                        if cx.has_global::<AppState>() {
-                            let _ = cx.global::<AppState>().config.update(|cfg| {
-                                cfg.ui.use_new_capsule = !cfg.ui.use_new_capsule;
-                            });
-                        }
+                        let _ = cx.global::<AppState>().config.update(|cfg| {
+                            cfg.bar.auto_hide = !cfg.bar.auto_hide;
+                        });
                         cx.notify();
                     }),
                 )
@@ -391,7 +416,8 @@ pub fn render_search_results(
                     cx.listener(|_this, _, _, cx| {
                         if cx.has_global::<AppState>() {
                             let _ = cx.global::<AppState>().config.update(|cfg| {
-                                cfg.lockscreen.show_media_player = !cfg.lockscreen.show_media_player;
+                                cfg.lockscreen.show_media_player =
+                                    !cfg.lockscreen.show_media_player;
                             });
                         }
                         cx.notify();
@@ -462,7 +488,7 @@ pub fn render_search_results(
     };
 
     if matched_rows.is_empty() {
-        let no_sub = text("settings.search_no_results_subtitle", cx)
+        let no_sub = String::from("No settings found matching \"{query}\"")
             .replace("{query}", &display_query);
 
         div()
@@ -494,7 +520,7 @@ pub fn render_search_results(
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_size(px(16.0))
                     .text_color(theme.text())
-                    .child(text("settings.search_no_results_title", cx)),
+                    .child(String::from("No results")),
             )
             .child(
                 div()
@@ -509,7 +535,7 @@ pub fn render_search_results(
             .into_any_element()
     } else {
         let count_str = matched_rows.len().to_string();
-        let sub_text = text("settings.search_results_subtitle", cx)
+        let sub_text = String::from("{count} options found for \"{query}\"")
             .replace("{count}", &count_str)
             .replace("{query}", &display_query);
 
@@ -529,7 +555,7 @@ pub fn render_search_results(
             .min_w_0()
             .child(hero_header(
                 "search.svg",
-                &text("settings.search_results_title", cx),
+                &String::from("Search Results"),
                 &sub_text,
                 theme,
             ))
