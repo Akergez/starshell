@@ -11,6 +11,7 @@ Capsule becomes Starshell, rebuilt after the Starshell design specification.
 * **Control center**: battery header with wallpaper, settings and power buttons, Wi-Fi, Bluetooth, VPN, Performance, Microphone and Camera tiles whose panels expand in place, and output and display sliders.
 * **Applets**: audio with per-application volume and output, displays over backlight and DDC/CI, media player, system usage, calendar, notification center, clipboard, emoji, shelf, recorder, themes, wallpapers and tray menus, one at a time next to where they were opened.
 * **Launcher**: driven by pop-launcher, with completion, contextual actions and file, calculator and window plugins.
+* **Session**: a Starshell login session that runs niri and Starshell as systemd user services, starts XDG autostart entries and restarts the shell after a crash.
 * **VPN**: NetworkManager VPN and WireGuard profiles can be brought up, taken down and edited.
 
 ### Improvements

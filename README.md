@@ -59,6 +59,7 @@ right = ["recorder", "tray", "notifications", "system", "audio", "displays", "co
 
 ### Session
 - Notification popups, a Polkit authentication agent, a lock screen and a settings window.
+- A **Starshell** login session: pick it in your display manager and it starts niri and Starshell as systemd user services, runs XDG autostart entries and restarts the shell if it crashes.
 
 ## Theming & Templates
 Starshell includes a declarative theming engine that automatically synchronizes your system colors across your terminals, compositor, shell, and file managers in real time without external template dependencies.
@@ -187,6 +188,15 @@ git clone https://github.com/moiCR/Capsule.git
 cd Capsule
 cargo build --release
 ```
+
+To add the login session by hand, install the files from `crates/installer/session`:
+```bash
+sudo install -Dm644 crates/installer/session/starshell.desktop /usr/share/wayland-sessions/starshell.desktop
+sudo install -Dm755 crates/installer/session/starshell-session /usr/local/bin/starshell-session
+sudo install -Dm644 crates/installer/session/starshell.service /usr/local/lib/systemd/user/starshell.service
+sudo install -Dm644 crates/installer/session/starshell-session.target /usr/local/lib/systemd/user/starshell-session.target
+```
+Inside a plain niri session, start the shell with `spawn-at-startup "systemctl" "--user" "start" "starshell.service"`.
 
 ## Requirements
 Starshell is a Wayland desktop shell and expects a real Wayland runtime with layer-shell support, not a bare X11 setup.

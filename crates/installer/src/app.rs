@@ -269,6 +269,17 @@ impl App {
                 }
 
                 let _ = tx.send(WorkerMsg::Progress(
+                    0.98,
+                    "Installing the Starshell session...".to_string(),
+                ));
+                let _ = tx.send(WorkerMsg::Log(
+                    "Writing the Starshell login session and its systemd units...".to_string(),
+                ));
+                if let Err(e) = install::install_session(sudo_pass.as_deref()) {
+                    return Err(format!("Failed to install the session: {}", e));
+                }
+
+                let _ = tx.send(WorkerMsg::Progress(
                     1.0,
                     "Installation finished successfully!".to_string(),
                 ));

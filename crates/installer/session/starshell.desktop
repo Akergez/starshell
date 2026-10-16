@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Starshell
+Comment=Starshell desktop on the niri compositor
+Exec=/usr/local/bin/starshell-session
+Type=Application
+DesktopNames=niri

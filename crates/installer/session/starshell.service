@@ -1,0 +1,11 @@
+[Unit]
+Description=Starshell shell
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+Slice=session.slice
+ExecStart=/usr/local/bin/starshell
+Restart=on-failure
+RestartSec=1
