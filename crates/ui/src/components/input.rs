@@ -1,9 +1,8 @@
 use crate::theme::Theme;
 use gpui::{
-    AnyElement, App, ClickEvent, ColorExt, DefiniteLength, DurationWithEasing, ElementId,
-    FontWeight, Hsla, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Pixels,
-    RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div, ease_in_out, millis,
-    prelude::*, px, svg,
+    AnyElement, App, ClickEvent, ColorExt, DefiniteLength, ElementId, FontWeight, Hsla,
+    InteractiveElement, IntoElement, KeyDownEvent, ParentElement, Pixels, RenderOnce, SharedString,
+    StatefulInteractiveElement, Styled, Window, div, prelude::*, px, svg,
 };
 use std::ops::Range;
 
@@ -661,18 +660,21 @@ impl RenderOnce for Input {
             .cursor_visible
             .unwrap_or(self.focused && !self.disabled);
 
-        let height = self.height.unwrap_or(px(44.0));
-        let rounded = self.rounded.unwrap_or(px(9999.0));
-        let bg_color = self.bg.unwrap_or_else(|| theme.elevated());
-        let font_size = self.text_size.unwrap_or(px(14.0));
+        let height = self.height.unwrap_or_else(|| {
+            crate::tokens::units_to_pixels(crate::tokens::size::CONTROL, theme.font_size)
+        });
+        let rounded = self.rounded.unwrap_or_else(|| {
+            crate::tokens::units_to_pixels(crate::tokens::Radius::Medium.value(), theme.font_size)
+        });
+        let bg_color = self.bg.unwrap_or_else(|| theme.background());
+        let font_size = self.text_size.unwrap_or_else(|| theme.font_size());
 
         let current_border = if self.error {
             theme.error()
         } else if self.focused {
             self.focused_border_color.unwrap_or_else(|| theme.accent())
         } else {
-            self.border_color
-                .unwrap_or_else(|| theme.elevated().opacity(0.35))
+            self.border_color.unwrap_or_else(|| theme.border_variant())
         };
 
         let mut container = div()
@@ -686,12 +688,12 @@ impl RenderOnce for Input {
             .bg(bg_color)
             .border_1()
             .border_color(current_border)
-            .px(px(14.0))
-            .gap(px(10.0))
+            .px(crate::tokens::Spacing::Medium.rems())
+            .gap(crate::tokens::Spacing::Small.rems())
             .cursor_text()
             .transitions(|t| {
-                t.border_color(millis(160).with_easing(ease_in_out))
-                    .bg(millis(160).with_easing(ease_in_out))
+                t.border_color(crate::tokens::motion::fast_cubic())
+                    .bg(crate::tokens::motion::fast_cubic())
             });
 
         if let Some(w) = self.width {

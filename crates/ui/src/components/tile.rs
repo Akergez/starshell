@@ -101,7 +101,7 @@ pub fn tile_colors(theme: &Theme, active: bool, expanded: bool) -> TileColors {
     }
 }
 
-fn zone(id: ElementId, base: Hsla, theme: &Theme) -> gpui::Stateful<gpui::Div> {
+fn zone(id: ElementId, base: Hsla, interactive: bool, theme: &Theme) -> gpui::Stateful<gpui::Div> {
     let hover = mix(base, theme.text(), 0.06);
     let active = mix(base, theme.text(), 0.12);
     div()
@@ -109,10 +109,12 @@ fn zone(id: ElementId, base: Hsla, theme: &Theme) -> gpui::Stateful<gpui::Div> {
         .flex()
         .items_center()
         .bg(gpui::transparent_black())
-        .cursor_pointer()
-        .hover(move |style| style.bg(hover))
-        .active(move |style| style.bg(active))
         .transitions(|transitions| transitions.bg(motion::fast_cubic()))
+        .when(interactive, |zone| {
+            zone.cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .active(move |style| style.bg(active))
+        })
 }
 
 impl RenderOnce for Tile {
@@ -127,47 +129,47 @@ impl RenderOnce for Tile {
         };
         let inner_radius = units(Radius::Large.value() - Spacing::Hairline.value());
 
-        let body = zone((self.id.clone(), "body").into(), colors.background, theme)
-            .flex_1()
-            .min_w_0()
-            .gap(Spacing::Medium.rems())
-            .px(Spacing::Large.rems())
-            .py(Spacing::Medium.rems())
-            .rounded_l(inner_radius)
-            .when(!has_chevron, |body| body.rounded_r(inner_radius))
-            .when(body_action.is_none(), |body| {
-                body.cursor_default()
-                    .hover(|style| style)
-                    .active(|style| style)
-            })
-            .child(
-                svg()
-                    .path(self.icon)
-                    .flex_shrink_0()
-                    .size(IconSize::Large.rems())
-                    .text_color(colors.icon),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .min_w_0()
-                    .child(
-                        div()
-                            .truncate()
-                            .text_size(TextSize::Default.pixels(theme.font_size))
-                            .text_color(theme.text())
-                            .child(self.title),
-                    )
-                    .child(
-                        div()
-                            .truncate()
-                            .text_size(TextSize::Small.pixels(theme.font_size))
-                            .text_color(theme.text_muted())
-                            .child(self.status),
-                    ),
-            )
-            .when_some(body_action, |body, action| body.on_click(action));
+        let body = zone(
+            (self.id.clone(), "body").into(),
+            colors.background,
+            body_action.is_some(),
+            theme,
+        )
+        .flex_1()
+        .min_w_0()
+        .gap(Spacing::Medium.rems())
+        .px(Spacing::Large.rems())
+        .py(Spacing::Medium.rems())
+        .rounded_l(inner_radius)
+        .when(!has_chevron, |body| body.rounded_r(inner_radius))
+        .child(
+            svg()
+                .path(self.icon)
+                .flex_shrink_0()
+                .size(IconSize::Large.rems())
+                .text_color(colors.icon),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .min_w_0()
+                .child(
+                    div()
+                        .truncate()
+                        .text_size(TextSize::Default.pixels(theme.font_size))
+                        .text_color(theme.text())
+                        .child(self.title),
+                )
+                .child(
+                    div()
+                        .truncate()
+                        .text_size(TextSize::Small.pixels(theme.font_size))
+                        .text_color(theme.text_muted())
+                        .child(self.status),
+                ),
+        )
+        .when_some(body_action, |body, action| body.on_click(action));
 
         div()
             .id(self.id.clone())
@@ -198,6 +200,7 @@ impl RenderOnce for Tile {
                     zone(
                         (self.id.clone(), "chevron").into(),
                         colors.background,
+                        true,
                         theme,
                     )
                     .flex_shrink_0()

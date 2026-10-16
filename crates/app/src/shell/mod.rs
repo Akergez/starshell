@@ -11,7 +11,7 @@ use gpui::{
 };
 use services::{AppState, BarPosition};
 use ui::theme::Theme;
-use ui::tokens::units_to_pixels;
+use ui::tokens::{size, units_to_pixels};
 
 use crate::applets::AppletKind;
 use crate::bar::Bar;
@@ -118,7 +118,7 @@ impl Shell {
             return;
         }
         Self::close_now(cx);
-        let options = overlay_options(display);
+        let options = overlay_options(display, cx);
         let opened = cx.open_window(options, |window, cx| {
             window.set_rem_size(cx.global::<Theme>().font_size());
             cx.new(|cx| Overlay::new(surface, placement.x, window, cx))
@@ -146,14 +146,20 @@ impl Shell {
     }
 
     fn open_bars(cx: &mut App) {
-        let displays = cx.displays();
+        let mut displays: Vec<Option<DisplayId>> = cx
+            .displays()
+            .iter()
+            .map(|display| Some(display.id()))
+            .collect();
+        if displays.is_empty() {
+            displays.push(None);
+        }
         let mut bars = Vec::new();
-        for display in displays {
-            let id = display.id();
-            let options = bar_options(Some(id), cx);
+        for id in displays {
+            let options = bar_options(id, cx);
             match cx.open_window(options, |window, cx| {
                 window.set_rem_size(cx.global::<Theme>().font_size());
-                cx.new(|cx| Bar::new(Some(id), cx))
+                cx.new(|cx| Bar::new(id, cx))
             }) {
                 Ok(handle) => bars.push(handle),
                 Err(error) => eprintln!("Failed to open bar: {error}"),
@@ -216,7 +222,7 @@ fn bar_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
         titlebar: None,
         window_bounds: Some(WindowBounds::Windowed(gpui::Bounds {
             origin: gpui::point(px(0.0), px(0.0)),
-            size: gpui::size(px(0.0), height),
+            size: gpui::size(display_width(display, cx).unwrap_or(height), height),
         })),
         app_id: Some("starshell-bar".to_string()),
         linux_window_background: LinuxWindowBackground::Transparent,
@@ -233,11 +239,36 @@ fn bar_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
     }
 }
 
-fn overlay_options(display: Option<DisplayId>) -> WindowOptions {
+fn display_width(display: Option<DisplayId>, cx: &App) -> Option<Pixels> {
+    cx.displays()
+        .into_iter()
+        .find(|candidate| display.is_none_or(|id| candidate.id() == id))
+        .map(|display| display.bounds().size.width)
+}
+
+fn initial_overlay_size(display: Option<DisplayId>, cx: &App) -> gpui::Size<Pixels> {
+    if let Some(display) = cx
+        .displays()
+        .into_iter()
+        .find(|candidate| display.is_none_or(|id| candidate.id() == id))
+    {
+        return display.bounds().size;
+    }
+    let font_size = cx.global::<Theme>().font_size;
+    gpui::size(
+        units_to_pixels(size::PANEL_MIN_WIDTH, font_size),
+        units_to_pixels(size::PANEL_MIN_HEIGHT, font_size),
+    )
+}
+
+fn overlay_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
     WindowOptions {
         display_id: display,
         titlebar: None,
-        window_bounds: Some(WindowBounds::Windowed(gpui::Bounds::default())),
+        window_bounds: Some(WindowBounds::Windowed(gpui::Bounds {
+            origin: gpui::point(px(0.0), px(0.0)),
+            size: initial_overlay_size(display, cx),
+        })),
         app_id: Some("starshell-overlay".to_string()),
         linux_window_background: LinuxWindowBackground::Transparent,
         inactive_frame_interval: None,

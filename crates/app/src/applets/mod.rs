@@ -1,5 +1,7 @@
+pub mod audio;
 pub mod common;
 pub mod control_center;
+pub mod displays;
 
 use gpui::{AppContext, Context, Pixels, Window};
 use ui::tokens::size;
@@ -57,6 +59,21 @@ pub fn build(surface: Surface, window: &mut Window, cx: &mut Context<Overlay>) -
                 view: view.into(),
             }
         }
+        Surface::Launcher => {
+            let view = cx.new(|cx| crate::launcher::Launcher::new(window, cx));
+            Content {
+                focus: Some(view.read(cx).focus_handle()),
+                view: view.into(),
+            }
+        }
+        Surface::Applet(AppletKind::Audio) => Content {
+            view: cx.new(audio::AudioApplet::new).into(),
+            focus: None,
+        },
+        Surface::Applet(AppletKind::Displays) => Content {
+            view: cx.new(displays::DisplaysApplet::new).into(),
+            focus: None,
+        },
         _ => common::placeholder(surface, cx),
     }
 }
