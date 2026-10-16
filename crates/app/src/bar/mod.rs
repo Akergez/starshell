@@ -21,6 +21,7 @@ pub struct Bar {
     state: Entity<ShellState>,
     revealed: bool,
     pointer_inside: bool,
+    drag: Option<Task<()>>,
     applied_region: Option<(bool, gpui::Size<gpui::Pixels>)>,
     hide: Option<Task<()>>,
     _observe: Subscription,
@@ -44,6 +45,7 @@ impl Bar {
             state,
             revealed: !autohide_enabled(cx),
             pointer_inside: false,
+            drag: None,
             applied_region: None,
             hide: None,
             _observe: observe,
@@ -89,13 +91,39 @@ impl Bar {
         self.sync_visibility(window, cx);
     }
 
+    fn drag_entered(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.drag.is_some() {
+            return;
+        }
+        let delay = std::time::Duration::from_millis(
+            cx.global::<AppState>().config.get().bar.autohide_delay_ms,
+        );
+        self.drag = Some(cx.spawn_in(window, async move |this, cx| {
+            loop {
+                cx.background_executor().timer(delay).await;
+                let ended = this.update_in(cx, |bar: &mut Bar, window, cx| {
+                    if cx.has_active_drag() {
+                        return false;
+                    }
+                    bar.drag = None;
+                    bar.sync_visibility(window, cx);
+                    true
+                });
+                if ended.unwrap_or(true) {
+                    break;
+                }
+            }
+        }));
+        self.sync_visibility(window, cx);
+    }
+
     pub(crate) fn sync_visibility(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !autohide_enabled(cx) {
             self.hide = None;
             self.set_revealed(true, window, cx);
             return;
         }
-        if self.pointer_inside || Shell::current(cx).is_some() {
+        if self.pointer_inside || self.drag.is_some() || Shell::current(cx).is_some() {
             self.hide = None;
             self.set_revealed(true, window, cx);
             return;
@@ -111,7 +139,7 @@ impl Bar {
             cx.background_executor().timer(delay).await;
             let _ = this.update_in(cx, |bar: &mut Bar, window, cx| {
                 bar.hide = None;
-                if !bar.pointer_inside && Shell::current(cx).is_none() {
+                if !bar.pointer_inside && bar.drag.is_none() && Shell::current(cx).is_none() {
                     bar.set_revealed(false, window, cx);
                 }
             });
@@ -611,7 +639,9 @@ impl Render for Bar {
             .size_full()
             .overflow_hidden()
             .on_mouse_move(cx.listener(|bar, _, window, cx| {
-                if !bar.pointer_inside {
+                if cx.has_active_drag() {
+                    bar.drag_entered(window, cx);
+                } else if !bar.pointer_inside {
                     bar.hovered(true, window, cx);
                 }
             }))
