@@ -166,24 +166,20 @@ impl InputState {
     }
 
     pub fn move_left(&mut self, select: bool) {
-        if !select {
-            if let Some(range) = self.selection.take() {
-                self.selection_anchor = None;
-                self.cursor = range.start;
-                return;
-            }
+        if !select && let Some(range) = self.selection.take() {
+            self.selection_anchor = None;
+            self.cursor = range.start;
+            return;
         }
         let new_cursor = self.cursor.saturating_sub(1);
         self.update_cursor(new_cursor, select);
     }
 
     pub fn move_right(&mut self, select: bool) {
-        if !select {
-            if let Some(range) = self.selection.take() {
-                self.selection_anchor = None;
-                self.cursor = range.end.min(self.chars.len());
-                return;
-            }
+        if !select && let Some(range) = self.selection.take() {
+            self.selection_anchor = None;
+            self.cursor = range.end.min(self.chars.len());
+            return;
         }
         let new_cursor = (self.cursor + 1).min(self.chars.len());
         self.update_cursor(new_cursor, select);
@@ -290,10 +286,10 @@ impl InputState {
     }
 
     pub fn paste(&mut self, cx: &mut App) {
-        if let Some(item) = cx.read_from_clipboard() {
-            if let Some(text) = item.text() {
-                self.insert(&text);
-            }
+        if let Some(item) = cx.read_from_clipboard()
+            && let Some(text) = item.text()
+        {
+            self.insert(&text);
         }
     }
 

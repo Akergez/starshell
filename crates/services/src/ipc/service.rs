@@ -137,10 +137,10 @@ impl IpcSubscriber {
         }
 
         // No existing instance and no command, become primary
-        if path.exists() {
-            if let Err(e) = std::fs::remove_file(&path) {
-                crate::log_warn!("IPC", "Failed to remove stale socket: {e}");
-            }
+        if path.exists()
+            && let Err(e) = std::fs::remove_file(&path)
+        {
+            crate::log_warn!("IPC", "Failed to remove stale socket: {e}");
         }
 
         let listener = match UnixListener::bind(&path) {

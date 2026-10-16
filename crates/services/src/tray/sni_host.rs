@@ -112,6 +112,12 @@ impl SniHostService {
     }
 }
 
+impl Default for SniHostService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ── D-Bus Watcher Server ─────────────────────────────────────────────────────
 
 struct StatusNotifierWatcherServer {
@@ -144,11 +150,11 @@ impl StatusNotifierWatcherServer {
             format!("{}/StatusNotifierItem", service)
         };
 
-        if let Ok(mut items) = self.raw_services.lock() {
-            if !items.contains(&item_path) {
-                items.push(item_path);
-                self.notify.notify_one();
-            }
+        if let Ok(mut items) = self.raw_services.lock()
+            && !items.contains(&item_path)
+        {
+            items.push(item_path);
+            self.notify.notify_one();
         }
     }
 
@@ -231,11 +237,11 @@ async fn run_sni_service(host: SniHostService) -> anyhow::Result<()> {
                 continue;
             }
 
-            if let Some((last_fetch, cached_item)) = item_cache.get(svc) {
-                if now.duration_since(*last_fetch) < Duration::from_secs(30) {
-                    detailed_items.push(cached_item.clone());
-                    continue;
-                }
+            if let Some((last_fetch, cached_item)) = item_cache.get(svc)
+                && now.duration_since(*last_fetch) < Duration::from_secs(30)
+            {
+                detailed_items.push(cached_item.clone());
+                continue;
             }
 
             let id = get_string_prop(&conn, &bus_name, &obj_path, "Id")
@@ -256,22 +262,21 @@ async fn run_sni_service(host: SniHostService) -> anyhow::Result<()> {
 
             let mut icon_file_path =
                 resolve_icon_file(&icon_name, icon_theme_path.as_deref(), &id, &title);
-            if icon_file_path.is_none() {
-                if let Some(saved) = save_pixmap_to_file(&conn, &bus_name, &obj_path, &id).await {
-                    icon_file_path = Some(saved);
-                }
+            if icon_file_path.is_none()
+                && let Some(saved) = save_pixmap_to_file(&conn, &bus_name, &obj_path, &id).await
+            {
+                icon_file_path = Some(saved);
             }
 
             let mut menu_items = Vec::new();
-            if let Some(ref mp) = menu_path {
-                if let Ok(fetched) = timeout(
+            if let Some(ref mp) = menu_path
+                && let Ok(fetched) = timeout(
                     Duration::from_millis(200),
                     fetch_dbus_menu(&conn, &bus_name, mp),
                 )
                 .await
-                {
-                    menu_items = fetched;
-                }
+            {
+                menu_items = fetched;
             }
 
             let display = if !title.is_empty() {
@@ -500,13 +505,10 @@ async fn get_string_prop(
             ),
         )
         .await
+            && let Ok(val) = msg.body().deserialize::<zbus::zvariant::Value>()
+            && let zbus::zvariant::Value::Str(s) = unwrap_val(&val)
         {
-            if let Ok(val) = msg.body().deserialize::<zbus::zvariant::Value>() {
-                match unwrap_val(&val) {
-                    zbus::zvariant::Value::Str(s) => return Some(s.to_string()),
-                    _ => {}
-                }
-            }
+            return Some(s.to_string());
         }
     }
     None
@@ -534,13 +536,12 @@ async fn get_object_path_prop(
             ),
         )
         .await
+            && let Ok(val) = msg.body().deserialize::<zbus::zvariant::Value>()
         {
-            if let Ok(val) = msg.body().deserialize::<zbus::zvariant::Value>() {
-                match unwrap_val(&val) {
-                    zbus::zvariant::Value::ObjectPath(p) => return Some(p.to_string()),
-                    zbus::zvariant::Value::Str(s) => return Some(s.to_string()),
-                    _ => {}
-                }
+            match unwrap_val(&val) {
+                zbus::zvariant::Value::ObjectPath(p) => return Some(p.to_string()),
+                zbus::zvariant::Value::Str(s) => return Some(s.to_string()),
+                _ => {}
             }
         }
     }
@@ -568,16 +569,14 @@ async fn get_tooltip_title(
             ),
         )
         .await
+            && let Ok(val) = msg.body().deserialize::<zbus::zvariant::Value>()
+            && let zbus::zvariant::Value::Structure(s) = unwrap_val(&val)
         {
-            if let Ok(val) = msg.body().deserialize::<zbus::zvariant::Value>() {
-                if let zbus::zvariant::Value::Structure(s) = unwrap_val(&val) {
-                    let fields = s.fields();
-                    if fields.len() >= 3 {
-                        if let zbus::zvariant::Value::Str(title) = unwrap_val(&fields[2]) {
-                            return Some(title.to_string());
-                        }
-                    }
-                }
+            let fields = s.fields();
+            if fields.len() >= 3
+                && let zbus::zvariant::Value::Str(title) = unwrap_val(&fields[2])
+            {
+                return Some(title.to_string());
             }
         }
     }

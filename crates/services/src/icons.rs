@@ -11,31 +11,30 @@ fn get_active_themes() -> Vec<String> {
     if let Ok(output) = Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "icon-theme"])
         .output()
+        && output.status.success()
     {
-        if output.status.success() {
-            let val = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .trim_matches('\'')
-                .trim_matches('"')
-                .to_string();
-            if !val.is_empty() && !themes.contains(&val) {
-                themes.push(val);
-            }
+        let val = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .trim_matches('\'')
+            .trim_matches('"')
+            .to_string();
+        if !val.is_empty() && !themes.contains(&val) {
+            themes.push(val);
         }
     }
 
-    if themes.is_empty() {
-        if let Some(home) = dirs::home_dir() {
-            let gtk3 = home.join(".config/gtk-3.0/settings.ini");
-            if let Ok(content) = std::fs::read_to_string(gtk3) {
-                for line in content.lines() {
-                    if let Some((k, v)) = line.split_once('=') {
-                        if k.trim() == "gtk-icon-theme-name" {
-                            let val = v.trim().trim_matches('\'').trim_matches('"').to_string();
-                            if !val.is_empty() && !themes.contains(&val) {
-                                themes.push(val);
-                            }
-                        }
+    if themes.is_empty()
+        && let Some(home) = dirs::home_dir()
+    {
+        let gtk3 = home.join(".config/gtk-3.0/settings.ini");
+        if let Ok(content) = std::fs::read_to_string(gtk3) {
+            for line in content.lines() {
+                if let Some((k, v)) = line.split_once('=')
+                    && k.trim() == "gtk-icon-theme-name"
+                {
+                    let val = v.trim().trim_matches('\'').trim_matches('"').to_string();
+                    if !val.is_empty() && !themes.contains(&val) {
+                        themes.push(val);
                     }
                 }
             }
@@ -114,14 +113,14 @@ fn scan_theme_dir(dir: &Path, map: &mut HashMap<String, (i32, PathBuf)>) {
                 stack.push(path);
             } else if path.is_file() {
                 let path_str = path.to_string_lossy();
-                if path_str.ends_with(".svg") || path_str.ends_with(".png") {
-                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        let score = score_icon_path(&path_str);
-                        match map.get(stem) {
-                            Some((existing_score, _)) if *existing_score >= score => {}
-                            _ => {
-                                map.insert(stem.to_string(), (score, path));
-                            }
+                if (path_str.ends_with(".svg") || path_str.ends_with(".png"))
+                    && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                {
+                    let score = score_icon_path(&path_str);
+                    match map.get(stem) {
+                        Some((existing_score, _)) if *existing_score >= score => {}
+                        _ => {
+                            map.insert(stem.to_string(), (score, path));
                         }
                     }
                 }
@@ -313,29 +312,27 @@ fn get_icon_names_for_path(path: &Path, is_dir: bool) -> Vec<String> {
         "exe" | "bin" | "appimage" => vec!["application-x-executable".to_string()],
         "ttf" | "otf" | "woff" | "woff2" => vec!["font-x-generic".to_string()],
         _ => {
-            if path.exists() {
-                if let Ok(output) = Command::new("gio")
+            if path.exists()
+                && let Ok(output) = Command::new("gio")
                     .args(["info", "-a", "standard::icon"])
                     .arg(path)
                     .output()
-                {
-                    if output.status.success() {
-                        let text = String::from_utf8_lossy(&output.stdout);
-                        for line in text.lines() {
-                            if let Some(rest) = line.trim().strip_prefix("standard::icon:") {
-                                let mut names = Vec::new();
-                                for item in rest.split(',') {
-                                    let trimmed = item.trim();
-                                    if !trimmed.is_empty() && !trimmed.ends_with("-symbolic") {
-                                        names.push(trimmed.to_string());
-                                    }
-                                }
-                                if !names.is_empty() {
-                                    names.push("text-x-generic".to_string());
-                                    names.push("application-x-generic".to_string());
-                                    return names;
-                                }
+                && output.status.success()
+            {
+                let text = String::from_utf8_lossy(&output.stdout);
+                for line in text.lines() {
+                    if let Some(rest) = line.trim().strip_prefix("standard::icon:") {
+                        let mut names = Vec::new();
+                        for item in rest.split(',') {
+                            let trimmed = item.trim();
+                            if !trimmed.is_empty() && !trimmed.ends_with("-symbolic") {
+                                names.push(trimmed.to_string());
                             }
+                        }
+                        if !names.is_empty() {
+                            names.push("text-x-generic".to_string());
+                            names.push("application-x-generic".to_string());
+                            return names;
                         }
                     }
                 }

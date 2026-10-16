@@ -207,7 +207,7 @@ mod tests {
         let file_path = temp_dir.join("starshell_shelf_test.txt");
         let _ = std::fs::write(&file_path, "hello");
 
-        let added = service.add_paths(&[file_path.clone()]);
+        let added = service.add_paths(std::slice::from_ref(&file_path));
         assert_eq!(added, 1);
         assert_eq!(service.count(), 1);
 
@@ -215,7 +215,7 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].path, file_path);
 
-        let added_again = service.add_paths(&[file_path.clone()]);
+        let added_again = service.add_paths(std::slice::from_ref(&file_path));
         assert_eq!(added_again, 0);
 
         let removed = service.remove_item(&items[0].id);
@@ -232,7 +232,7 @@ mod tests {
         let file_path = temp_dir.join("starshell_shelf_copy_test.txt");
         let _ = std::fs::write(&file_path, "copy test");
 
-        service.add_paths(&[file_path.clone()]);
+        service.add_paths(std::slice::from_ref(&file_path));
         let items = service.get_items();
         assert_eq!(items.len(), 1);
 

@@ -39,6 +39,12 @@ impl AppsView {
     }
 }
 
+impl Default for AppsView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn app_to_command(app: &Application) -> String {
     let raw = app.exec.split_whitespace().next().unwrap_or(&app.exec);
     let bin_name = std::path::Path::new(raw)
@@ -262,13 +268,14 @@ fn render_app_icon(
     }
 }
 
+const FALLBACK_ICON: &str = "sparkles.svg";
+
 fn render_select_for_field(
     field: AppsField,
     current_value: &str,
     is_open: bool,
     apps: &[Application],
     cell: Rc<Cell<(f32, f32)>>,
-    fallback_icon: &'static str,
     theme: &Theme,
     cx: &mut Context<Settings>,
 ) -> AnyElement {
@@ -283,7 +290,7 @@ fn render_select_for_field(
     };
     let display_icon = render_app_icon(
         matched_app.and_then(|a| a.icon_path.as_deref()),
-        fallback_icon,
+        FALLBACK_ICON,
         theme,
     );
 
@@ -311,7 +318,7 @@ fn render_select_for_field(
     for app in candidate_apps {
         let cmd = app_to_command(app);
         let is_selected = current_value == cmd || current_value == app.name;
-        let app_icon = render_app_icon(app.icon_path.as_deref(), fallback_icon, theme);
+        let app_icon = render_app_icon(app.icon_path.as_deref(), FALLBACK_ICON, theme);
         let cmd_target = cmd.clone();
 
         let item = SelectItem::new(format!("app-item-{:?}-{}", field, app.id), app.name.clone())
@@ -365,7 +372,6 @@ impl SettingsView for AppsView {
             self.open_dropdown == Some(AppsField::Terminal),
             &installed_apps,
             self.terminal_cell.clone(),
-            "sparkles.svg",
             &theme,
             cx,
         );
@@ -376,7 +382,6 @@ impl SettingsView for AppsView {
             self.open_dropdown == Some(AppsField::Browser),
             &installed_apps,
             self.browser_cell.clone(),
-            "sparkles.svg",
             &theme,
             cx,
         );
@@ -387,7 +392,6 @@ impl SettingsView for AppsView {
             self.open_dropdown == Some(AppsField::Editor),
             &installed_apps,
             self.editor_cell.clone(),
-            "sparkles.svg",
             &theme,
             cx,
         );
@@ -398,7 +402,6 @@ impl SettingsView for AppsView {
             self.open_dropdown == Some(AppsField::FileManager),
             &installed_apps,
             self.file_manager_cell.clone(),
-            "sparkles.svg",
             &theme,
             cx,
         );

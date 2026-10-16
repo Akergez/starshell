@@ -61,10 +61,10 @@ impl ShelfItem {
     }
 
     pub fn get_icon_path(&self) -> Option<PathBuf> {
-        if let Some(ref icon) = self.icon_path {
-            if icon.exists() {
-                return Some(icon.clone());
-            }
+        if let Some(ref icon) = self.icon_path
+            && icon.exists()
+        {
+            return Some(icon.clone());
         }
         resolve_file_icon(&self.path, self.is_dir)
     }

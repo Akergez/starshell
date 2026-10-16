@@ -22,6 +22,12 @@ impl RecordView {
     }
 }
 
+impl Default for RecordView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SettingsView for RecordView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self

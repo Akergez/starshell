@@ -1,10 +1,10 @@
 mod icons;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, DisplayId, ElementId, Entity, ExternalPaths, FontWeight,
-    Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement, Render, SharedString,
-    StatefulInteractiveElement, Styled, Subscription, Window, div, img, prelude::FluentBuilder,
-    svg,
+    AnyElement, App, ClickEvent, Context, DisplayId, DurationWithEasing, ElementId, Entity,
+    ExternalPaths, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement,
+    Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, img,
+    prelude::FluentBuilder, svg,
 };
 use services::{AppState, BarConfig, BarModule, BarPosition, RecordStatus};
 use ui::theme::{Theme, mix};
@@ -19,18 +19,91 @@ pub use icons::{battery_icon, network_icon, volume_icon};
 pub struct Bar {
     display: Option<DisplayId>,
     state: Entity<ShellState>,
+    revealed: bool,
+    applied_region: Option<bool>,
+    hide: Option<Task<()>>,
     _observe: Subscription,
 }
 
+fn auto_hide(cx: &App) -> bool {
+    cx.global::<AppState>().config.get().bar.auto_hide
+}
+
 impl Bar {
-    pub fn new(display: Option<DisplayId>, cx: &mut Context<Self>) -> Self {
+    pub fn new(display: Option<DisplayId>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let state = ShellState::global(cx);
         let observe = cx.observe(&state, |_, _, cx| cx.notify());
+        cx.defer_in(window, |bar: &mut Bar, window, cx| {
+            bar.apply_input_region(window, cx)
+        });
         Self {
             display,
             state,
+            revealed: !auto_hide(cx),
+            applied_region: None,
+            hide: None,
             _observe: observe,
         }
+    }
+
+    fn apply_input_region(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let full = self.revealed || !auto_hide(cx);
+        if self.applied_region == Some(full) {
+            return;
+        }
+        self.applied_region = Some(full);
+        if full {
+            window.set_input_region(None);
+            return;
+        }
+        let viewport = window.viewport_size();
+        let strip =
+            ui::tokens::units_to_pixels(size::BAR_HIDDEN_STRIP, cx.global::<Theme>().font_size);
+        let top = match Shell::bar_position(cx) {
+            BarPosition::Top => gpui::px(0.0),
+            BarPosition::Bottom => viewport.height - strip,
+        };
+        window.set_input_region(Some(&[gpui::Bounds {
+            origin: gpui::point(gpui::px(0.0), top),
+            size: gpui::size(viewport.width, strip),
+        }]));
+    }
+
+    fn set_revealed(&mut self, revealed: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.revealed != revealed {
+            self.revealed = revealed;
+            cx.notify();
+        }
+        self.apply_input_region(window, cx);
+    }
+
+    fn hovered(&mut self, hovered: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !auto_hide(cx) {
+            return;
+        }
+        if hovered {
+            self.hide = None;
+            self.set_revealed(true, window, cx);
+            return;
+        }
+        let delay = std::time::Duration::from_millis(
+            cx.global::<AppState>().config.get().bar.hide_delay_ms,
+        );
+        self.hide = Some(cx.spawn_in(window, async move |this, cx| {
+            loop {
+                cx.background_executor().timer(delay).await;
+                let keep = this.update_in(cx, |bar: &mut Bar, window, cx| {
+                    if Shell::current(cx).is_some() {
+                        return true;
+                    }
+                    bar.set_revealed(false, window, cx);
+                    false
+                });
+                if !matches!(keep, Ok(true)) {
+                    break;
+                }
+            }
+        }));
     }
 }
 
@@ -475,10 +548,22 @@ impl Render for Bar {
         );
         let end = self.section(&BarConfig::modules(&bar.end), &snapshot, theme, current, cx);
 
-        div()
-            .id("bar")
+        let hidden_offset = if self.revealed || !bar.auto_hide {
+            0.0
+        } else if bottom {
+            bar.clamped_size() - size::BAR_HIDDEN_STRIP
+        } else {
+            size::BAR_HIDDEN_STRIP - bar.clamped_size()
+        };
+
+        let content = div()
+            .id("bar-content")
             .relative()
             .size_full()
+            .top(units(hidden_offset))
+            .transitions(|transitions| {
+                transitions.top(ui::tokens::motion::BAR.with_easing(motion::ease_out_cubic))
+            })
             .flex()
             .items_center()
             .justify_between()
@@ -501,6 +586,15 @@ impl Render for Bar {
                     .justify_center()
                     .child(center),
             )
-            .child(end)
+            .child(end);
+
+        div()
+            .id("bar")
+            .size_full()
+            .overflow_hidden()
+            .on_hover(
+                cx.listener(|bar, hovered: &bool, window, cx| bar.hovered(*hovered, window, cx)),
+            )
+            .child(content)
     }
 }

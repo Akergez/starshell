@@ -114,16 +114,15 @@ impl IdleService {
                     "org.freedesktop.login1.Manager",
                 )
                 .await
+                    && let Ok(mut stream) = proxy.receive_signal("PrepareForSleep").await
                 {
-                    if let Ok(mut stream) = proxy.receive_signal("PrepareForSleep").await {
-                        use futures::StreamExt;
-                        while let Some(msg) = stream.next().await {
-                            if let Ok(going_to_sleep) = msg.body().deserialize::<bool>()
-                                && going_to_sleep
-                            {
-                                push_ipc_command(IpcCommand::Lock);
-                                let _ = tx1.send(IdleEvent::IdleTimeoutTriggered);
-                            }
+                    use futures::StreamExt;
+                    while let Some(msg) = stream.next().await {
+                        if let Ok(going_to_sleep) = msg.body().deserialize::<bool>()
+                            && going_to_sleep
+                        {
+                            push_ipc_command(IpcCommand::Lock);
+                            let _ = tx1.send(IdleEvent::IdleTimeoutTriggered);
                         }
                     }
                 }
@@ -138,13 +137,12 @@ impl IdleService {
                     "org.freedesktop.login1.Session",
                 )
                 .await
+                    && let Ok(mut stream) = proxy.receive_signal("Lock").await
                 {
-                    if let Ok(mut stream) = proxy.receive_signal("Lock").await {
-                        use futures::StreamExt;
-                        while stream.next().await.is_some() {
-                            push_ipc_command(IpcCommand::Lock);
-                            let _ = tx2.send(IdleEvent::IdleTimeoutTriggered);
-                        }
+                    use futures::StreamExt;
+                    while stream.next().await.is_some() {
+                        push_ipc_command(IpcCommand::Lock);
+                        let _ = tx2.send(IdleEvent::IdleTimeoutTriggered);
                     }
                 }
             });

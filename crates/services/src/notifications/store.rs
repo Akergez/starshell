@@ -111,13 +111,13 @@ impl NotificationStore {
             items_guard.push(item.clone());
         }
 
-        if !self.is_dnd_enabled() {
-            if let Ok(mut latest_guard) = self.latest_notification.lock() {
-                *latest_guard = LatestNotification {
-                    item: Some(item),
-                    hovered_at: None,
-                };
-            }
+        if !self.is_dnd_enabled()
+            && let Ok(mut latest_guard) = self.latest_notification.lock()
+        {
+            *latest_guard = LatestNotification {
+                item: Some(item),
+                hovered_at: None,
+            };
         }
 
         self.changes.send_replace(());
@@ -143,15 +143,15 @@ impl NotificationStore {
         if self.is_dnd_enabled() {
             return None;
         }
-        if let Ok(guard) = self.latest_notification.lock() {
-            if let Some(item) = guard.item.as_ref() {
-                let is_hover_active = guard
-                    .hovered_at
-                    .as_ref()
-                    .is_some_and(|hovered_at| hovered_at.elapsed() < Duration::from_secs(60));
-                if is_hover_active || item.received_at.elapsed() < item.timeout {
-                    return Some(item.clone());
-                }
+        if let Ok(guard) = self.latest_notification.lock()
+            && let Some(item) = guard.item.as_ref()
+        {
+            let is_hover_active = guard
+                .hovered_at
+                .as_ref()
+                .is_some_and(|hovered_at| hovered_at.elapsed() < Duration::from_secs(60));
+            if is_hover_active || item.received_at.elapsed() < item.timeout {
+                return Some(item.clone());
             }
         }
         None
@@ -174,14 +174,14 @@ impl NotificationStore {
             {
                 latest.hovered_at = Some(now);
             }
-        } else if let Some(hovered_at) = latest.hovered_at.take() {
-            if let Some(item) = latest.item.as_mut() {
-                let paused_duration = now
-                    .saturating_duration_since(hovered_at)
-                    .min(Duration::from_secs(60));
-                if let Some(received_at) = item.received_at.checked_add(paused_duration) {
-                    item.received_at = received_at;
-                }
+        } else if let Some(hovered_at) = latest.hovered_at.take()
+            && let Some(item) = latest.item.as_mut()
+        {
+            let paused_duration = now
+                .saturating_duration_since(hovered_at)
+                .min(Duration::from_secs(60));
+            if let Some(received_at) = item.received_at.checked_add(paused_duration) {
+                item.received_at = received_at;
             }
         }
     }
@@ -270,12 +270,11 @@ impl NotificationStore {
         if let Ok(mut items_guard) = self.items.lock() {
             items_guard.retain(|item| item.id != id);
         }
-        if let Ok(mut latest_guard) = self.latest_notification.lock() {
-            if let Some(item) = latest_guard.item.as_ref() {
-                if item.id == id {
-                    *latest_guard = LatestNotification::default();
-                }
-            }
+        if let Ok(mut latest_guard) = self.latest_notification.lock()
+            && let Some(item) = latest_guard.item.as_ref()
+            && item.id == id
+        {
+            *latest_guard = LatestNotification::default();
         }
         self.changes.send_replace(());
     }

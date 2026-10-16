@@ -152,10 +152,8 @@ fn parse_kscreen_refresh_rate(json_bytes: &[u8]) -> Option<f64> {
 
     for mode in modes {
         let is_current = mode.get("id").and_then(|id| id.as_str()) == Some(current_mode_id);
-        if is_current {
-            if let Some(rate) = mode.get("refreshRate").and_then(|r| r.as_f64()) {
-                return Some(rate);
-            }
+        if is_current && let Some(rate) = mode.get("refreshRate").and_then(|r| r.as_f64()) {
+            return Some(rate);
         }
     }
 

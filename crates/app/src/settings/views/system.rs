@@ -22,6 +22,12 @@ impl SystemView {
     }
 }
 
+impl Default for SystemView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SettingsView for SystemView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self

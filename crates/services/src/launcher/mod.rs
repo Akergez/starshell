@@ -1,8 +1,8 @@
+pub mod applications;
 pub mod calculator;
-pub mod launcher;
 pub mod pop;
 
-pub use launcher::LauncherService;
+pub use applications::LauncherService;
 pub use pop::{
     ContextOption, IconSource, PopEvent, PopLauncher, PopRequest, PopResponse, SearchResult,
     description_line,

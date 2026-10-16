@@ -61,6 +61,12 @@ impl TrayService {
     }
 }
 
+impl Default for TrayService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ── ksni implementation ─────────────────────────────────────────────────────
 
 struct StarshellTray {

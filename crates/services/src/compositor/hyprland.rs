@@ -252,28 +252,30 @@ impl Compositor for Hyprland {
                         .active_workspace
                         .as_ref()
                         .and_then(|w| {
-                            w.name
-                                .parse::<i32>()
-                                .ok()
-                                .or_else(|| if w.id > 0 { Some(w.id as i32) } else { None })
+                            w.name.parse::<i32>().ok().or(if w.id > 0 {
+                                Some(w.id as i32)
+                            } else {
+                                None
+                            })
                         })
                         .unwrap_or(1);
 
-                    if let Some(ref special) = mon.special_workspace {
-                        if special.id != 0 && !special.name.is_empty() {
-                            let special_name = special
-                                .name
-                                .strip_prefix("special:")
-                                .unwrap_or(&special.name)
-                                .to_string();
-                            return Some(WorkspaceInfo {
-                                id: special.id,
-                                num: base_num,
-                                name: special.name.clone(),
-                                is_special: true,
-                                special_name: Some(special_name),
-                            });
-                        }
+                    if let Some(ref special) = mon.special_workspace
+                        && special.id != 0
+                        && !special.name.is_empty()
+                    {
+                        let special_name = special
+                            .name
+                            .strip_prefix("special:")
+                            .unwrap_or(&special.name)
+                            .to_string();
+                        return Some(WorkspaceInfo {
+                            id: special.id,
+                            num: base_num,
+                            name: special.name.clone(),
+                            is_special: true,
+                            special_name: Some(special_name),
+                        });
                     }
 
                     if let Some(ref active) = mon.active_workspace {
@@ -346,13 +348,13 @@ impl Compositor for Hyprland {
         let _ = catch_unwind(|| {
             if id < 0 {
                 let res = query_hypr_command("dispatch hl.dsp.workspace.toggle_special()");
-                if res.as_deref().map_or(true, |r| r.starts_with("error:")) {
+                if res.as_deref().is_none_or(|r| r.starts_with("error:")) {
                     let _ = query_hypr_command("dispatch togglespecialworkspace");
                 }
             } else {
                 let cmd_lua = format!("dispatch hl.dsp.focus({{ workspace = {id} }})");
                 let res = query_hypr_command(&cmd_lua);
-                if res.as_deref().map_or(true, |r| r.starts_with("error:")) {
+                if res.as_deref().is_none_or(|r| r.starts_with("error:")) {
                     let cmd_legacy = format!("dispatch workspace {id}");
                     let _ = query_hypr_command(&cmd_legacy);
                 }
@@ -660,7 +662,7 @@ mod tests {
             let ws = Hyprland::new().get_workspace();
             assert!(ws.is_some());
             let rate = Hyprland::new().get_refresh_rate();
-            assert!(rate >= 30.0 && rate <= 360.0);
+            assert!((30.0..=360.0).contains(&rate));
         }
     }
 

@@ -48,6 +48,12 @@ impl MediaView {
     }
 }
 
+impl Default for MediaView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SettingsView for MediaView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
@@ -96,12 +102,12 @@ impl SettingsView for MediaView {
                 true
             }
             _ => {
-                if let Some(c) = event.keystroke.key_char.as_deref() {
-                    if c.chars().count() == 1 {
-                        self.new_player_input.push_str(c);
-                        cx.notify();
-                        return true;
-                    }
+                if let Some(c) = event.keystroke.key_char.as_deref()
+                    && c.chars().count() == 1
+                {
+                    self.new_player_input.push_str(c);
+                    cx.notify();
+                    return true;
                 }
                 false
             }

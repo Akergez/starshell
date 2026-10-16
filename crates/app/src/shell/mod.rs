@@ -159,7 +159,7 @@ impl Shell {
             let options = bar_options(id, cx);
             match cx.open_window(options, |window, cx| {
                 window.set_rem_size(cx.global::<Theme>().font_size());
-                cx.new(|cx| Bar::new(id, cx))
+                cx.new(|cx| Bar::new(id, window, cx))
             }) {
                 Ok(handle) => bars.push(handle),
                 Err(error) => eprintln!("Failed to open bar: {error}"),
@@ -231,7 +231,11 @@ fn bar_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
             namespace: "starshell-bar".to_string(),
             layer: Layer::Top,
             anchor: edge | Anchor::LEFT | Anchor::RIGHT,
-            exclusive_zone: Some(height),
+            exclusive_zone: Some(if cx.global::<AppState>().config.get().bar.auto_hide {
+                units_to_pixels(size::BAR_HIDDEN_STRIP, cx.global::<Theme>().font_size)
+            } else {
+                height
+            }),
             keyboard_interactivity: KeyboardInteractivity::None,
             ..Default::default()
         }),

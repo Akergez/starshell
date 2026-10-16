@@ -168,7 +168,9 @@ pub fn audio_levels(frame: &[u8; 1536]) -> [f32; 12] {
     std::array::from_fn(|index| {
         let samples = &frame[index * 128..(index + 1) * 128];
         let energy = samples
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|sample| {
                 let value = f32::from(i16::from_le_bytes([sample[0], sample[1]])) / 32768.0;
                 value * value
@@ -288,10 +290,10 @@ pub async fn fetch_audio_status() -> Result<(u32, bool)> {
     {
         let text = String::from_utf8_lossy(&output.stdout);
         let is_muted = text.contains("[MUTED]");
-        if let Some(vol_str) = text.split_whitespace().nth(1) {
-            if let Ok(val) = vol_str.parse::<f32>() {
-                return Ok(((val * 100.0).round() as u32, is_muted));
-            }
+        if let Some(vol_str) = text.split_whitespace().nth(1)
+            && let Ok(val) = vol_str.parse::<f32>()
+        {
+            return Ok(((val * 100.0).round() as u32, is_muted));
         }
     }
 
@@ -305,10 +307,10 @@ pub async fn fetch_audio_status() -> Result<(u32, bool)> {
         let text = String::from_utf8_lossy(&output.stdout);
         if let Some(pos) = text.find('/') {
             let rest = &text[pos + 1..];
-            if let Some(pos2) = rest.find('%') {
-                if let Ok(val) = rest[..pos2].trim().parse::<u32>() {
-                    return Ok((val, false));
-                }
+            if let Some(pos2) = rest.find('%')
+                && let Ok(val) = rest[..pos2].trim().parse::<u32>()
+            {
+                return Ok((val, false));
             }
         }
     }
@@ -326,10 +328,10 @@ pub async fn fetch_input_audio_status() -> Result<(u32, bool)> {
     {
         let text = String::from_utf8_lossy(&output.stdout);
         let is_muted = text.contains("[MUTED]");
-        if let Some(vol_str) = text.split_whitespace().nth(1) {
-            if let Ok(val) = vol_str.parse::<f32>() {
-                return Ok(((val * 100.0).round() as u32, is_muted));
-            }
+        if let Some(vol_str) = text.split_whitespace().nth(1)
+            && let Ok(val) = vol_str.parse::<f32>()
+        {
+            return Ok(((val * 100.0).round() as u32, is_muted));
         }
     }
 
@@ -343,10 +345,10 @@ pub async fn fetch_input_audio_status() -> Result<(u32, bool)> {
         let text = String::from_utf8_lossy(&output.stdout);
         if let Some(pos) = text.find('/') {
             let rest = &text[pos + 1..];
-            if let Some(pos2) = rest.find('%') {
-                if let Ok(val) = rest[..pos2].trim().parse::<u32>() {
-                    return Ok((val, false));
-                }
+            if let Some(pos2) = rest.find('%')
+                && let Ok(val) = rest[..pos2].trim().parse::<u32>()
+            {
+                return Ok((val, false));
             }
         }
     }
@@ -448,7 +450,7 @@ pub async fn parse_wpctl_sinks() -> Vec<AudioSink> {
                 }
                 if let Some(dot_pos) = trimmed.find('.') {
                     let prefix = trimmed[..dot_pos]
-                        .trim_start_matches(|c| c == '│' || c == ' ' || c == '*')
+                        .trim_start_matches(['│', ' ', '*'])
                         .trim();
                     if let Ok(id) = prefix.parse::<u32>() {
                         let is_default = trimmed.contains('*');
@@ -569,7 +571,7 @@ pub async fn parse_wpctl_sources() -> Vec<AudioSource> {
                 }
                 if let Some(dot_pos) = trimmed.find('.') {
                     let prefix = trimmed[..dot_pos]
-                        .trim_start_matches(|c| c == '│' || c == ' ' || c == '*')
+                        .trim_start_matches(['│', ' ', '*'])
                         .trim();
                     if let Ok(id) = prefix.parse::<u32>() {
                         let is_default = trimmed.contains('*');
@@ -610,11 +612,11 @@ pub async fn listen_pactl_events(
             .spawn()
         {
             if let Some(stdout) = child.stdout.take() {
-                let _ = on_change();
+                drop(on_change());
                 let mut reader = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = reader.next_line().await {
                     if line.contains("sink") || line.contains("source") || line.contains("server") {
-                        let _ = on_change();
+                        drop(on_change());
                     }
                 }
             }

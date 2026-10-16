@@ -73,19 +73,19 @@ impl LauncherService {
                 let watcher = InotifyFd(inotify_fd);
                 let dirs_to_watch = Self::get_application_dirs();
                 for dir in &dirs_to_watch {
-                    if dir.exists() {
-                        if let Ok(cpath) = std::ffi::CString::new(dir.as_os_str().as_bytes()) {
-                            unsafe {
-                                libc::inotify_add_watch(
-                                    inotify_fd,
-                                    cpath.as_ptr(),
-                                    libc::IN_CREATE
-                                        | libc::IN_DELETE
-                                        | libc::IN_MOVED_TO
-                                        | libc::IN_MOVED_FROM
-                                        | libc::IN_CLOSE_WRITE,
-                                );
-                            }
+                    if dir.exists()
+                        && let Ok(cpath) = std::ffi::CString::new(dir.as_os_str().as_bytes())
+                    {
+                        unsafe {
+                            libc::inotify_add_watch(
+                                inotify_fd,
+                                cpath.as_ptr(),
+                                libc::IN_CREATE
+                                    | libc::IN_DELETE
+                                    | libc::IN_MOVED_TO
+                                    | libc::IN_MOVED_FROM
+                                    | libc::IN_CLOSE_WRITE,
+                            );
                         }
                     }
                 }
@@ -160,11 +160,11 @@ impl LauncherService {
                     || app
                         .generic_name
                         .as_ref()
-                        .map_or(false, |g| g.to_lowercase().contains(&q))
+                        .is_some_and(|g| g.to_lowercase().contains(&q))
                     || app
                         .comment
                         .as_ref()
-                        .map_or(false, |c| c.to_lowercase().contains(&q))
+                        .is_some_and(|c| c.to_lowercase().contains(&q))
                     || app.keywords.iter().any(|k| k.to_lowercase().contains(&q))
                     || app.exec.to_lowercase().contains(&q)
             })
@@ -235,16 +235,16 @@ impl LauncherService {
 
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|ext| ext.to_str()) == Some("desktop") {
-                    if let Ok(app) = Self::parse_desktop_file(&path, &icon_map).await {
-                        discovered.entry(app.id.clone()).or_insert(app);
-                    }
+                if path.extension().and_then(|ext| ext.to_str()) == Some("desktop")
+                    && let Ok(app) = Self::parse_desktop_file(&path, &icon_map).await
+                {
+                    discovered.entry(app.id.clone()).or_insert(app);
                 }
             }
         }
 
         let mut app_list: Vec<Application> = discovered.into_values().collect();
-        app_list.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        app_list.sort_by_key(|a| a.name.to_lowercase());
 
         crate::log_info!(
             "LAUNCHER",

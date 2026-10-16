@@ -9,10 +9,10 @@ pub async fn fetch_brightness() -> Result<u32> {
         let text = String::from_utf8_lossy(&output.stdout);
         if let Some(pos) = text.find('(') {
             let rest = &text[pos + 1..];
-            if let Some(pos2) = rest.find('%') {
-                if let Ok(val) = rest[..pos2].parse::<u32>() {
-                    return Ok(val);
-                }
+            if let Some(pos2) = rest.find('%')
+                && let Ok(val) = rest[..pos2].parse::<u32>()
+            {
+                return Ok(val);
             }
         }
     }
@@ -20,7 +20,7 @@ pub async fn fetch_brightness() -> Result<u32> {
 }
 
 pub async fn set_brightness(percent: u32) -> Result<()> {
-    let percent = percent.min(100).max(5);
+    let percent = percent.clamp(5, 100);
     let percent_str = format!("{percent}%");
 
     let child = Command::new("brightnessctl")

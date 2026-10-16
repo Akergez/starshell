@@ -68,17 +68,17 @@ impl WallpaperService {
     }
 
     pub fn get_current_wallpaper(&self) -> Option<PathBuf> {
-        if let Ok(guard) = self.current.lock() {
-            if let Some(ref path) = *guard {
-                return Some(path.clone());
-            }
+        if let Ok(guard) = self.current.lock()
+            && let Some(ref path) = *guard
+        {
+            return Some(path.clone());
         }
-        if self.config_file.exists() {
-            if let Ok(content) = fs::read_to_string(&self.config_file) {
-                let path = PathBuf::from(content.trim());
-                if path.exists() {
-                    return Some(path);
-                }
+        if self.config_file.exists()
+            && let Ok(content) = fs::read_to_string(&self.config_file)
+        {
+            let path = PathBuf::from(content.trim());
+            if path.exists() {
+                return Some(path);
             }
         }
         None
@@ -168,12 +168,12 @@ impl WallpaperService {
 
     /// Restores previously saved wallpaper from disk.
     fn restore_saved_wallpaper(&self) {
-        if self.config_file.exists() {
-            if let Ok(content) = fs::read_to_string(&self.config_file) {
-                let path = PathBuf::from(content.trim());
-                if path.exists() {
-                    self.set_wallpaper_internal(&path, false);
-                }
+        if self.config_file.exists()
+            && let Ok(content) = fs::read_to_string(&self.config_file)
+        {
+            let path = PathBuf::from(content.trim());
+            if path.exists() {
+                self.set_wallpaper_internal(&path, false);
             }
         }
     }
@@ -186,12 +186,12 @@ impl WallpaperService {
                 .arg("--file-filter=*.png *.jpg *.jpeg *.webp")
                 .output();
 
-            if let Ok(out) = zenity_output {
-                if out.status.success() {
-                    let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                    if !path_str.is_empty() {
-                        return Some(PathBuf::from(path_str));
-                    }
+            if let Ok(out) = zenity_output
+                && out.status.success()
+            {
+                let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !path_str.is_empty() {
+                    return Some(PathBuf::from(path_str));
                 }
             }
 
@@ -199,12 +199,12 @@ impl WallpaperService {
                 .args(["--getopenfilename", ".", "*.png *.jpg *.jpeg *.webp"])
                 .output();
 
-            if let Ok(out) = kdialog_output {
-                if out.status.success() {
-                    let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                    if !path_str.is_empty() {
-                        return Some(PathBuf::from(path_str));
-                    }
+            if let Ok(out) = kdialog_output
+                && out.status.success()
+            {
+                let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !path_str.is_empty() {
+                    return Some(PathBuf::from(path_str));
                 }
             }
 

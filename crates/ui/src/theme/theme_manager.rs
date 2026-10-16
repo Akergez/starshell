@@ -127,16 +127,15 @@ impl ThemeManager {
 
     pub fn check_and_reload(&mut self) -> bool {
         let path = Self::theme_path();
-        if let Ok(meta) = fs::metadata(&path) {
-            if let Ok(mtime) = meta.modified() {
-                if self.last_modified != Some(mtime) {
-                    self.last_modified = Some(mtime);
-                    if let Ok(theme) = Self::load(&path) {
-                        self.current_theme = theme;
-                        self.apply_theme_to_apps();
-                        return true;
-                    }
-                }
+        if let Ok(meta) = fs::metadata(&path)
+            && let Ok(mtime) = meta.modified()
+            && self.last_modified != Some(mtime)
+        {
+            self.last_modified = Some(mtime);
+            if let Ok(theme) = Self::load(&path) {
+                self.current_theme = theme;
+                self.apply_theme_to_apps();
+                return true;
             }
         }
         false

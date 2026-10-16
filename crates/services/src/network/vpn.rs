@@ -283,7 +283,7 @@ fn parse_profiles(saved: &str, active: &str) -> Vec<VpnProfile> {
             })
         })
         .collect();
-    profiles.sort_by(|left, right| left.name.to_lowercase().cmp(&right.name.to_lowercase()));
+    profiles.sort_by_key(|left| left.name.to_lowercase());
     profiles
 }
 

@@ -37,11 +37,11 @@ pub fn log(level: &str, target: &str, msg: &str) {
 
     let _ = std::io::stderr().write_all(line.as_bytes());
 
-    if let Ok(mut guard) = LOG_FILE.lock() {
-        if let Some(file) = guard.as_mut() {
-            let _ = file.write_all(line.as_bytes());
-            let _ = file.flush();
-        }
+    if let Ok(mut guard) = LOG_FILE.lock()
+        && let Some(file) = guard.as_mut()
+    {
+        let _ = file.write_all(line.as_bytes());
+        let _ = file.flush();
     }
 }
 

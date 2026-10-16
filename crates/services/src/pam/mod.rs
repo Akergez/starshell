@@ -197,6 +197,6 @@ mod tests {
     fn test_pam_wrong_password() {
         let res = PamService::authenticate_current_user("invalid_password_xyz_123");
         println!("PAM wrong pass result: {:?}", res);
-        assert_eq!(res.unwrap(), false);
+        assert!(!res.unwrap());
     }
 }

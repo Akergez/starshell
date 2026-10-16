@@ -78,12 +78,14 @@ fn render_stepper(f: &mut Frame, area: Rect, current: Step) {
         }
 
         let is_current = *s == current;
-        let is_done = match (*s, current) {
-            (Step::Welcome, Step::Dependencies | Step::Installing | Step::Finished) => true,
-            (Step::Dependencies, Step::Installing | Step::Finished) => true,
-            (Step::Installing, Step::Finished) => true,
-            _ => false,
-        };
+        let is_done = matches!(
+            (*s, current),
+            (
+                Step::Welcome,
+                Step::Dependencies | Step::Installing | Step::Finished
+            ) | (Step::Dependencies, Step::Installing | Step::Finished)
+                | (Step::Installing, Step::Finished)
+        );
 
         if is_current {
             spans.push(Span::styled(
@@ -244,7 +246,7 @@ fn render_dependencies(f: &mut Frame, area: Rect, app: &App) {
         .constraints([Constraint::Min(8), Constraint::Length(6)])
         .split(area);
 
-    let half = (app.dependencies.len() + 1) / 2;
+    let half = app.dependencies.len().div_ceil(2);
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])

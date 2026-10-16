@@ -127,13 +127,12 @@ pub fn pop_cancelled_cookie() -> Option<String> {
 }
 
 pub fn cancel_polkit_request(cookie: &str) -> bool {
-    if let Ok(mut queue) = polkit_queue().lock() {
-        if let Some(pos) = queue.iter().position(|(req, _)| req.cookie == cookie) {
-            if let Some((_, responder)) = queue.remove(pos) {
-                let _ = responder.send(Err("Cancelled by Polkit Authority".to_string()));
-                return true;
-            }
-        }
+    if let Ok(mut queue) = polkit_queue().lock()
+        && let Some(pos) = queue.iter().position(|(req, _)| req.cookie == cookie)
+        && let Some((_, responder)) = queue.remove(pos)
+    {
+        let _ = responder.send(Err("Cancelled by Polkit Authority".to_string()));
+        return true;
     }
     false
 }

@@ -28,6 +28,12 @@ impl LockScreenView {
     }
 }
 
+impl Default for LockScreenView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SettingsView for LockScreenView {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self

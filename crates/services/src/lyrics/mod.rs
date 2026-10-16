@@ -103,10 +103,10 @@ impl LyricsService {
         let key = format!("{} - {}", clean_title.to_lowercase(), artist.to_lowercase());
         let raw_key = format!("{} - {}", title.to_lowercase(), artist.to_lowercase());
 
-        if let Ok(guard) = self.cache.lock() {
-            if guard.contains_key(&key) || guard.contains_key(&raw_key) {
-                return;
-            }
+        if let Ok(guard) = self.cache.lock()
+            && (guard.contains_key(&key) || guard.contains_key(&raw_key))
+        {
+            return;
         }
 
         if let Ok(mut guard) = self.fetching.lock() {
@@ -184,17 +184,17 @@ async fn fetch_lrclib(
 ) -> Option<TrackLyrics> {
     // Attempt 1: GET /api/get
     let mut query = vec![("track_name", title), ("artist_name", artist)];
-    if let Some(alb) = album {
-        if !alb.is_empty() {
-            query.push(("album_name", alb));
-        }
+    if let Some(alb) = album
+        && !alb.is_empty()
+    {
+        query.push(("album_name", alb));
     }
     let dur_str;
-    if let Some(dur) = duration_secs {
-        if dur > 0 {
-            dur_str = dur.to_string();
-            query.push(("duration", &dur_str));
-        }
+    if let Some(dur) = duration_secs
+        && dur > 0
+    {
+        dur_str = dur.to_string();
+        query.push(("duration", &dur_str));
     }
 
     if let Ok(resp) = client
@@ -202,23 +202,19 @@ async fn fetch_lrclib(
         .query(&query)
         .send()
         .await
+        && resp.status().is_success()
+        && let Ok(data) = resp.json::<LrclibResponse>().await
+        && let Some(synced) = &data.synced_lyrics
+        && !synced.trim().is_empty()
     {
-        if resp.status().is_success() {
-            if let Ok(data) = resp.json::<LrclibResponse>().await {
-                if let Some(synced) = &data.synced_lyrics {
-                    if !synced.trim().is_empty() {
-                        let lines = parse_lrc(synced);
-                        if !lines.is_empty() {
-                            return Some(TrackLyrics {
-                                track_title: title.to_string(),
-                                artist_name: artist.to_string(),
-                                synced_lines: lines,
-                                plain_lyrics: data.plain_lyrics,
-                            });
-                        }
-                    }
-                }
-            }
+        let lines = parse_lrc(synced);
+        if !lines.is_empty() {
+            return Some(TrackLyrics {
+                track_title: title.to_string(),
+                artist_name: artist.to_string(),
+                synced_lines: lines,
+                plain_lyrics: data.plain_lyrics,
+            });
         }
     }
 
@@ -229,23 +225,21 @@ async fn fetch_lrclib(
         .query(&search_query)
         .send()
         .await
+        && resp.status().is_success()
+        && let Ok(items) = resp.json::<Vec<LrclibResponse>>().await
     {
-        if resp.status().is_success() {
-            if let Ok(items) = resp.json::<Vec<LrclibResponse>>().await {
-                for item in items {
-                    if let Some(synced) = &item.synced_lyrics {
-                        if !synced.trim().is_empty() {
-                            let lines = parse_lrc(synced);
-                            if !lines.is_empty() {
-                                return Some(TrackLyrics {
-                                    track_title: title.to_string(),
-                                    artist_name: artist.to_string(),
-                                    synced_lines: lines,
-                                    plain_lyrics: item.plain_lyrics,
-                                });
-                            }
-                        }
-                    }
+        for item in items {
+            if let Some(synced) = &item.synced_lyrics
+                && !synced.trim().is_empty()
+            {
+                let lines = parse_lrc(synced);
+                if !lines.is_empty() {
+                    return Some(TrackLyrics {
+                        track_title: title.to_string(),
+                        artist_name: artist.to_string(),
+                        synced_lines: lines,
+                        plain_lyrics: item.plain_lyrics,
+                    });
                 }
             }
         }

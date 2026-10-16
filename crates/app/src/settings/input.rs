@@ -64,10 +64,8 @@ impl Settings {
             return;
         }
 
-        if let Some((_, view)) = self.views.iter_mut().find(|(t, _)| *t == self.active_tab) {
-            if view.handle_key_down(event, window, cx) {
-                return;
-            }
-        }
+        if let Some((_, view)) = self.views.iter_mut().find(|(t, _)| *t == self.active_tab)
+            && view.handle_key_down(event, window, cx)
+        {}
     }
 }

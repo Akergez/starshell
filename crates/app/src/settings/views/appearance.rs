@@ -23,6 +23,12 @@ impl AppearanceView {
     }
 }
 
+impl Default for AppearanceView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn fraction(value: f32, (min, max): (f32, f32)) -> f32 {
     ((value - min) / (max - min)).clamp(0.0, 1.0)
 }

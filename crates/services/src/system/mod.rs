@@ -336,6 +336,12 @@ impl SystemService {
     }
 }
 
+impl Default for SystemService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -345,13 +351,13 @@ mod tests {
     fn audio_visualizer_tracks_pcm_energy() {
         assert_eq!(SystemService::audio_levels(&[0; 1536]), [0.0; 12]);
         let mut frame = [0_u8; 1536];
-        for sample in frame[..128].chunks_exact_mut(2) {
+        for sample in frame[..128].as_chunks_mut::<2>().0 {
             sample.copy_from_slice(&8192_i16.to_le_bytes());
         }
         let levels = SystemService::audio_levels(&frame);
         assert_eq!(levels[0], 1.0);
         assert_eq!(&levels[1..], &[0.0; 11]);
-        for sample in frame.chunks_exact_mut(2) {
+        for sample in frame.as_chunks_mut::<2>().0 {
             sample.copy_from_slice(&i16::MIN.to_le_bytes());
         }
         assert_eq!(SystemService::audio_levels(&frame), [1.0; 12]);

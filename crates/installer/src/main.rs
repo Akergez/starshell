@@ -112,57 +112,57 @@ fn run_loop<B: ratatui::backend::Backend>(
 
         terminal.draw(|f| ui::render(f, app))?;
 
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+        {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
 
-                // Handle password modal input first
-                if app.show_password_modal {
-                    match key.code {
-                        KeyCode::Char(c) => {
-                            app.password_input.push(c);
-                        }
-                        KeyCode::Backspace => {
-                            app.password_input.pop();
-                        }
-                        KeyCode::Enter => {
-                            if app.submit_password() {
-                                if let Ok(mut guard) = shared_password.lock() {
-                                    *guard = app.sudo_password.clone();
-                                }
-                                if let Some(action) = app.pending_action.take() {
-                                    match action {
-                                        app::PendingAction::InstallStarshell => {
-                                            app.start_installation();
-                                        }
-                                        app::PendingAction::InstallDeps => {
-                                            run_deps_installation(terminal, app)?;
-                                        }
+            // Handle password modal input first
+            if app.show_password_modal {
+                match key.code {
+                    KeyCode::Char(c) => {
+                        app.password_input.push(c);
+                    }
+                    KeyCode::Backspace => {
+                        app.password_input.pop();
+                    }
+                    KeyCode::Enter => {
+                        if app.submit_password() {
+                            if let Ok(mut guard) = shared_password.lock() {
+                                *guard = app.sudo_password.clone();
+                            }
+                            if let Some(action) = app.pending_action.take() {
+                                match action {
+                                    app::PendingAction::InstallStarshell => {
+                                        app.start_installation();
+                                    }
+                                    app::PendingAction::InstallDeps => {
+                                        run_deps_installation(terminal, app)?;
                                     }
                                 }
                             }
                         }
-                        KeyCode::Esc => {
-                            app.show_password_modal = false;
-                            app.pending_action = None;
-                            app.password_input.clear();
-                            app.password_error = None;
-                        }
-                        _ => {}
                     }
-                    continue;
+                    KeyCode::Esc => {
+                        app.show_password_modal = false;
+                        app.pending_action = None;
+                        app.password_input.clear();
+                        app.password_error = None;
+                    }
+                    _ => {}
                 }
+                continue;
+            }
 
-                match app.step {
-                    Step::Welcome => handle_welcome_key(app, key.code),
-                    Step::Dependencies => handle_deps_key(terminal, app, key.code)?,
-                    Step::Installing => {
-                        // Background installation running
-                    }
-                    Step::Finished => handle_finished_key(app, key.code),
+            match app.step {
+                Step::Welcome => handle_welcome_key(app, key.code),
+                Step::Dependencies => handle_deps_key(terminal, app, key.code)?,
+                Step::Installing => {
+                    // Background installation running
                 }
+                Step::Finished => handle_finished_key(app, key.code),
             }
         }
     }
@@ -305,10 +305,10 @@ fn run_deps_installation<B: ratatui::backend::Backend>(
     };
 
     let status = cmd.status();
-    if let Ok(s) = status {
-        if !s.success() {
-            println!("\nPackage installation reported an error.");
-        }
+    if let Ok(s) = status
+        && !s.success()
+    {
+        println!("\nPackage installation reported an error.");
     }
 
     println!("\nPress Enter to return to installer...");

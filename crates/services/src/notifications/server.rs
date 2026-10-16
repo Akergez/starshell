@@ -9,6 +9,7 @@ pub struct NotificationServer {
 
 #[interface(name = "org.freedesktop.Notifications")]
 impl NotificationServer {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) async fn notify(
         &self,
         app_name: String,

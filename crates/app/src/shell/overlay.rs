@@ -94,11 +94,18 @@ impl Render for Overlay {
         let theme = cx.global::<Theme>();
         let font_size = theme.font_size;
         let viewport = window.viewport_size();
+        let bar = cx.global::<services::AppState>().config.get().bar.clone();
+        let hidden_bar = if bar.auto_hide {
+            units_to_pixels(bar.clamped_size() - size::BAR_HIDDEN_STRIP, font_size)
+        } else {
+            px(0.0)
+        };
         let gap = Spacing::Medium.pixels(font_size);
+        let applet_gap = gap + hidden_bar;
         let inset = Spacing::XLarge.pixels(font_size);
         let width = self.width(font_size);
         let bottom = Shell::bar_position(cx) == BarPosition::Bottom;
-        let max_height = (viewport.height - gap - inset).max(px(0.0));
+        let max_height = (viewport.height - gap - hidden_bar - inset).max(px(0.0));
         let content = fade_in(
             ("overlay-content", self.generation),
             div()
@@ -128,8 +135,8 @@ impl Render for Overlay {
                     viewport.width,
                     inset,
                 ))
-                .when(bottom, |element| element.bottom(gap))
-                .when(!bottom, |element| element.top(gap)),
+                .when(bottom, |element| element.bottom(applet_gap))
+                .when(!bottom, |element| element.top(applet_gap)),
         };
 
         div()

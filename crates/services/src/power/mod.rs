@@ -115,7 +115,7 @@ impl PowerProfile {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "performance" => PowerProfile::Performance,
             "power-saver" => PowerProfile::PowerSaver,
@@ -187,20 +187,16 @@ impl PowerService {
         self.active_profile.store(Arc::new(profile.clone()));
 
         crate::spawn_tokio(async move {
-            if let Some(conn) = get_shared_system_conn().await {
-                if let Ok(builder) =
+            if let Some(conn) = get_shared_system_conn().await
+                && let Ok(builder) =
                     PropertiesProxy::builder(&conn).destination("net.hadess.PowerProfiles")
-                {
-                    if let Ok(builder) = builder.path("/net/hadess/PowerProfiles") {
-                        if let Ok(proxy) = builder.build().await {
-                            if let Ok(iface) = "net.hadess.PowerProfiles".try_into() {
-                                let _ = proxy
-                                    .set(iface, "ActiveProfile", Value::from(profile.as_str()))
-                                    .await;
-                            }
-                        }
-                    }
-                }
+                && let Ok(builder) = builder.path("/net/hadess/PowerProfiles")
+                && let Ok(proxy) = builder.build().await
+                && let Ok(iface) = "net.hadess.PowerProfiles".try_into()
+            {
+                let _ = proxy
+                    .set(iface, "ActiveProfile", Value::from(profile.as_str()))
+                    .await;
             }
         });
     }
@@ -208,27 +204,23 @@ impl PowerService {
     async fn start_polling(&self) {
         loop {
             self.battery.store(Arc::new(read_system_battery()));
-            if let Some(conn) = get_shared_system_conn().await {
-                if let Ok(builder) =
+            if let Some(conn) = get_shared_system_conn().await
+                && let Ok(builder) =
                     PropertiesProxy::builder(&conn).destination("net.hadess.PowerProfiles")
-                {
-                    if let Ok(builder) = builder.path("/net/hadess/PowerProfiles") {
-                        if let Ok(proxy) = builder.build().await {
-                            if let Ok(iface) = "net.hadess.PowerProfiles".try_into() {
-                                let profile = proxy
-                                    .get(iface, "ActiveProfile")
-                                    .await
-                                    .ok()
-                                    .and_then(|value| String::try_from(value).ok());
-                                self.profiles_available
-                                    .store(profile.is_some(), std::sync::atomic::Ordering::Relaxed);
-                                if let Some(profile) = profile {
-                                    self.active_profile
-                                        .store(Arc::new(PowerProfile::from_str(&profile)));
-                                }
-                            }
-                        }
-                    }
+                && let Ok(builder) = builder.path("/net/hadess/PowerProfiles")
+                && let Ok(proxy) = builder.build().await
+                && let Ok(iface) = "net.hadess.PowerProfiles".try_into()
+            {
+                let profile = proxy
+                    .get(iface, "ActiveProfile")
+                    .await
+                    .ok()
+                    .and_then(|value| String::try_from(value).ok());
+                self.profiles_available
+                    .store(profile.is_some(), std::sync::atomic::Ordering::Relaxed);
+                if let Some(profile) = profile {
+                    self.active_profile
+                        .store(Arc::new(PowerProfile::parse(&profile)));
                 }
             }
             tokio::time::sleep(Duration::from_secs(3)).await;

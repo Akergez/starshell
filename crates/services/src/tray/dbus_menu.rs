@@ -161,27 +161,26 @@ fn parse_single_item(val: &zbus::zvariant::Value) -> Option<DBusMenuItem> {
             }
         }
 
-        if let Some(val) = map.get("label") {
-            if let zbus::zvariant::Value::Str(l) = unwrap_val(val) {
-                label = l.replace('_', "");
-            }
+        if let Some(val) = map.get("label")
+            && let zbus::zvariant::Value::Str(l) = unwrap_val(val)
+        {
+            label = l.replace('_', "");
         }
-        if let Some(val) = map.get("enabled") {
-            if let zbus::zvariant::Value::Bool(b) = unwrap_val(val) {
-                enabled = *b;
-            }
+        if let Some(val) = map.get("enabled")
+            && let zbus::zvariant::Value::Bool(b) = unwrap_val(val)
+        {
+            enabled = *b;
         }
-        if let Some(val) = map.get("visible") {
-            if let zbus::zvariant::Value::Bool(b) = unwrap_val(val) {
-                visible = *b;
-            }
+        if let Some(val) = map.get("visible")
+            && let zbus::zvariant::Value::Bool(b) = unwrap_val(val)
+        {
+            visible = *b;
         }
-        if let Some(val) = map.get("type") {
-            if let zbus::zvariant::Value::Str(t) = unwrap_val(val) {
-                if t == "separator" {
-                    is_separator = true;
-                }
-            }
+        if let Some(val) = map.get("type")
+            && let zbus::zvariant::Value::Str(t) = unwrap_val(val)
+            && t == "separator"
+        {
+            is_separator = true;
         }
     }
 

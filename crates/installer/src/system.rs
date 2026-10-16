@@ -131,12 +131,12 @@ pub fn get_installed_starshell_version() -> Option<String> {
         "/usr/bin/starshell",
     ];
     for p in paths {
-        if let Ok(out) = Command::new(p).arg("--version").output() {
-            if out.status.success() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                if let Some(ver) = text.split_whitespace().last() {
-                    return Some(ver.trim().to_string());
-                }
+        if let Ok(out) = Command::new(p).arg("--version").output()
+            && out.status.success()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            if let Some(ver) = text.split_whitespace().last() {
+                return Some(ver.trim().to_string());
             }
         }
     }
@@ -215,10 +215,11 @@ pub fn find_local_release_binary() -> Option<std::path::PathBuf> {
 
     for c in candidates {
         let path = Path::new(c);
-        if path.exists() && path.is_file() {
-            if let Ok(abs) = path.canonicalize() {
-                return Some(abs);
-            }
+        if path.exists()
+            && path.is_file()
+            && let Ok(abs) = path.canonicalize()
+        {
+            return Some(abs);
         }
     }
     None
