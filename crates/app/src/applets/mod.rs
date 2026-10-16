@@ -1,3 +1,4 @@
+pub mod appearance;
 pub mod audio;
 pub mod calendar;
 pub mod clipboard;
@@ -10,6 +11,7 @@ pub mod notifications;
 pub mod record;
 pub mod shelf;
 pub mod system;
+pub mod tray_menu;
 
 use gpui::{AppContext, Context, Pixels, Window};
 use ui::tokens::size;
@@ -136,6 +138,19 @@ pub fn build(surface: Surface, window: &mut Window, cx: &mut Context<Overlay>) -
                 view: view.into(),
             }
         }
-        _ => common::placeholder(surface, cx),
+        Surface::Applet(AppletKind::Themes) => Content {
+            view: cx.new(appearance::ThemesApplet::new).into(),
+            focus: None,
+        },
+        Surface::Applet(AppletKind::Wallpapers) => Content {
+            view: cx.new(appearance::WallpapersApplet::new).into(),
+            focus: None,
+        },
+        Surface::Applet(AppletKind::TrayMenu(index)) => Content {
+            view: cx
+                .new(|cx| tray_menu::TrayMenuApplet::new(index, cx))
+                .into(),
+            focus: None,
+        },
     }
 }

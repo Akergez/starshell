@@ -1,14 +1,9 @@
-use gpui::{
-    AnyElement, App, AppContext, Context, IntoElement, ParentElement, Render, Window, div,
-    prelude::FluentBuilder,
-};
+use gpui::{AnyElement, IntoElement, prelude::FluentBuilder};
 use services::{AppState, Display, SystemStatus};
-use ui::components::{Slider, SliderRow, caption, panel};
+use ui::components::{Slider, SliderRow};
 use ui::theme::Theme;
 
 use crate::bar::volume_icon;
-use crate::shell::Surface;
-use crate::shell::overlay::{Content, Overlay};
 use crate::shell::state::ShellState;
 
 pub fn run_command(command: &str) {
@@ -134,33 +129,4 @@ pub fn display_row(theme: &Theme, display: &Display) -> AnyElement {
         display.brightness.min(100) as f32 / 100.0,
     )
     .into_any_element()
-}
-
-struct Placeholder {
-    title: &'static str,
-}
-
-impl Render for Placeholder {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
-        let theme = cx.global::<Theme>();
-        panel(theme)
-            .child(div().child(self.title))
-            .child(caption(theme, "Coming soon"))
-    }
-}
-
-pub fn placeholder(surface: Surface, cx: &mut Context<Overlay>) -> Content {
-    let title = match surface {
-        Surface::Launcher => "Launcher",
-        Surface::Polkit => "Authentication",
-        Surface::Applet(_) => "Applet",
-    };
-    Content {
-        view: cx.new(|_| Placeholder { title }).into(),
-        focus: None,
-    }
-}
-
-pub fn refresh(cx: &mut App) {
-    ShellState::refresh_now(cx);
 }
