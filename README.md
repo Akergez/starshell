@@ -59,7 +59,7 @@ right = ["recorder", "tray", "notifications", "system", "audio", "displays", "co
 
 ### Session
 - Notification popups, a Polkit authentication agent, a lock screen and a settings window.
-- A **Starshell** login session: pick it in your display manager and it starts niri and Starshell as systemd user services, runs XDG autostart entries and restarts the shell if it crashes.
+- A **Starshell** login session: pick it in your display manager and it starts niri and Starshell as systemd user services, runs XDG autostart entries, picks portals that follow Starshell's light and dark mode and restarts the shell if it crashes.
 
 ## Theming & Templates
 Starshell includes a declarative theming engine that automatically synchronizes your system colors across your terminals, compositor, shell, and file managers in real time without external template dependencies.
@@ -192,6 +192,7 @@ cargo build --release
 To add the login session by hand, install the files from `crates/installer/session`:
 ```bash
 sudo install -Dm644 crates/installer/session/starshell.desktop /usr/share/wayland-sessions/starshell.desktop
+sudo install -Dm644 crates/installer/session/starshell-portals.conf /usr/share/xdg-desktop-portal/starshell-portals.conf
 sudo install -Dm755 crates/installer/session/starshell-session /usr/local/bin/starshell-session
 sudo install -Dm644 crates/installer/session/starshell.service /usr/local/lib/systemd/user/starshell.service
 sudo install -Dm644 crates/installer/session/starshell-session.target /usr/local/lib/systemd/user/starshell-session.target
