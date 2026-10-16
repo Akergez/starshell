@@ -257,7 +257,10 @@ impl Render for WallpapersApplet {
                                 .size(IconSize::Medium.rems())
                                 .text_color(theme.text_muted()),
                         )
-                        .child(caption(&theme, "Add images to ~/Wallpapers")),
+                        .child(caption(
+                            &theme,
+                            "Add images to ~/Wallpapers or ~/.local/share/wallpapers",
+                        )),
                 )
             })
             .when(!rows.is_empty(), |panel| {

@@ -17,40 +17,71 @@ pub(super) struct Catalog {
 impl Catalog {
     pub fn load() -> Self {
         let mut wallpapers = Vec::new();
-        if let Some(home) = dirs::home_dir()
-            && let Ok(entries) = std::fs::read_dir(home.join("Wallpapers"))
-        {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if !path.is_file()
-                    || !path.extension().and_then(|s| s.to_str()).is_some_and(|s| {
-                        matches!(
-                            s.to_ascii_lowercase().as_str(),
-                            "png" | "jpg" | "jpeg" | "webp"
-                        )
-                    })
-                {
-                    continue;
-                }
-                let name = path
-                    .file_name()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-                let thumbnail = thumbnail(&path);
-                wallpapers.push(WallpaperEntry {
-                    name,
-                    path,
-                    thumbnail,
-                });
-            }
+        for directory in wallpaper_directories() {
+            collect_images(&directory, 2, &mut wallpapers);
         }
         wallpapers.sort_by_key(|item| item.name.to_lowercase());
+        wallpapers.dedup_by(|a, b| a.path == b.path);
         Self {
             themes: ThemeManager::read_presets(),
             wallpapers,
         }
     }
 }
+
+fn wallpaper_directories() -> Vec<PathBuf> {
+    let mut directories = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        directories.push(home.join("Wallpapers"));
+    }
+    if let Some(pictures) = dirs::picture_dir() {
+        directories.push(pictures.join("Wallpapers"));
+    }
+    if let Some(data) = dirs::data_dir() {
+        directories.push(data.join("wallpapers"));
+    }
+    directories
+}
+
+fn is_image(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "webp"
+            )
+        })
+}
+
+fn collect_images(directory: &std::path::Path, depth: usize, output: &mut Vec<WallpaperEntry>) {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if depth > 0 {
+                collect_images(&path, depth - 1, output);
+            }
+            continue;
+        }
+        if !is_image(&path) {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let thumbnail = thumbnail(&path);
+        output.push(WallpaperEntry {
+            name,
+            path,
+            thumbnail,
+        });
+    }
+}
+
 fn thumbnail(path: &PathBuf) -> Option<PathBuf> {
     let metadata = std::fs::metadata(path).ok()?;
     let mut hash = std::collections::hash_map::DefaultHasher::new();

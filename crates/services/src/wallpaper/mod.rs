@@ -9,28 +9,37 @@ pub enum WallpaperEngine {
     #[default]
     Awww,
     Swww,
+    Swaybg,
+    Missing,
+}
+
+fn program_exists(program: &str) -> bool {
+    std::env::var_os("PATH").is_some_and(|paths| {
+        std::env::split_paths(&paths).any(|directory| directory.join(program).is_file())
+    })
 }
 
 impl WallpaperEngine {
     pub fn detect() -> Self {
-        if Command::new("awww").arg("--version").output().is_ok() {
-            Self::Awww
-        } else {
-            Self::Swww
-        }
+        [Self::Awww, Self::Swww, Self::Swaybg]
+            .into_iter()
+            .find(|engine| program_exists(engine.cli_cmd()))
+            .unwrap_or(Self::Missing)
     }
 
     pub fn cli_cmd(&self) -> &'static str {
         match self {
             Self::Awww => "awww",
-            Self::Swww => "swww",
+            Self::Swww | Self::Missing => "swww",
+            Self::Swaybg => "swaybg",
         }
     }
 
-    pub fn daemon_cmd(&self) -> &'static str {
+    pub fn daemon_cmd(&self) -> Option<&'static str> {
         match self {
-            Self::Awww => "awww-daemon",
-            Self::Swww => "swww-daemon",
+            Self::Awww => Some("awww-daemon"),
+            Self::Swww => Some("swww-daemon"),
+            Self::Swaybg | Self::Missing => None,
         }
     }
 }
@@ -42,6 +51,7 @@ pub struct WallpaperService {
     compositor: CompositorService,
     config_file: PathBuf,
     changed: tokio::sync::broadcast::Sender<PathBuf>,
+    background: Arc<Mutex<Option<std::process::Child>>>,
 }
 
 impl WallpaperService {
@@ -60,6 +70,7 @@ impl WallpaperService {
             compositor,
             config_file,
             changed,
+            background: Arc::new(Mutex::new(None)),
         };
 
         service.ensure_daemon_in_background();
@@ -145,12 +156,13 @@ impl WallpaperService {
     }
 
     pub fn ensure_daemon_in_background(&self) {
+        let Some(daemon) = self.engine.daemon_cmd() else {
+            return;
+        };
         if self.is_daemon_running() {
             return;
         }
-
-        let daemon = self.engine.daemon_cmd();
-        println!("[WallpaperService] Spawning background daemon: {}", daemon);
+        crate::log_info!("Wallpaper", "Starting {daemon}");
 
         let _ = Command::new(daemon)
             .stdin(Stdio::null())
@@ -220,7 +232,7 @@ impl WallpaperService {
 
     fn set_wallpaper_internal(&self, path: &Path, save_to_disk: bool) -> bool {
         if !path.exists() {
-            eprintln!("[WallpaperService] File does not exist: {:?}", path);
+            crate::log_warn!("Wallpaper", "File does not exist: {}", path.display());
             return false;
         }
 
@@ -235,7 +247,7 @@ impl WallpaperService {
             *current_guard = Some(path_buf.clone());
         }
 
-        let _ = self.changed.send(path_buf);
+        let _ = self.changed.send(path_buf.clone());
 
         let blur_target = path.to_path_buf();
         crate::spawn_tokio(async move {
@@ -247,6 +259,18 @@ impl WallpaperService {
 
         if save_to_disk {
             let _ = fs::write(&self.config_file, &path_str);
+        }
+
+        if engine == WallpaperEngine::Swaybg {
+            self.show_with_swaybg(&path_buf);
+            return true;
+        }
+        if engine == WallpaperEngine::Missing {
+            crate::log_warn!(
+                "Wallpaper",
+                "No wallpaper tool found; install awww, swww or swaybg"
+            );
+            return true;
         }
 
         crate::spawn_blocking(move || {
@@ -276,25 +300,51 @@ impl WallpaperService {
                 Ok(out) => {
                     if !out.status.success() {
                         let err = String::from_utf8_lossy(&out.stderr);
-                        eprintln!("[WallpaperService] {} img error: {}", engine.cli_cmd(), err);
+                        crate::log_warn!("Wallpaper", "{} img error: {}", engine.cli_cmd(), err);
                     } else {
-                        println!(
-                            "[WallpaperService] Wallpaper successfully changed to: {}",
-                            path_str
-                        );
+                        crate::log_info!("Wallpaper", "Wallpaper changed to {path_str}");
                     }
                 }
                 Err(e) => {
-                    eprintln!(
-                        "[WallpaperService] Failed to execute {}: {}",
-                        engine.cli_cmd(),
-                        e
-                    );
+                    crate::log_warn!("Wallpaper", "Failed to execute {}: {}", engine.cli_cmd(), e);
                 }
             }
         });
 
         true
+    }
+
+    fn show_with_swaybg(&self, path: &Path) {
+        use std::os::unix::process::CommandExt;
+        let Ok(mut background) = self.background.lock() else {
+            return;
+        };
+        let mut command = Command::new("swaybg");
+        command
+            .args(["--mode", "fill", "--image"])
+            .arg(path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        // SAFETY: prctl is async-signal-safe and only ties the child's lifetime to ours.
+        unsafe {
+            command.pre_exec(|| {
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                Ok(())
+            });
+        }
+        match command.spawn() {
+            Ok(child) => {
+                if let Some(mut previous) = background.replace(child) {
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        let _ = previous.kill();
+                        let _ = previous.wait();
+                    });
+                }
+            }
+            Err(error) => crate::log_error!("Wallpaper", "Could not start swaybg: {error}"),
+        }
     }
 
     pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<PathBuf> {
