@@ -17,6 +17,8 @@ Capsule becomes Starshell, rebuilt after the Starshell design specification.
 * Every size is a design token that follows the theme font size, and the palette is derived from a single accent color.
 * Hover, press and selection are animated and honor reduce motion.
 * Saving the config keeps keys written by other tools.
+* Idle locking uses the compositor's ext-idle-notify protocol, so it follows real input on every compositor and respects idle inhibitors such as a playing video.
+* Services refresh on D-Bus signals and audio events instead of polling, so the shell stays idle when nothing changes.
 
 ### Breaking Changes
 * The binary, config directory, socket and caches are now named `starshell`.

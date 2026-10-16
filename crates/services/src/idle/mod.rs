@@ -1,3 +1,5 @@
+mod wayland;
+
 use crate::config::ConfigService;
 use crate::ipc::{IpcCommand, push_ipc_command};
 use crate::mpris::MprisService;
@@ -28,7 +30,7 @@ impl IdleService {
 
         let svc_input = service.clone();
         crate::spawn_tokio(async move {
-            svc_input.start_physical_input_tracker().await;
+            svc_input.track_idleness().await;
         });
 
         service
@@ -36,6 +38,32 @@ impl IdleService {
 
     pub fn subscribe(&self) -> broadcast::Receiver<IdleEvent> {
         self.tx.subscribe()
+    }
+
+    fn lock_for_idleness(&self) {
+        crate::log_info!("IDLE", "Idle timeout reached, locking the session");
+        push_ipc_command(IpcCommand::Lock);
+        let _ = self.tx.send(IdleEvent::IdleTimeoutTriggered);
+    }
+
+    async fn track_idleness(&self) {
+        loop {
+            match wayland::watch(self.config.clone(), || self.lock_for_idleness()).await {
+                Ok(()) => {}
+                Err(wayland::IdleError::Unsupported) => {
+                    crate::log_warn!(
+                        "IDLE",
+                        "The compositor lacks ext-idle-notify; falling back to input heuristics"
+                    );
+                    self.start_physical_input_tracker().await;
+                    return;
+                }
+                Err(wayland::IdleError::Failed(error)) => {
+                    crate::log_warn!("IDLE", "Idle notifications stopped: {error}");
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
     }
 
     async fn start_physical_input_tracker(&self) {
@@ -95,12 +123,7 @@ impl IdleService {
             if has_activity || is_video_playing {
                 last_activity = std::time::Instant::now();
             } else if timeout_secs > 0 && last_activity.elapsed().as_secs() >= timeout_secs {
-                eprintln!(
-                    "[IdleService] Idle timeout reached ({}s). Triggering lockscreen.",
-                    timeout_secs
-                );
-                push_ipc_command(IpcCommand::Lock);
-                let _ = self.tx.send(IdleEvent::IdleTimeoutTriggered);
+                self.lock_for_idleness();
                 last_activity = std::time::Instant::now();
             }
         }
