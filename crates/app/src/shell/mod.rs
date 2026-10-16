@@ -44,6 +44,7 @@ pub struct Shell {
     bars: Vec<WindowHandle<Bar>>,
     overlay: Option<WindowHandle<Overlay>>,
     overlay_display: Option<DisplayId>,
+    overlay_sizes: Vec<(Option<DisplayId>, gpui::Size<Pixels>)>,
     surface: Option<Surface>,
 }
 
@@ -155,7 +156,14 @@ impl Shell {
             return;
         }
         Self::close_now(cx);
-        let options = overlay_options(display, cx);
+        let size = cx
+            .global::<Shell>()
+            .overlay_sizes
+            .iter()
+            .find(|(known, _)| *known == display)
+            .map(|(_, size)| *size)
+            .unwrap_or_else(|| initial_overlay_size(display, cx));
+        let options = overlay_options(display, size);
         let opened = cx.open_window(options, |window, cx| {
             window.set_rem_size(cx.global::<Theme>().font_size());
             cx.new(|cx| Overlay::new(surface, placement.x, window, cx))
@@ -176,9 +184,21 @@ impl Shell {
     fn close_now(cx: &mut App) {
         let shell = cx.global_mut::<Shell>();
         shell.surface = None;
-        shell.overlay_display = None;
+        let display = shell.overlay_display.take();
         if let Some(handle) = shell.overlay.take() {
-            let _ = handle.update(cx, |_, window, _| window.remove_window());
+            let size = handle
+                .update(cx, |_, window, _| {
+                    let size = window.viewport_size();
+                    window.remove_window();
+                    size
+                })
+                .ok()
+                .filter(|size| size.width > px(0.0) && size.height > px(0.0));
+            if let Some(size) = size {
+                let sizes = &mut cx.global_mut::<Shell>().overlay_sizes;
+                sizes.retain(|(known, _)| *known != display);
+                sizes.push((display, size));
+            }
         }
         Self::sync_bar_visibility(cx);
         cx.refresh_windows();
@@ -308,13 +328,13 @@ pub(crate) fn initial_overlay_size(display: Option<DisplayId>, cx: &App) -> gpui
     )
 }
 
-fn overlay_options(display: Option<DisplayId>, cx: &App) -> WindowOptions {
+fn overlay_options(display: Option<DisplayId>, size: gpui::Size<Pixels>) -> WindowOptions {
     WindowOptions {
         display_id: display,
         titlebar: None,
         window_bounds: Some(WindowBounds::Windowed(gpui::Bounds {
             origin: gpui::point(px(0.0), px(0.0)),
-            size: initial_overlay_size(display, cx),
+            size,
         })),
         app_id: Some("starshell-overlay".to_string()),
         linux_window_background: LinuxWindowBackground::Transparent,

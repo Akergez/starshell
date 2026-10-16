@@ -1,8 +1,8 @@
 mod icons;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, DisplayId, DurationWithEasing, ElementId, Entity,
-    ExternalPaths, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement,
+    AnyElement, App, Context, DisplayId, DurationWithEasing, ElementId, Entity, ExternalPaths,
+    FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, MouseDownEvent, ParentElement,
     Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, img,
     prelude::FluentBuilder, svg,
 };
@@ -262,11 +262,14 @@ impl Chip {
 }
 
 impl Bar {
-    fn toggle(&self, surface: Surface) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
+    fn toggle(
+        &self,
+        surface: Surface,
+    ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
         let display = self.display;
         move |event, _, cx| {
-            let x = event.position().x;
-            Shell::toggle(surface, Placement::at(display, x), cx);
+            cx.stop_propagation();
+            Shell::toggle(surface, Placement::at(display, event.position.x), cx);
         }
     }
 
@@ -279,7 +282,7 @@ impl Bar {
     ) -> AnyElement {
         chip.selected(current == Some(Surface::Applet(kind)))
             .render(theme)
-            .on_click(self.toggle(Surface::Applet(kind)))
+            .on_mouse_down(MouseButton::Left, self.toggle(Surface::Applet(kind)))
             .into_any_element()
     }
 
@@ -296,7 +299,7 @@ impl Bar {
                 .icon("layout-grid.svg")
                 .selected(current == Some(Surface::Launcher))
                 .render(theme)
-                .on_click(self.toggle(Surface::Launcher))
+                .on_mouse_down(MouseButton::Left, self.toggle(Surface::Launcher))
                 .into_any_element(),
             BarModule::Workspaces => self.workspaces(snapshot, theme),
             BarModule::Media => {
@@ -376,7 +379,10 @@ impl Bar {
                 };
                 chip.selected(current == Some(Surface::Applet(AppletKind::Shelf)))
                     .render(theme)
-                    .on_click(self.toggle(Surface::Applet(AppletKind::Shelf)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        self.toggle(Surface::Applet(AppletKind::Shelf)),
+                    )
                     .on_drop(|paths: &ExternalPaths, _, cx| {
                         cx.global::<AppState>().shelf.add_paths(paths.paths());
                         ShellState::refresh_now(cx);
@@ -540,8 +546,11 @@ impl Bar {
                 )
                 .child(format!("{}%", battery.percentage));
         }
-        chip.on_click(self.toggle(Surface::Applet(AppletKind::ControlCenter)))
-            .into_any_element()
+        chip.on_mouse_down(
+            MouseButton::Left,
+            self.toggle(Surface::Applet(AppletKind::ControlCenter)),
+        )
+        .into_any_element()
     }
 
     fn section(

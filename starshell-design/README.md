@@ -122,7 +122,7 @@ Default accent is `#70b8ff`.
   point, shifts along the bar if it does not fit, and never overlaps the bar.
   Its height fits the content but never exceeds the screen minus XLarge;
   beyond that it scrolls.
-- An applet appears with a 70 ms ease-out (cubic) fade-in.
+- An applet appears with a 40 ms ease-out (cubic) fade-in.
 
 ## 5. Control center
 
@@ -154,7 +154,7 @@ Top to bottom:
   - active — `element_selected` background, `accent` icon;
   - expanded — `accent` border (transparent otherwise), chevron points up
     and is `accent`.
-  Background and border transitions take 140 ms, ease-out (cubic), resuming
+  Background and border transitions take 80 ms, ease-out (cubic), resuming
   from the current value when the direction changes.
 - Two hit zones: the **body** (toggles) and the **chevron** on the right
   (expands the panel), separated by a vertical `border_variant` line. Each
@@ -178,7 +178,7 @@ Top to bottom:
   Rows below shift down; the row above and the row itself neither move nor
   resize.
 - At most one is open; pressing the chevron again closes it.
-- Appearance: fade 0 → 1 and slide in from above by Medium over 140 ms,
+- Appearance: fade 0 → 1 and slide in from above by Medium over 80 ms,
   ease-out (quint). The slide is a visual offset and does not move layout.
 - The content has no header of its own (the tile plays that role). At the
   top there is a line: a Small muted label ("Connected to X" / "Networks" /
@@ -215,7 +215,7 @@ Top to bottom:
   below it the slider across the remaining width;
 - on the right the percentage in Small muted, `percentage_label` column,
   right-aligned.
-- The slider fill smoothly catches up with the value (140 ms).
+- The slider fill smoothly catches up with the value (80 ms).
 
 ## 6. Bar applets
 
@@ -257,9 +257,9 @@ The same rows and cards as in the control center, without nested screens.
 
 | What | Duration | Curve |
 |---|---|---|
-| hover/press/selection, tile background and border, slider | 140 ms | ease-out cubic, reversible |
-| expanded panel appearance | 140 ms | ease-out quint, fade + slide by Medium |
-| applet appearance | 70 ms | ease-out cubic, fade |
+| hover/press/selection, tile background and border, slider | 80 ms | ease-out cubic, reversible |
+| expanded panel appearance | 80 ms | ease-out quint, fade + slide by Medium |
+| applet appearance | 40 ms | ease-out cubic, fade |
 | bar show/hide (auto-hide) | 180 ms | — |
 
 Auto-hide slides the bar fully off screen and keeps an invisible 2-unit
