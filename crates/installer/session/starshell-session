@@ -21,10 +21,6 @@ if systemctl --user -q is-active niri.service; then
     exit 1
 fi
 
-XDG_CURRENT_DESKTOP=starshell:niri
-XDG_SESSION_DESKTOP=starshell
-export XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP
-
 systemctl --user reset-failed
 systemctl --user import-environment
 if hash dbus-update-activation-environment 2>/dev/null; then
@@ -34,4 +30,4 @@ fi
 systemctl --user --wait start starshell-session.target
 
 systemctl --user start --job-mode=replace-irreversibly niri-shutdown.target
-systemctl --user unset-environment WAYLAND_DISPLAY DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP NIRI_SOCKET
+systemctl --user unset-environment WAYLAND_DISPLAY DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP NIRI_SOCKET

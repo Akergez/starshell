@@ -101,15 +101,10 @@ pub fn create_desktop_entry(password: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-const SESSION_FILES: [(&str, &str, &str); 5] = [
+const SESSION_FILES: [(&str, &str, &str); 4] = [
     (
         include_str!("../session/starshell.desktop"),
         "/usr/share/wayland-sessions/starshell.desktop",
-        "644",
-    ),
-    (
-        include_str!("../session/starshell-portals.conf"),
-        "/usr/share/xdg-desktop-portal/starshell-portals.conf",
         "644",
     ),
     (
