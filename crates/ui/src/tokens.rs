@@ -163,6 +163,7 @@ pub mod size {
 pub mod motion {
     use super::Duration;
 
+    pub const APPEAR: Duration = Duration::from_millis(70);
     pub const FAST: Duration = Duration::from_millis(140);
     pub const BAR: Duration = Duration::from_millis(180);
 

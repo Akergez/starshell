@@ -122,7 +122,7 @@ Default accent is `#70b8ff`.
   point, shifts along the bar if it does not fit, and never overlaps the bar.
   Its height fits the content but never exceeds the screen minus XLarge;
   beyond that it scrolls.
-- An applet appears with a 140 ms fade-in.
+- An applet appears with a 70 ms ease-out (cubic) fade-in.
 
 ## 5. Control center
 
@@ -259,7 +259,7 @@ The same rows and cards as in the control center, without nested screens.
 |---|---|---|
 | hover/press/selection, tile background and border, slider | 140 ms | ease-out cubic, reversible |
 | expanded panel appearance | 140 ms | ease-out quint, fade + slide by Medium |
-| applet appearance | 140 ms | fade |
+| applet appearance | 70 ms | ease-out cubic, fade |
 | bar show/hide (auto-hide) | 180 ms | — |
 
 Auto-hide slides the bar fully off screen and keeps an invisible 2-unit

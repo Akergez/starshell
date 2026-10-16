@@ -76,7 +76,7 @@ pub fn reveal(id: impl Into<ElementId>, content: impl IntoElement) -> impl IntoE
 pub fn fade_in(id: impl Into<ElementId>, content: impl IntoElement) -> impl IntoElement {
     div().size_full().child(content).with_animation(
         id,
-        Animation::new(motion::FAST),
+        Animation::new(motion::APPEAR).with_easing(motion::ease_out_cubic),
         |element, progress| element.opacity(progress),
     )
 }
