@@ -55,7 +55,14 @@ sudo install -Dm755 target/release/starshell /usr/local/bin/starshell
 
 ## 3. Login
 
-greetd starts the session and tuigreet asks for the user and password. In `/etc/greetd/config.toml`:
+greetd starts the session and tuigreet asks for the user and password. Out of the box greetd runs `agreety`, a plain text login that looks like a bare TTY, so point it at tuigreet:
+
+```bash
+sudo sed -i 's|^command = .*|command = "tuigreet --time --remember --remember-session --asterisks --sessions /usr/share/wayland-sessions"|' /etc/greetd/config.toml
+grep '^command' /etc/greetd/config.toml
+```
+
+The second command must print the `tuigreet` line. The resulting `/etc/greetd/config.toml`:
 
 ```toml
 [terminal]
