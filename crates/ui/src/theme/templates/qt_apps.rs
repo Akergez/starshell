@@ -5,6 +5,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Mutex, PoisonError};
 
 pub struct QtApps;
 
@@ -256,12 +257,16 @@ fn kde_color_groups(theme: &Theme) -> Vec<(String, Vec<(&'static str, String)>)>
     groups
 }
 
+// Theme changes are applied on several blocking threads at once, and kdeglobals is shared with KDE apps.
+static KDE_FILES_LOCK: Mutex<()> = Mutex::new(());
+
 fn write_kde_color_scheme(theme: &Theme) -> io::Result<()> {
+    let _guard = KDE_FILES_LOCK
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
     let groups = kde_color_groups(theme);
 
     if let Some(data_dir) = dirs::data_dir() {
-        let color_schemes_dir = data_dir.join("color-schemes");
-        fs::create_dir_all(&color_schemes_dir)?;
         let mut scheme =
             format!("[General]\nName={KDE_SCHEME_NAME}\nColorScheme={KDE_SCHEME_NAME}\n");
         for (group, keys) in &groups {
@@ -270,41 +275,54 @@ fn write_kde_color_scheme(theme: &Theme) -> io::Result<()> {
                 scheme.push_str(&format!("{key}={value}\n"));
             }
         }
-        fs::write(
-            color_schemes_dir.join(format!("{KDE_SCHEME_NAME}.colors")),
-            scheme,
-        )?;
+        let path = data_dir
+            .join("color-schemes")
+            .join(format!("{KDE_SCHEME_NAME}.colors"));
+        write_atomically(&path, &scheme)?;
     }
 
     let Some(config_dir) = dirs::config_dir() else {
         return Ok(());
     };
 
-    let kdeglobals = config_dir.join("kdeglobals");
-    set_ini_keys(&kdeglobals, "General", &[("ColorScheme", KDE_SCHEME_NAME)])?;
-    for (group, keys) in &groups {
-        let keys: Vec<_> = keys
+    let mut updates = vec![("General", vec![("ColorScheme", KDE_SCHEME_NAME)])];
+    updates.extend(groups.iter().map(|(group, keys)| {
+        let keys = keys
             .iter()
             .map(|(key, value)| (*key, value.as_str()))
             .collect();
-        set_ini_keys(&kdeglobals, group, &keys)?;
-    }
-
-    Ok(())
+        (group.as_str(), keys)
+    }));
+    update_ini_file(&config_dir.join("kdeglobals"), &updates)
 }
 
 fn set_ini_keys(path: &Path, group: &str, keys: &[(&str, &str)]) -> io::Result<()> {
+    update_ini_file(path, &[(group, keys.to_vec())])
+}
+
+fn update_ini_file(path: &Path, updates: &[(&str, Vec<(&str, &str)>)]) -> io::Result<()> {
     let original = match fs::read_to_string(path) {
         Ok(content) => content,
         Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error),
     };
-    let header = format!("[{group}]");
     let mut lines: Vec<String> = original.lines().map(str::to_string).collect();
+    for (group, keys) in updates {
+        set_group_keys(&mut lines, group, keys);
+    }
+
+    let updated = lines.join("\n") + "\n";
+    if updated == original {
+        return Ok(());
+    }
+    write_atomically(path, &updated)
+}
+
+fn set_group_keys(lines: &mut Vec<String>, group: &str, keys: &[(&str, &str)]) {
+    let header = format!("[{group}]");
     let mut missing: Vec<&(&str, &str)> = keys.iter().collect();
 
-    let group_start = lines.iter().position(|line| line.trim() == header);
-    match group_start {
+    match lines.iter().position(|line| line.trim() == header) {
         Some(start) => {
             let mut end = lines[start + 1..]
                 .iter()
@@ -338,15 +356,22 @@ fn set_ini_keys(path: &Path, group: &str, keys: &[(&str, &str)]) -> io::Result<(
             );
         }
     }
+}
 
-    let updated = lines.join("\n") + "\n";
-    if updated == original {
-        return Ok(());
-    }
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, updated)
+// Readers never see a half-written file, and a symlinked config keeps its link.
+fn write_atomically(path: &Path, content: &str) -> io::Result<()> {
+    let target = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let Some(parent) = target.parent() else {
+        return fs::write(&target, content);
+    };
+    fs::create_dir_all(parent)?;
+    let file_name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let temporary = parent.join(format!(".{file_name}.starshell-{}", std::process::id()));
+    fs::write(&temporary, content)?;
+    fs::rename(&temporary, &target)
 }
 
 #[cfg(test)]
@@ -354,24 +379,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn set_ini_keys_updates_only_the_given_keys() -> io::Result<()> {
+    fn update_ini_file_updates_only_the_given_keys() -> io::Result<()> {
         let directory = std::env::temp_dir().join(format!("starshell-ini-{}", std::process::id()));
         fs::create_dir_all(&directory)?;
-        let path = directory.join("kdeglobals");
+        let target = directory.join("kdeglobals-target");
+        let link = directory.join("kdeglobals");
         fs::write(
-            &path,
+            &target,
             "[General]\nColorScheme=Breeze\nfont=Geist,10\n\n[Icons]\nTheme=breeze-dark\n",
         )?;
+        std::os::unix::fs::symlink(&target, &link)?;
 
-        set_ini_keys(
-            &path,
-            "General",
-            &[("ColorScheme", "Starshell"), ("Name", "x")],
+        update_ini_file(
+            &link,
+            &[
+                ("General", vec![("ColorScheme", "Starshell"), ("Name", "x")]),
+                ("UiSettings", vec![("ColorScheme", "Starshell")]),
+            ],
         )?;
-        set_ini_keys(&path, "UiSettings", &[("ColorScheme", "Starshell")])?;
 
-        let content = fs::read_to_string(&path)?;
+        let content = fs::read_to_string(&link)?;
+        let still_a_link = fs::symlink_metadata(&link)?.file_type().is_symlink();
         fs::remove_dir_all(&directory)?;
+        assert!(still_a_link);
         assert_eq!(
             content,
             "[General]\nColorScheme=Starshell\nfont=Geist,10\nName=x\n\n[Icons]\nTheme=breeze-dark\n\n[UiSettings]\nColorScheme=Starshell\n"
