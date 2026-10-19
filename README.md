@@ -192,6 +192,8 @@ Starshell is a Wayland desktop shell and expects a real Wayland runtime with lay
 - At least one visible audio device (sink/source) exposed by the system.
 - If you are testing inside a VM, you will usually need a virtual audio device or a host with real audio passthrough; otherwise the audio widgets will stay empty.
 
+For a complete desktop with niri, KDE applications, login and portals, see [Minimal Setup](docs/MINIMAL_SETUP.md).
+
 ### Nix
 
 The provided flake supports `x86_64-linux` and `aarch64-linux`.
