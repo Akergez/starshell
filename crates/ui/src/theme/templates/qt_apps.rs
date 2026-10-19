@@ -1,27 +1,12 @@
+use crate::theme::Theme;
 use crate::theme::templates::AppTheme;
-use crate::theme::{Theme, ThemeMode};
+use gpui::{Hsla, hsla_to_rgba};
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::process::Command;
 
 pub struct QtApps;
-
-fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() >= 6 {
-        let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
-        let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
-        let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
-        (r, g, b)
-    } else {
-        (0, 0, 0)
-    }
-}
-
-fn hex_to_rgb_str(hex: &str) -> String {
-    let (r, g, b) = hex_to_rgb(hex);
-    format!("{r},{g},{b}")
-}
 
 fn to_qt_hex(hex: &str) -> String {
     let clean = hex.trim_start_matches('#');
@@ -79,21 +64,11 @@ fn make_color_list(
 
 impl AppTheme for QtApps {
     fn apply_current_theme(&self, theme: &Theme) {
-        let _is_dark = matches!(theme.mode, ThemeMode::Dark);
-
         let bg = &theme.background_color.hex;
         let bg_alt = &theme.background_color_alt.hex;
-        let surface = &theme.surface_color.hex;
         let fg = &theme.foreground_color.hex;
         let fg_muted = &theme.foreground_color_muted.hex;
         let accent = &theme.accent_color.hex;
-
-        let bg_rgb = hex_to_rgb_str(bg);
-        let bg_alt_rgb = hex_to_rgb_str(bg_alt);
-        let surface_rgb = hex_to_rgb_str(surface);
-        let fg_rgb = hex_to_rgb_str(fg);
-        let fg_muted_rgb = hex_to_rgb_str(fg_muted);
-        let accent_rgb = hex_to_rgb_str(accent);
 
         // 1. Write qt5ct and qt6ct custom.conf
         let active_list = make_color_list(bg, bg_alt, fg, fg_muted, accent, false);
@@ -114,94 +89,19 @@ impl AppTheme for QtApps {
                 let custom_conf_file = colors_dir.join("custom.conf");
                 let custom_conf_str = custom_conf_file.to_string_lossy();
 
-                update_qtct_conf(&conf_path, &custom_conf_str);
+                let keys = [
+                    ("color_scheme_path", custom_conf_str.as_ref()),
+                    ("custom_palette", "true"),
+                    ("style", "Fusion"),
+                ];
+                if let Err(error) = set_ini_keys(&conf_path, "Appearance", &keys) {
+                    eprintln!("Failed to update {}: {error}", conf_path.display());
+                }
             }
-
-            // 2. Write KDE kdeglobals using proper R,G,B comma-separated values
-            let kdeglobals_path = config_dir.join("kdeglobals");
-            let scheme_name = "Starshell";
-
-            let kde_content = format!(
-                r#"[General]
-ColorScheme={scheme_name}
-style=Fusion
-
-[KDE]
-colorScheme={scheme_name}
-
-[Colors:Window]
-BackgroundNormal={bg_rgb}
-ForegroundNormal={fg_rgb}
-BackgroundAlternate={bg_alt_rgb}
-
-[Colors:View]
-BackgroundNormal={bg_rgb}
-ForegroundNormal={fg_rgb}
-BackgroundAlternate={bg_alt_rgb}
-
-[Colors:Button]
-BackgroundNormal={surface_rgb}
-ForegroundNormal={fg_rgb}
-BackgroundAlternate={bg_alt_rgb}
-
-[Colors:Selection]
-BackgroundNormal={accent_rgb}
-ForegroundNormal={bg_rgb}
-
-[Colors:Tooltip]
-BackgroundNormal={bg_alt_rgb}
-ForegroundNormal={fg_rgb}
-
-[WM]
-activeBackground={bg_rgb}
-activeForeground={fg_rgb}
-inactiveBackground={bg_alt_rgb}
-inactiveForeground={fg_muted_rgb}
-"#
-            );
-            let _ = fs::write(kdeglobals_path, kde_content);
         }
 
-        // 3. Write KDE color-scheme file in ~/.local/share/color-schemes/Starshell.colors for Dolphin & KDE apps
-        if let Some(data_dir) = dirs::data_dir() {
-            let color_schemes_dir = data_dir.join("color-schemes");
-            let _ = fs::create_dir_all(&color_schemes_dir);
-            let starshell_colors = format!(
-                r#"[Base]
-Name=Starshell
-Scheme=Starshell
-
-[Colors:Window]
-BackgroundNormal={bg_rgb}
-ForegroundNormal={fg_rgb}
-BackgroundAlternate={bg_alt_rgb}
-
-[Colors:View]
-BackgroundNormal={bg_rgb}
-ForegroundNormal={fg_rgb}
-BackgroundAlternate={bg_alt_rgb}
-
-[Colors:Button]
-BackgroundNormal={surface_rgb}
-ForegroundNormal={fg_rgb}
-BackgroundAlternate={bg_alt_rgb}
-
-[Colors:Selection]
-BackgroundNormal={accent_rgb}
-ForegroundNormal={bg_rgb}
-
-[Colors:Tooltip]
-BackgroundNormal={bg_alt_rgb}
-ForegroundNormal={fg_rgb}
-
-[WM]
-activeBackground={bg_rgb}
-activeForeground={fg_rgb}
-inactiveBackground={bg_alt_rgb}
-inactiveForeground={fg_muted_rgb}
-"#
-            );
-            let _ = fs::write(color_schemes_dir.join("Starshell.colors"), starshell_colors);
+        if let Err(error) = write_kde_color_scheme(theme) {
+            eprintln!("Failed to write the KDE color scheme: {error}");
         }
 
         self.reload_apps();
@@ -253,71 +153,229 @@ inactiveForeground={fg_muted_rgb}
     }
 }
 
-fn update_qtct_conf(conf_path: &Path, color_scheme_path: &str) {
-    let lines: Vec<String> = if conf_path.exists() {
-        fs::read_to_string(conf_path)
-            .unwrap_or_default()
-            .lines()
-            .map(|s| s.to_string())
-            .collect()
-    } else {
-        Vec::new()
+const KDE_SCHEME_NAME: &str = "Starshell";
+
+struct ColorSet {
+    background: Hsla,
+    background_alternate: Hsla,
+    foreground: Hsla,
+    foreground_inactive: Hsla,
+    accent: Hsla,
+}
+
+fn kde_rgb(color: Hsla) -> String {
+    let rgba = hsla_to_rgba(color);
+    let channel = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    format!(
+        "{},{},{}",
+        channel(rgba.red),
+        channel(rgba.green),
+        channel(rgba.blue)
+    )
+}
+
+fn kde_color_groups(theme: &Theme) -> Vec<(String, Vec<(&'static str, String)>)> {
+    let regular = |background: Hsla, background_alternate: Hsla| ColorSet {
+        background,
+        background_alternate,
+        foreground: theme.text(),
+        foreground_inactive: theme.text_muted(),
+        accent: theme.accent(),
     };
-
-    let mut appearance_idx = None;
-    for (idx, line) in lines.iter().enumerate() {
-        if line.trim() == "[Appearance]" {
-            appearance_idx = Some(idx);
-            break;
-        }
-    }
-
-    let keys = vec![
-        format!("color_scheme_path={color_scheme_path}"),
-        "custom_palette=true".to_string(),
-        "style=Fusion".to_string(),
+    let sets = [
+        ("Window", regular(theme.background(), theme.surface())),
+        ("View", regular(theme.background(), theme.surface())),
+        ("Button", regular(theme.elevated(), theme.surface())),
+        ("Tooltip", regular(theme.surface(), theme.elevated())),
+        ("Complementary", regular(theme.surface(), theme.elevated())),
+        ("Header", regular(theme.background(), theme.surface())),
+        (
+            "Header][Inactive",
+            regular(theme.background(), theme.surface()),
+        ),
+        (
+            "Selection",
+            ColorSet {
+                background: theme.accent(),
+                background_alternate: theme.element_selected(),
+                foreground: theme.on_accent(),
+                foreground_inactive: theme.on_accent(),
+                accent: theme.on_accent(),
+            },
+        ),
     ];
 
-    let mut new_lines = Vec::new();
+    let mut groups: Vec<_> = sets
+        .into_iter()
+        .map(|(name, set)| {
+            let keys = vec![
+                ("BackgroundNormal", kde_rgb(set.background)),
+                ("BackgroundAlternate", kde_rgb(set.background_alternate)),
+                ("ForegroundNormal", kde_rgb(set.foreground)),
+                ("ForegroundInactive", kde_rgb(set.foreground_inactive)),
+                ("ForegroundActive", kde_rgb(set.accent)),
+                ("ForegroundLink", kde_rgb(set.accent)),
+                ("ForegroundVisited", kde_rgb(set.accent)),
+                ("ForegroundNegative", kde_rgb(theme.error())),
+                ("ForegroundNeutral", kde_rgb(theme.warning())),
+                ("ForegroundPositive", kde_rgb(theme.success())),
+                ("DecorationFocus", kde_rgb(theme.accent())),
+                ("DecorationHover", kde_rgb(theme.accent())),
+            ];
+            (format!("Colors:{name}"), keys)
+        })
+        .collect();
 
-    if let Some(app_idx) = appearance_idx {
-        let mut in_appearance = false;
-        for (idx, line) in lines.into_iter().enumerate() {
-            if idx == app_idx {
-                in_appearance = true;
-                new_lines.push(line);
-                continue;
+    // Without these, KDE falls back to effects that dim the text of unfocused views.
+    groups.push((
+        "ColorEffects:Inactive".to_string(),
+        vec![
+            ("Enable", "false".to_string()),
+            ("ChangeSelectionColor", "false".to_string()),
+        ],
+    ));
+    groups.push((
+        "ColorEffects:Disabled".to_string(),
+        vec![
+            ("ColorEffect", "0".to_string()),
+            ("ContrastAmount", "0.65".to_string()),
+            ("ContrastEffect", "1".to_string()),
+            ("IntensityAmount", "0.1".to_string()),
+            ("IntensityEffect", "2".to_string()),
+        ],
+    ));
+    groups.push((
+        "WM".to_string(),
+        vec![
+            ("activeBackground", kde_rgb(theme.background())),
+            ("activeForeground", kde_rgb(theme.text())),
+            ("inactiveBackground", kde_rgb(theme.surface())),
+            ("inactiveForeground", kde_rgb(theme.text_muted())),
+        ],
+    ));
+    groups
+}
+
+fn write_kde_color_scheme(theme: &Theme) -> io::Result<()> {
+    let groups = kde_color_groups(theme);
+
+    if let Some(data_dir) = dirs::data_dir() {
+        let color_schemes_dir = data_dir.join("color-schemes");
+        fs::create_dir_all(&color_schemes_dir)?;
+        let mut scheme =
+            format!("[General]\nName={KDE_SCHEME_NAME}\nColorScheme={KDE_SCHEME_NAME}\n");
+        for (group, keys) in &groups {
+            scheme.push_str(&format!("\n[{group}]\n"));
+            for (key, value) in keys {
+                scheme.push_str(&format!("{key}={value}\n"));
             }
-            if in_appearance {
-                if line.trim().starts_with('[') {
-                    in_appearance = false;
-                } else if line.starts_with("color_scheme_path=")
-                    || line.starts_with("custom_palette=")
-                    || line.starts_with("style=")
-                {
+        }
+        fs::write(
+            color_schemes_dir.join(format!("{KDE_SCHEME_NAME}.colors")),
+            scheme,
+        )?;
+    }
+
+    let Some(config_dir) = dirs::config_dir() else {
+        return Ok(());
+    };
+
+    let kdeglobals = config_dir.join("kdeglobals");
+    set_ini_keys(&kdeglobals, "General", &[("ColorScheme", KDE_SCHEME_NAME)])?;
+    for (group, keys) in &groups {
+        let keys: Vec<_> = keys
+            .iter()
+            .map(|(key, value)| (*key, value.as_str()))
+            .collect();
+        set_ini_keys(&kdeglobals, group, &keys)?;
+    }
+
+    Ok(())
+}
+
+fn set_ini_keys(path: &Path, group: &str, keys: &[(&str, &str)]) -> io::Result<()> {
+    let original = match fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(error),
+    };
+    let header = format!("[{group}]");
+    let mut lines: Vec<String> = original.lines().map(str::to_string).collect();
+    let mut missing: Vec<&(&str, &str)> = keys.iter().collect();
+
+    let group_start = lines.iter().position(|line| line.trim() == header);
+    match group_start {
+        Some(start) => {
+            let mut end = lines[start + 1..]
+                .iter()
+                .position(|line| line.trim_start().starts_with('['))
+                .map_or(lines.len(), |offset| start + 1 + offset);
+            for line in &mut lines[start + 1..end] {
+                let Some((key, _)) = line.split_once('=') else {
                     continue;
+                };
+                if let Some(index) = missing.iter().position(|(name, _)| *name == key.trim()) {
+                    let (name, value) = missing.remove(index);
+                    *line = format!("{name}={value}");
                 }
             }
-            new_lines.push(line);
+            while end > start + 1 && lines[end - 1].trim().is_empty() {
+                end -= 1;
+            }
+            for (offset, (name, value)) in missing.into_iter().enumerate() {
+                lines.insert(end + offset, format!("{name}={value}"));
+            }
         }
-
-        let new_app_idx = new_lines
-            .iter()
-            .position(|l| l.trim() == "[Appearance]")
-            .unwrap_or(0);
-
-        for (offset, key_line) in keys.into_iter().enumerate() {
-            new_lines.insert(new_app_idx + 1 + offset, key_line);
-        }
-    } else {
-        new_lines.push("[Appearance]".to_string());
-        for key_line in keys {
-            new_lines.push(key_line);
+        None => {
+            if lines.last().is_some_and(|line| !line.trim().is_empty()) {
+                lines.push(String::new());
+            }
+            lines.push(header);
+            lines.extend(
+                missing
+                    .into_iter()
+                    .map(|(name, value)| format!("{name}={value}")),
+            );
         }
     }
 
-    if let Some(parent) = conf_path.parent() {
-        let _ = fs::create_dir_all(parent);
+    let updated = lines.join("\n") + "\n";
+    if updated == original {
+        return Ok(());
     }
-    let _ = fs::write(conf_path, new_lines.join("\n") + "\n");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, updated)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_ini_keys_updates_only_the_given_keys() -> io::Result<()> {
+        let directory = std::env::temp_dir().join(format!("starshell-ini-{}", std::process::id()));
+        fs::create_dir_all(&directory)?;
+        let path = directory.join("kdeglobals");
+        fs::write(
+            &path,
+            "[General]\nColorScheme=Breeze\nfont=Geist,10\n\n[Icons]\nTheme=breeze-dark\n",
+        )?;
+
+        set_ini_keys(
+            &path,
+            "General",
+            &[("ColorScheme", "Starshell"), ("Name", "x")],
+        )?;
+        set_ini_keys(&path, "UiSettings", &[("ColorScheme", "Starshell")])?;
+
+        let content = fs::read_to_string(&path)?;
+        fs::remove_dir_all(&directory)?;
+        assert_eq!(
+            content,
+            "[General]\nColorScheme=Starshell\nfont=Geist,10\nName=x\n\n[Icons]\nTheme=breeze-dark\n\n[UiSettings]\nColorScheme=Starshell\n"
+        );
+        Ok(())
+    }
 }
