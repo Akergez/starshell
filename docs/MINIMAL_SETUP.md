@@ -36,9 +36,24 @@ sudo dnf install --setopt=install_weak_deps=False \
 | `swaybg` | Wallpapers. |
 | `brightnessctl` | Built-in display brightness. Add `ddcutil` for external monitors. |
 
-Build Starshell itself as described in the [README](../README.md#installation).
+## 2. Build and install Starshell
 
-## 2. Login
+```bash
+sudo dnf install --setopt=install_weak_deps=False \
+  git cargo rust gcc clang pkgconf-pkg-config \
+  pam-devel openssl-devel dbus-devel alsa-lib-devel \
+  wayland-devel libxkbcommon-devel libxcb-devel fontconfig-devel freetype-devel \
+  vulkan-loader mesa-libGL
+
+git clone https://github.com/Akergez/starshell.git
+cd starshell
+cargo build --release
+sudo install -Dm755 target/release/starshell /usr/local/bin/starshell
+```
+
+`/usr/local/bin` is in the `PATH` niri starts with, so `spawn-at-startup "starshell"` finds it. A binary left in `target/release` or `~/.cargo/bin` is not found.
+
+## 3. Login
 
 greetd starts the session and tuigreet asks for the user and password. In `/etc/greetd/config.toml`:
 
@@ -51,16 +66,18 @@ command = "tuigreet --time --remember --remember-session --asterisks --sessions 
 user = "greetd"
 ```
 
-tuigreet stores the last user and session in `/var/cache/tuigreet`, which must belong to `greetd`:
+tuigreet stores the last user and session in `/var/cache/tuigreet`, which must belong to `greetd`. Only one login manager can own `display-manager.service`, so disable the current one (GDM, SDDM, COSMIC Greeter, ...) before enabling greetd:
 
 ```bash
 sudo install -d -o greetd -g greetd /var/cache/tuigreet
-sudo systemctl enable greetd
+sudo systemctl disable display-manager.service
+sudo systemctl enable greetd.service
+systemctl status display-manager.service --no-pager | head -3
 ```
 
-Disable any other display manager first (`gdm`, `sddm`, `cosmic-greeter`), since only one can own `display-manager.service`.
+The last command must show `greetd.service`. The new login screen appears after a reboot.
 
-## 3. niri
+## 4. niri
 
 In `~/.config/niri/config.kdl`, set the Qt platform theme, start Starshell and pass the environment to services started over D-Bus:
 
@@ -78,7 +95,7 @@ Applications launched from Starshell inherit this environment. Programs started 
 
 Starshell locks the screen after `idle_timeout` seconds of inactivity (`[lockscreen]` in its config). Do not run `swayidle` with a lock command as well, or two lock timers will race.
 
-## 4. Portals
+## 5. Portals
 
 `~/.config/xdg-desktop-portal/niri-portals.conf`:
 
@@ -97,7 +114,7 @@ org.freedesktop.impl.portal.Settings=gnome;
 
 Restart the portal after editing: `systemctl --user restart xdg-desktop-portal.service`.
 
-## 5. KDE applications
+## 6. KDE applications
 
 ### Style and colors
 
@@ -145,6 +162,6 @@ text/plain=org.kde.kate.desktop
 application/pdf=okularApplication_pdf.desktop
 ```
 
-## 6. Notifications
+## 7. Notifications
 
 Starshell is the notification daemon. Uninstall or disable other daemons such as `mako` or `dunst`: whichever starts first owns `org.freedesktop.Notifications`, and Starshell popups will not appear while another daemon holds it.
