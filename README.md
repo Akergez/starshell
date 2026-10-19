@@ -17,6 +17,8 @@
 A Wayland desktop shell built with GPUI (the Zed UI framework): a bar, a control center, applets and a launcher.
 </div>
 
+Starshell is a fork of [Capsule](https://github.com/moiCR/Capsule) with a more traditional design. Capsule's floating island is replaced by a classic bar whose modules open applets, and it keeps Capsule's services, lock screen, notifications and theming engine.
+
 ## Scope
 Starshell is an all-in-one desktop shell designed to be lightweight, responsive and GPU-accelerated.
 
@@ -172,19 +174,8 @@ Conditionals are also supported:
 ```
 
 ## Installation
+Starshell has no release builds yet. Build it from source:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/moiCR/Capsule/master/install.sh | bash
-```
-
-To install the latest beta pre-release instead:
-```bash
-curl -fsSL https://raw.githubusercontent.com/moiCR/Capsule/master/install.sh | bash -s -- --beta
-```
-
-Or build from source:
-```bash
-git clone https://github.com/moiCR/Capsule.git
-cd Capsule
 cargo build --release
 ```
 
@@ -206,14 +197,14 @@ Starshell is a Wayland desktop shell and expects a real Wayland runtime with lay
 The provided flake supports `x86_64-linux` and `aarch64-linux`.
 
 ```bash
-nix run github:moiCR/Capsule
-nix build github:moiCR/Capsule#starshell
+nix run .
+nix build .#starshell
 ```
 
-For a NixOS or Home Manager configuration, add this input to your flake:
+For a NixOS or Home Manager configuration, add this input to your flake, pointing at your checkout:
 
 ```bash
-inputs.starshell.url = "github:moiCR/Capsule";
+inputs.starshell.url = "path:/path/to/starshell";
 inputs.starshell.inputs.nixpkgs.follows = "nixpkgs";
 ```
 
@@ -230,6 +221,7 @@ home.packages = [ inputs.starshell.packages.${pkgs.system}.default ];
 ```
 
 ## Special Thanks
+- [Capsule](https://github.com/moiCR/Capsule): the project Starshell is forked from
 - [zed](https://github.com/zed-industries/zed): for creating gpui and making it open source
 - [tide-island](https://github.com/enhaoswen/Tide-island): for the inspiration
 - [saneAspect](https://www.youtube.com/@saneAspect): for the inspiration (Your course is way too expensive, bro.)
