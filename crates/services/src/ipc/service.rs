@@ -1,4 +1,4 @@
-use super::{IpcCommand, decode_command, encode_command, get_socket_path};
+use super::{IpcCommand, decode_command, encode_command, socket_path};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -38,6 +38,13 @@ pub fn pop_ipc_command() -> Option<IpcCommand> {
     }
 }
 
+pub fn send_ipc_command(name: &str, command: &IpcCommand) -> std::io::Result<()> {
+    let mut stream = UnixStream::connect(socket_path(name))?;
+    stream.set_write_timeout(Some(std::time::Duration::from_millis(100)))?;
+    stream.write_all(format!("{}\n", encode_command(command)).as_bytes())?;
+    stream.flush()
+}
+
 #[derive(Debug, Clone)]
 pub struct IpcMessage {
     pub id: u64,
@@ -73,24 +80,24 @@ impl IpcSubscriber {
     /// Returns `Some(IpcSubscriber)` when this process should continue as
     /// the primary instance, otherwise `None`.
     pub fn init(cmd_arg: Option<&str>) -> Option<IpcSubscriber> {
-        match Self::acquire(cmd_arg) {
+        Self::init_named("starshell", cmd_arg)
+    }
+
+    pub fn init_named(name: &str, cmd_arg: Option<&str>) -> Option<IpcSubscriber> {
+        match Self::acquire(name, cmd_arg) {
             AcquireResult::Primary(subscriber) => Some(subscriber),
             AcquireResult::Secondary => None,
             AcquireResult::NotRunning => {
-                eprintln!(
-                    "Error: Starshell daemon is not running. Start it first with 'starshell'."
-                );
+                eprintln!("Error: {name} is not running. Start it first with '{name}'.");
                 std::process::exit(1);
             }
             AcquireResult::Error(err) => {
                 crate::log_error!("IPC", "IPC service error: {err}. Retrying...");
-                match Self::acquire(None) {
+                match Self::acquire(name, None) {
                     AcquireResult::Primary(subscriber) => Some(subscriber),
                     AcquireResult::Secondary => None,
                     AcquireResult::NotRunning => {
-                        eprintln!(
-                            "Error: Starshell daemon is not running. Start it first with 'starshell'."
-                        );
+                        eprintln!("Error: {name} is not running. Start it first with '{name}'.");
                         std::process::exit(1);
                     }
                     AcquireResult::Error(retry_err) => {
@@ -105,8 +112,8 @@ impl IpcSubscriber {
         }
     }
 
-    fn acquire(cmd_arg: Option<&str>) -> AcquireResult {
-        let path = get_socket_path();
+    fn acquire(name: &str, cmd_arg: Option<&str>) -> AcquireResult {
+        let path = socket_path(name);
         let command = cmd_arg.and_then(decode_command);
 
         // Try to connect to existing instance (fast, synchronous path)

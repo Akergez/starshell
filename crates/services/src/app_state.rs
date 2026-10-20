@@ -1,7 +1,7 @@
 use crate::{
     CalendarService, ClipboardService, CompositorService, ConfigService, DisplayService,
-    IdleService, LauncherService, LyricsService, MprisService, NetworkService, PolkitService,
-    PowerService, RecordService, ShelfService, SniHostService, SystemService, VpnService,
+    LauncherService, LyricsService, MprisService, NetworkService, PolkitService, PowerService,
+    RecordService, ShelfService, SniHostService, SystemService, VpnService,
     wallpaper::WallpaperService,
 };
 
@@ -22,7 +22,6 @@ pub struct AppState {
     pub calendar: CalendarService,
     pub power: PowerService,
     pub clipboard: ClipboardService,
-    pub idle: IdleService,
     pub record: RecordService,
     pub shelf: ShelfService,
 }
@@ -50,7 +49,6 @@ impl AppState {
         let power = PowerService::new();
         let clipboard = ClipboardService::new();
         let mpris = MprisService::new(config.clone());
-        let idle = IdleService::new(config.clone(), mpris.clone());
         let record = RecordService::new();
         let shelf = ShelfService::new();
 
@@ -70,7 +68,6 @@ impl AppState {
             calendar,
             power,
             clipboard,
-            idle,
             record,
             shelf,
         }

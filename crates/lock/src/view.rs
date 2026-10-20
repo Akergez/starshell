@@ -1,5 +1,4 @@
 use gpui::{ColorExt, Context, KeyDownEvent, Render, Window, div, img, prelude::*, px, svg};
-use services::AppState;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -7,10 +6,10 @@ use ui::components::InputState;
 use ui::theme::Theme;
 use ui::tokens::{IconSize, Radius, Spacing, TextSize, size, units};
 
-use super::components::{render_auth_form, render_clock, render_lyrics};
+use crate::components::{render_auth_form, render_clock, render_lyrics};
+use crate::state::LockState;
 
 pub struct LockScreen {
-    is_primary: bool,
     pub username: String,
     pub password_input: InputState,
     auth_failed: bool,
@@ -28,37 +27,25 @@ pub struct LockScreen {
 }
 
 impl LockScreen {
-    pub fn new(cx: &mut Context<Self>, is_primary: bool, blur_path: Option<PathBuf>) -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
         let username = std::env::var("USER").unwrap_or_else(|_| "User".to_string());
         let focus_handle = cx.focus_handle();
 
-        if is_primary {
-            cx.spawn(async move |this, cx| {
-                loop {
-                    cx.background_executor()
-                        .timer(Duration::from_millis(250))
-                        .await;
-                    if this.update(cx, |_, cx| cx.notify()).is_err() {
-                        break;
-                    }
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(250))
+                    .await;
+                if this.update(cx, |_, cx| cx.notify()).is_err() {
+                    break;
                 }
-            })
-            .detach();
-        }
-
-        let blurred_wallpaper = blur_path.or_else(|| {
-            if cx.has_global::<AppState>() {
-                let wallpaper_service = &cx.global::<AppState>().wallpaper;
-                wallpaper_service.get_blurred_wallpaper()
-            } else {
-                None
             }
-        });
+        })
+        .detach();
 
-        let positions = cx.global::<services::AppState>().mpris.watch_positions();
+        let positions = cx.global::<LockState>().mpris.watch_positions();
         let mut screen = Self {
             _positions: positions,
-            is_primary,
             username,
             password_input: InputState::new("").with_masked(true).with_focused(true),
             auth_failed: false,
@@ -70,13 +57,10 @@ impl LockScreen {
             last_track_pos_time: Instant::now(),
             current_lyric_idx: 0,
             lyric_change_time: Instant::now(),
-            blurred_wallpaper,
+            blurred_wallpaper: None,
             fallback_blur_slot: Arc::new(Mutex::new(None)),
         };
-
-        if screen.blurred_wallpaper.is_none() {
-            screen.init_fallback_blur();
-        }
+        screen.init_fallback_blur();
         screen
     }
 
@@ -100,10 +84,6 @@ impl LockScreen {
                 *guard = res;
             }
         });
-    }
-
-    pub fn focus(&self, window: &mut Window, cx: &mut Context<Self>) {
-        window.focus(&self.focus_handle, cx);
     }
 
     pub fn submit_password(&mut self, cx: &mut Context<Self>) {
@@ -148,7 +128,7 @@ impl LockScreen {
                 this.is_checking = false;
                 if is_valid {
                     cx.defer(|cx| {
-                        crate::panel::LockScreenPanel::close_all(cx);
+                        crate::surfaces::close_all(cx);
                     });
                 } else {
                     this.auth_failed = true;
@@ -171,15 +151,10 @@ impl Render for LockScreen {
         }
 
         let theme = cx.global::<Theme>().clone();
-        let lock_config = if cx.has_global::<AppState>() {
-            let app_state = cx.global::<AppState>();
-            app_state.config.get().lockscreen.clone()
-        } else {
-            services::LockScreenConfig::default()
-        };
+        let lock_config = cx.global::<LockState>().config.get().lockscreen.clone();
 
-        if cx.has_global::<AppState>() {
-            let app_state = cx.global::<AppState>();
+        {
+            let app_state = cx.global::<LockState>();
             let track = app_state.mpris.get_current_track();
             if track.has_media {
                 let id = format!("{} - {}", track.title, track.artist);
@@ -256,8 +231,8 @@ impl Render for LockScreen {
 
         let top_bar_opacity = eased;
 
-        let (battery_opt, wifi_icon_opt) = if cx.has_global::<AppState>() {
-            let app_state = cx.global::<AppState>();
+        let (battery_opt, wifi_icon_opt) = {
+            let app_state = cx.global::<LockState>();
             let battery = app_state.power.get_battery();
             let net = app_state.network.get_status();
             let wifi_icon = if net.ethernet_connected {
@@ -276,8 +251,6 @@ impl Render for LockScreen {
                 None
             };
             (battery, wifi_icon)
-        } else {
-            (None, None)
         };
 
         let top_bar = div()
@@ -333,93 +306,81 @@ impl Render for LockScreen {
                 )
             });
 
-        let content = if self.is_primary {
-            div()
-                .flex()
-                .flex_col()
-                .justify_between()
-                .items_center()
-                .size_full()
-                .pt(units(size::LAUNCHER_OFFSET))
-                .pb(units(size::LAUNCHER_OFFSET))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .items_center()
-                        .opacity(clock_opacity)
-                        .mt(px(clock_y))
-                        .child(render_clock(&theme, &lock_config)),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .items_center()
-                        .w_full()
-                        .max_w(units(size::LAUNCHER))
-                        .px(Spacing::XXLarge.rems())
-                        .opacity(lyrics_opacity)
-                        .mt(px(lyrics_y))
-                        .child(render_lyrics(
-                            &theme,
-                            self.current_lyric_idx,
-                            lyric_anim_progress,
-                            cx,
-                        )),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .items_center()
-                        .gap(Spacing::Medium.rems())
-                        .opacity(user_opacity)
-                        .mt(px(user_y))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .w(units(size::PLAYBACK))
-                                .h(units(size::PLAYBACK))
-                                .rounded_full()
-                                .bg(theme.elevated().opacity(0.45))
-                                .border_1()
-                                .border_color(theme.elevated().opacity(0.35))
-                                .child(
-                                    svg()
-                                        .path("user.svg")
-                                        .size(IconSize::XLarge.rems())
-                                        .text_color(theme.text().opacity(0.95)),
-                                ),
-                        )
-                        .child(
-                            div()
-                                .font_family(theme.font_family())
-                                .font_weight(gpui::FontWeight::MEDIUM)
-                                .text_size(TextSize::Small.pixels(theme.font_size))
-                                .text_color(theme.text().opacity(0.9))
-                                .child(self.username.clone()),
-                        )
-                        .child(render_auth_form(
-                            &theme,
-                            &self.password_input,
-                            self.auth_failed,
-                            self.is_checking,
-                        )),
-                )
-        } else {
-            div()
-                .flex()
-                .flex_col()
-                .justify_center()
-                .items_center()
-                .size_full()
-                .opacity(clock_opacity)
-                .mt(px(clock_y))
-                .child(render_clock(&theme, &lock_config))
-        };
+        let content = div()
+            .flex()
+            .flex_col()
+            .justify_between()
+            .items_center()
+            .size_full()
+            .pt(units(size::LAUNCHER_OFFSET))
+            .pb(units(size::LAUNCHER_OFFSET))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .opacity(clock_opacity)
+                    .mt(px(clock_y))
+                    .child(render_clock(&theme, &lock_config)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .w_full()
+                    .max_w(units(size::LAUNCHER))
+                    .px(Spacing::XXLarge.rems())
+                    .opacity(lyrics_opacity)
+                    .mt(px(lyrics_y))
+                    .child(render_lyrics(
+                        &theme,
+                        self.current_lyric_idx,
+                        lyric_anim_progress,
+                        cx,
+                    )),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(Spacing::Medium.rems())
+                    .opacity(user_opacity)
+                    .mt(px(user_y))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .w(units(size::PLAYBACK))
+                            .h(units(size::PLAYBACK))
+                            .rounded_full()
+                            .bg(theme.elevated().opacity(0.45))
+                            .border_1()
+                            .border_color(theme.elevated().opacity(0.35))
+                            .child(
+                                svg()
+                                    .path("user.svg")
+                                    .size(IconSize::XLarge.rems())
+                                    .text_color(theme.text().opacity(0.95)),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .font_family(theme.font_family())
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_size(TextSize::Small.pixels(theme.font_size))
+                            .text_color(theme.text().opacity(0.9))
+                            .child(self.username.clone()),
+                    )
+                    .child(render_auth_form(
+                        &theme,
+                        &self.password_input,
+                        self.auth_failed,
+                        self.is_checking,
+                    )),
+            );
 
         div()
             .id("lockscreen-root")
@@ -442,9 +403,6 @@ impl Render for LockScreen {
                     _ => {}
                 }
 
-                if !this.is_primary {
-                    return;
-                }
                 window.focus(&this.focus_handle, cx);
 
                 match key {
@@ -462,9 +420,7 @@ impl Render for LockScreen {
             .on_mouse_down(
                 gpui::MouseButton::Left,
                 cx.listener(|this, _, window, cx| {
-                    if this.is_primary {
-                        window.focus(&this.focus_handle, cx);
-                    }
+                    window.focus(&this.focus_handle, cx);
                 }),
             )
             .relative()
@@ -492,20 +448,5 @@ impl Render for LockScreen {
             .child(top_bar)
             .child(div().relative().size_full().child(content))
             .into_any_element()
-    }
-}
-
-impl Drop for LockScreen {
-    fn drop(&mut self) {
-        if self.is_primary {
-            crate::panel::LockScreenPanel::mark_closed();
-        }
-        if let Some(ref path) = self.blurred_wallpaper
-            && path
-                .to_string_lossy()
-                .starts_with("/tmp/starshell_lock_blur_")
-        {
-            let _ = std::fs::remove_file(path);
-        }
     }
 }

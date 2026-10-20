@@ -1,7 +1,8 @@
 pub mod service;
 
 pub use service::{
-    IpcMessage, IpcSubscriber, pop_ipc_command, push_ipc_command, wait_for_ipc_command,
+    IpcMessage, IpcSubscriber, pop_ipc_command, push_ipc_command, send_ipc_command,
+    wait_for_ipc_command,
 };
 
 use anyhow::Result;
@@ -174,11 +175,15 @@ pub fn decode_command(payload: &str) -> Option<IpcCommand> {
 }
 
 pub fn get_socket_path() -> PathBuf {
+    socket_path("starshell")
+}
+
+pub fn socket_path(name: &str) -> PathBuf {
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-        PathBuf::from(runtime_dir).join("starshell.sock")
+        PathBuf::from(runtime_dir).join(format!("{name}.sock"))
     } else {
         let user = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
-        PathBuf::from(format!("/tmp/starshell-{user}.sock"))
+        PathBuf::from(format!("/tmp/{name}-{user}.sock"))
     }
 }
 

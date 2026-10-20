@@ -3,7 +3,7 @@ use services::IpcCommand;
 
 use super::{Placement, Shell, Surface, launch_apps};
 use crate::applets::AppletKind;
-use crate::panel::{LockScreenPanel, SettingsPanel};
+use crate::panel::SettingsPanel;
 
 pub fn start(cx: &mut App) {
     cx.spawn(async move |cx| {
@@ -74,7 +74,9 @@ pub fn handle(command: IpcCommand, cx: &mut App) {
         }
         IpcCommand::Lock => {
             Shell::close(cx);
-            LockScreenPanel::open_all(cx);
+            if let Err(error) = services::send_ipc_command("starshell-lock", &IpcCommand::Lock) {
+                services::log_error!("Lock", "starshell-lock is not running: {error}");
+            }
         }
         IpcCommand::Quit => cx.quit(),
         _ => {}

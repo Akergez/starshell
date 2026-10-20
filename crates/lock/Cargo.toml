@@ -1,0 +1,19 @@
+[package]
+name = "starshell-lock"
+version = "3.0.0"
+edition = "2024"
+license.workspace = true
+
+[[bin]]
+name = "starshell-lock"
+path = "src/main.rs"
+
+[dependencies]
+gpui.workspace = true
+gpui_platform.workspace = true
+tokio.workspace = true
+assets.workspace = true
+ui = { path = "../ui" }
+services = { path = "../services" }
+chrono.workspace = true
+dirs.workspace = true

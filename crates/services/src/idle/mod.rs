@@ -3,7 +3,8 @@ mod wayland;
 use crate::config::ConfigService;
 use crate::ipc::{IpcCommand, push_ipc_command};
 use crate::mpris::MprisService;
-use tokio::sync::broadcast;
+use std::sync::OnceLock;
+use tokio::sync::{broadcast, watch};
 
 #[derive(Clone, Debug)]
 pub enum IdleEvent {
@@ -130,51 +131,135 @@ impl IdleService {
     }
 
     async fn start_dbus_lock_listener(&self) {
-        if let Some(conn) = crate::dbus_util::get_shared_system_conn().await {
-            let tx1 = self.tx.clone();
-            let conn1 = conn.clone();
-            crate::spawn_tokio(async move {
-                if let Ok(proxy) = zbus::Proxy::new(
-                    &conn1,
-                    "org.freedesktop.login1",
-                    "/org/freedesktop/login1",
-                    "org.freedesktop.login1.Manager",
-                )
-                .await
-                    && let Ok(mut stream) = proxy.receive_signal("PrepareForSleep").await
-                {
-                    use futures::StreamExt;
-                    while let Some(msg) = stream.next().await {
-                        if let Ok(going_to_sleep) = msg.body().deserialize::<bool>()
-                            && going_to_sleep
-                        {
-                            push_ipc_command(IpcCommand::Lock);
-                            let _ = tx1.send(IdleEvent::IdleTimeoutTriggered);
-                        }
-                    }
-                }
-            });
+        let Some(conn) = crate::dbus_util::get_shared_system_conn().await else {
+            return;
+        };
 
-            let tx2 = self.tx.clone();
-            crate::spawn_tokio(async move {
-                if let Ok(proxy) = zbus::Proxy::new(
-                    &conn,
-                    "org.freedesktop.login1",
-                    "/org/freedesktop/login1/session/auto",
-                    "org.freedesktop.login1.Session",
-                )
-                .await
-                    && let Ok(mut stream) = proxy.receive_signal("Lock").await
-                {
-                    use futures::StreamExt;
-                    while stream.next().await.is_some() {
-                        push_ipc_command(IpcCommand::Lock);
-                        let _ = tx2.send(IdleEvent::IdleTimeoutTriggered);
-                    }
+        let tx_sleep = self.tx.clone();
+        let conn_sleep = conn.clone();
+        crate::spawn_tokio(async move {
+            lock_before_sleep(conn_sleep, tx_sleep).await;
+        });
+
+        let tx_lock = self.tx.clone();
+        crate::spawn_tokio(async move {
+            let Some(session) = current_session_path(&conn).await else {
+                crate::log_warn!("IDLE", "No logind session found; lock requests are ignored");
+                return;
+            };
+            if let Ok(proxy) = zbus::Proxy::new(
+                &conn,
+                LOGIND,
+                session.as_str(),
+                "org.freedesktop.login1.Session",
+            )
+            .await
+                && let Ok(mut stream) = proxy.receive_signal("Lock").await
+            {
+                use futures::StreamExt;
+                while stream.next().await.is_some() {
+                    push_ipc_command(IpcCommand::Lock);
+                    let _ = tx_lock.send(IdleEvent::IdleTimeoutTriggered);
                 }
-            });
+            }
+        });
+    }
+}
+
+const LOGIND: &str = "org.freedesktop.login1";
+const LOCK_BEFORE_SLEEP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+static LOCK_GENERATION: OnceLock<watch::Sender<u64>> = OnceLock::new();
+
+fn lock_generation() -> &'static watch::Sender<u64> {
+    LOCK_GENERATION.get_or_init(|| watch::channel(0).0)
+}
+
+/// Called by the lock screen once its surfaces are up, so a pending suspend can proceed.
+pub fn report_session_locked() {
+    lock_generation().send_modify(|generation| *generation += 1);
+}
+
+async fn logind_manager(conn: &zbus::Connection) -> Option<zbus::Proxy<'static>> {
+    zbus::Proxy::new(
+        conn,
+        LOGIND,
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager",
+    )
+    .await
+    .ok()
+}
+
+// A delay inhibitor keeps logind from suspending until the screen is locked.
+async fn inhibit_sleep(manager: &zbus::Proxy<'_>) -> Option<zbus::zvariant::OwnedFd> {
+    match manager
+        .call(
+            "Inhibit",
+            &(
+                "sleep",
+                "Starshell",
+                "Lock the screen before sleep",
+                "delay",
+            ),
+        )
+        .await
+    {
+        Ok(fd) => Some(fd),
+        Err(error) => {
+            crate::log_warn!("IDLE", "Failed to take the sleep inhibitor: {error}");
+            None
         }
     }
+}
+
+async fn lock_before_sleep(conn: zbus::Connection, tx: broadcast::Sender<IdleEvent>) {
+    use futures::StreamExt;
+
+    let Some(manager) = logind_manager(&conn).await else {
+        return;
+    };
+    let Ok(mut stream) = manager.receive_signal("PrepareForSleep").await else {
+        return;
+    };
+    let mut inhibitor = inhibit_sleep(&manager).await;
+
+    while let Some(message) = stream.next().await {
+        let Ok(going_to_sleep) = message.body().deserialize::<bool>() else {
+            continue;
+        };
+        if !going_to_sleep {
+            if inhibitor.is_none() {
+                inhibitor = inhibit_sleep(&manager).await;
+            }
+            continue;
+        }
+
+        let mut locked = lock_generation().subscribe();
+        locked.borrow_and_update();
+        push_ipc_command(IpcCommand::Lock);
+        let _ = tx.send(IdleEvent::IdleTimeoutTriggered);
+        if tokio::time::timeout(LOCK_BEFORE_SLEEP_TIMEOUT, locked.changed())
+            .await
+            .is_err()
+        {
+            crate::log_warn!("IDLE", "The screen was not locked in time before sleep");
+        }
+        inhibitor = None;
+    }
+}
+
+async fn current_session_path(conn: &zbus::Connection) -> Option<zbus::zvariant::OwnedObjectPath> {
+    let manager = logind_manager(conn).await?;
+    if let Ok(id) = std::env::var("XDG_SESSION_ID")
+        && let Ok(path) = manager.call("GetSession", &(id.as_str(),)).await
+    {
+        return Some(path);
+    }
+    manager
+        .call("GetSessionByPID", &(std::process::id(),))
+        .await
+        .ok()
 }
 
 async fn start_hyprland_socket2_listener(tx_activity: tokio::sync::mpsc::UnboundedSender<()>) {

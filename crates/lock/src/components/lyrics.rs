@@ -1,11 +1,11 @@
 use gpui::{
     ColorExt, Context, FontWeight, IntoElement, ParentElement, Styled, div, prelude::*, px,
 };
-use services::AppState;
 use ui::theme::Theme;
 use ui::tokens::{Spacing, TextSize, units};
 
-use crate::lockscreen::LockScreen;
+use crate::state::LockState;
+use crate::view::LockScreen;
 
 pub fn render_lyrics(
     theme: &Theme,
@@ -13,11 +13,11 @@ pub fn render_lyrics(
     anim_progress: f32,
     cx: &mut Context<LockScreen>,
 ) -> impl IntoElement {
-    let (active_track, lyrics) = if cx.has_global::<AppState>() {
-        let app_state = cx.global::<AppState>();
-        let track = app_state.mpris.get_current_track();
+    let (active_track, lyrics) = {
+        let state = cx.global::<LockState>();
+        let track = state.mpris.get_current_track();
         if track.has_media {
-            let lyrics_opt = app_state
+            let lyrics_opt = state
                 .lyrics
                 .get_cached_lyrics(&track.title, &track.artist)
                 .flatten();
@@ -25,8 +25,6 @@ pub fn render_lyrics(
         } else {
             (track, None)
         }
-    } else {
-        (services::MediaTrack::default(), None)
     };
 
     let lyrics = match lyrics {

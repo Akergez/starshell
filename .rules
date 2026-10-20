@@ -81,8 +81,8 @@ crates/
 │   ├── launcher.rs     pop-launcher front end
 │   ├── notifications/  Notification cards and popups
 │   ├── polkit.rs       Authentication dialog
-│   ├── lockscreen/     Session lock
 │   └── settings/       Settings window
+├── lock/         starshell-lock binary: idle and sleep locking and the session lock screen
 ├── services/     System integration (D-Bus, compositor, audio, network, VPN, displays, etc.)
 ├── ui/           Design tokens, theme and shared components
 └── assets/       Embedded SVG icons and fonts

@@ -65,6 +65,13 @@ impl ThemeManager {
         manager
     }
 
+    /// Reads the selected theme without writing it to other applications.
+    pub fn load_selected() -> Theme {
+        Self::load(&Self::selected_theme_path())
+            .or_else(|_| Self::load(&Self::theme_path()))
+            .unwrap_or_default()
+    }
+
     pub fn ensure_default_theme_exists() {
         let presets = Self::themes_path();
         let default_path = presets.join("default.toml");

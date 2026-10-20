@@ -60,7 +60,8 @@ right = ["recorder", "tray", "notifications", "system", "audio", "displays", "co
 - Backed by **pop-launcher**: applications, open windows, files, calculator and every installed plugin. Tab completes, right click shows actions, Escape clears and then closes.
 
 ### Session
-- Notification popups, a Polkit authentication agent, a lock screen and a settings window.
+- Notification popups, a Polkit authentication agent and a settings window.
+- **starshell-lock**, a separate program that locks the screen on idle, before sleep and on request. It runs in its own process, so the bar can crash or restart without affecting the lock.
 
 ## Theming & Templates
 Starshell includes a declarative theming engine that automatically synchronizes your system colors across your terminals, compositor, shell, and file managers in real time without external template dependencies.
@@ -174,9 +175,10 @@ Conditionals are also supported:
 ```
 
 ## Installation
-Starshell has no release builds yet. Build it from source:
+Starshell has no release builds yet. Build it from source and install both programs:
 ```bash
 cargo build --release
+sudo install -Dm755 target/release/starshell target/release/starshell-lock -t /usr/local/bin
 ```
 
 ## Requirements

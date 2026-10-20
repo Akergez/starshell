@@ -39,10 +39,10 @@ pub use config::{
     LockscreenConfig, MprisConfig, UIConfig, UiConfig,
 };
 pub use emoji::{EmojiItem, EmojiService};
-pub use idle::{IdleEvent, IdleService};
+pub use idle::{IdleEvent, IdleService, report_session_locked};
 pub use ipc::{
     IpcCommand, IpcMessage, IpcSubscriber, decode_command, pop_ipc_command, push_ipc_command,
-    wait_for_ipc_command,
+    send_ipc_command, wait_for_ipc_command,
 };
 pub use launcher::{
     Application, ContextOption, IconSource, LauncherService, PopEvent, PopLauncher, PopRequest,
