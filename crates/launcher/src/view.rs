@@ -1,25 +1,21 @@
 use std::path::PathBuf;
 
 use gpui::{
-    AnyElement, AppContext, Context, ElementId, FocusHandle, InteractiveElement, IntoElement,
-    KeyDownEvent, MouseButton, ParentElement, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement, Styled, Task, Window, div, img, prelude::FluentBuilder, svg,
+    AnyElement, Context, ElementId, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
+    MouseButton, ParentElement, Render, ScrollHandle, SharedString, StatefulInteractiveElement,
+    Styled, Task, Window, div, img, prelude::FluentBuilder, svg,
 };
 use services::{
-    AppState, ContextOption, PopEvent, PopLauncher, PopRequest, PopResponse, SearchResult,
+    ContextOption, LauncherService, PopEvent, PopLauncher, PopRequest, PopResponse, SearchResult,
     description_line,
 };
 use ui::components::{Button, ButtonSize, ButtonVariant, Input, InputState, divider, panel};
 use ui::theme::{Theme, mix};
 use ui::tokens::{IconSize, Radius, Spacing, TextSize, motion, size, units};
 
-use crate::shell::Shell;
+use crate::window;
 
-pub const PREFIX_HINTS: &str = "/ files  ·  = calculate  ·  ? plugins";
-
-struct GlobalLauncher(gpui::Entity<Launcher>);
-
-impl gpui::Global for GlobalLauncher {}
+const PREFIX_HINTS: &str = "/ files  ·  = calculate  ·  ? plugins";
 
 pub struct Launcher {
     focus: FocusHandle,
@@ -75,18 +71,7 @@ impl Launcher {
         self.focus.clone()
     }
 
-    pub fn shared(window: &mut Window, cx: &mut gpui::App) -> gpui::Entity<Self> {
-        if let Some(launcher) = cx.try_global::<GlobalLauncher>() {
-            let launcher = launcher.0.clone();
-            launcher.update(cx, |launcher, cx| launcher.reset(cx));
-            return launcher;
-        }
-        let launcher = cx.new(|cx| Launcher::new(window, cx));
-        cx.set_global(GlobalLauncher(launcher.clone()));
-        launcher
-    }
-
-    fn reset(&mut self, cx: &mut Context<Self>) {
+    pub fn reset(&mut self, cx: &mut Context<Self>) {
         self.query.clear();
         self.selected = 0;
         self.actions = None;
@@ -151,13 +136,13 @@ impl Launcher {
                 self.actions = (!options.is_empty()).then_some((id, options));
             }
             PopEvent::Response(PopResponse::DesktopEntry { path, .. }) => {
-                if let Err(error) = cx.global::<AppState>().launcher.launch_desktop_entry(&path) {
+                if let Err(error) = LauncherService::launch_desktop_entry(&path) {
                     self.error = Some(error.to_string());
                 } else {
-                    Shell::close(cx);
+                    window::close(cx);
                 }
             }
-            PopEvent::Response(PopResponse::Close) => Shell::close(cx),
+            PopEvent::Response(PopResponse::Close) => window::close(cx),
         }
         cx.notify();
     }

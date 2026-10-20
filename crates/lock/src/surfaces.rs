@@ -6,7 +6,6 @@ use gpui::{
 };
 use ui::theme::theme_manager::ThemeManager;
 
-use crate::state::LockState;
 use crate::view::LockScreen;
 
 // Outputs come back with new ids after sleep or hotplug, and every output needs a lock surface.
@@ -31,8 +30,7 @@ pub fn lock(cx: &mut App) {
         return;
     }
 
-    let dark_mode = cx.global::<LockState>().config.get().ui.dark_mode;
-    cx.set_global(ThemeManager::load_selected().with_mode(dark_mode));
+    cx.set_global(ThemeManager::load_current());
     cx.global_mut::<Surfaces>().locked = true;
     cover_new_displays(cx);
 

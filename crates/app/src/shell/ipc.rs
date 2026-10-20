@@ -22,8 +22,6 @@ pub fn start(cx: &mut App) {
 fn surface_for(command: &IpcCommand) -> Option<(Surface, bool)> {
     let applet = |kind| Surface::Applet(kind);
     Some(match command {
-        IpcCommand::ToggleLauncher => (Surface::Launcher, true),
-        IpcCommand::ShowLauncher => (Surface::Launcher, false),
         IpcCommand::ToggleDashboard => (applet(AppletKind::ControlCenter), true),
         IpcCommand::ShowDashboard => (applet(AppletKind::ControlCenter), false),
         IpcCommand::ToggleNotification => (applet(AppletKind::Notifications), true),
@@ -72,6 +70,10 @@ pub fn handle(command: IpcCommand, cx: &mut App) {
             Shell::close(cx);
             SettingsPanel::open(cx);
         }
+        IpcCommand::ToggleLauncher | IpcCommand::ShowLauncher => {
+            Shell::close(cx);
+            forward_to_launcher(command);
+        }
         IpcCommand::Lock => {
             Shell::close(cx);
             if let Err(error) = services::send_ipc_command("starshell-lock", &IpcCommand::Lock) {
@@ -80,6 +82,12 @@ pub fn handle(command: IpcCommand, cx: &mut App) {
         }
         IpcCommand::Quit => cx.quit(),
         _ => {}
+    }
+}
+
+pub fn forward_to_launcher(command: IpcCommand) {
+    if let Err(error) = services::send_ipc_command("starshell-launcher", &command) {
+        services::log_error!("Launcher", "starshell-launcher is not running: {error}");
     }
 }
 
@@ -92,10 +100,6 @@ mod tests {
         assert_eq!(
             surface_for(&IpcCommand::ToggleDashboard),
             Some((Surface::Applet(AppletKind::ControlCenter), true))
-        );
-        assert_eq!(
-            surface_for(&IpcCommand::ShowLauncher),
-            Some((Surface::Launcher, false))
         );
         assert_eq!(surface_for(&IpcCommand::Quit), None);
     }

@@ -20,7 +20,6 @@ use overlay::Overlay;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
     Applet(AppletKind),
-    Launcher,
     Polkit,
 }
 

@@ -1,6 +1,5 @@
 pub mod applets;
 pub mod bar;
-pub mod launcher;
 pub mod notifications;
 pub mod panel;
 pub mod polkit;

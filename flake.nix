@@ -35,8 +35,8 @@
               };
             };
 
-            cargoBuildFlags = [ "--package" "starshell" "--package" "starshell-lock" ];
-            cargoTestFlags = [ "--package" "starshell" "--package" "starshell-lock" ];
+            cargoBuildFlags = [ "--package" "starshell" "--package" "starshell-lock" "--package" "starshell-launcher" ];
+            cargoTestFlags = [ "--package" "starshell" "--package" "starshell-lock" "--package" "starshell-launcher" ];
 
             nativeBuildInputs = with pkgs; [
               pkg-config
@@ -51,7 +51,7 @@
             ]);
 
             postFixup = ''
-              for program in starshell starshell-lock; do
+              for program in starshell starshell-lock starshell-launcher; do
                 wrapProgram "$out/bin/$program" \
                   --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeLibraries}
               done

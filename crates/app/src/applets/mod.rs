@@ -69,13 +69,6 @@ pub fn build(surface: Surface, window: &mut Window, cx: &mut Context<Overlay>) -
                 view: view.into(),
             }
         }
-        Surface::Launcher => {
-            let view = crate::launcher::Launcher::shared(window, cx);
-            Content {
-                focus: Some(view.read(cx).focus_handle()),
-                view: view.into(),
-            }
-        }
         Surface::Applet(AppletKind::Audio) => Content {
             view: cx.new(audio::AudioApplet::new).into(),
             focus: None,

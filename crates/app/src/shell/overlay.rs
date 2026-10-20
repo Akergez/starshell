@@ -73,7 +73,6 @@ impl Overlay {
     fn width(&self, font_size: f32) -> Pixels {
         let units = match self.surface {
             Surface::Applet(kind) => kind.width(),
-            Surface::Launcher => size::LAUNCHER,
             Surface::Polkit => size::PANEL,
         };
         units_to_pixels(units, font_size)
@@ -126,9 +125,6 @@ impl Render for Overlay {
             .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
             .child(content);
         let positioned = match self.surface {
-            Surface::Launcher => positioned
-                .top(units_to_pixels(size::LAUNCHER_OFFSET, font_size))
-                .left(((viewport.width - width) / 2.0).max(px(0.0))),
             Surface::Polkit => positioned
                 .top((viewport.height / 3.0).max(gap))
                 .left(((viewport.width - width) / 2.0).max(px(0.0))),

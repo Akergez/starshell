@@ -78,11 +78,11 @@ crates/
 │   ├── shell/          Window coordination, overlay, IPC and the state snapshot
 │   ├── bar/            The bar and its modules
 │   ├── applets/        Control center and every bar applet
-│   ├── launcher.rs     pop-launcher front end
 │   ├── notifications/  Notification cards and popups
 │   ├── polkit.rs       Authentication dialog
 │   └── settings/       Settings window
 ├── lock/         starshell-lock binary: idle and sleep locking and the session lock screen
+├── launcher/     starshell-launcher binary: pop-launcher front end
 ├── services/     System integration (D-Bus, compositor, audio, network, VPN, displays, etc.)
 ├── ui/           Design tokens, theme and shared components
 └── assets/       Embedded SVG icons and fonts

@@ -57,7 +57,7 @@ right = ["recorder", "tray", "notifications", "system", "audio", "displays", "co
 - **Clipboard, Emoji, Shelf, Recorder, Themes and Wallpapers**.
 
 ### Launcher
-- Backed by **pop-launcher**: applications, open windows, files, calculator and every installed plugin. Tab completes, right click shows actions, Escape clears and then closes.
+- **starshell-launcher**, a separate program backed by **pop-launcher**: applications, open windows, files, calculator and every installed plugin. Tab completes, right click shows actions, Escape clears and then closes.
 
 ### Session
 - Notification popups, a Polkit authentication agent and a settings window.
@@ -178,7 +178,7 @@ Conditionals are also supported:
 Starshell has no release builds yet. Build it from source and install both programs:
 ```bash
 cargo build --release
-sudo install -Dm755 target/release/starshell target/release/starshell-lock -t /usr/local/bin
+sudo install -Dm755 target/release/starshell target/release/starshell-lock target/release/starshell-launcher -t /usr/local/bin
 ```
 
 ## Requirements

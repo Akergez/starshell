@@ -65,10 +65,10 @@ impl ThemeManager {
         manager
     }
 
-    /// Reads the selected theme without writing it to other applications.
-    pub fn load_selected() -> Theme {
-        Self::load(&Self::selected_theme_path())
-            .or_else(|_| Self::load(&Self::theme_path()))
+    /// Reads the theme the bar currently shows, without writing it to other applications.
+    pub fn load_current() -> Theme {
+        Self::load(&Self::theme_path())
+            .or_else(|_| Self::load(&Self::selected_theme_path()))
             .unwrap_or_default()
     }
 

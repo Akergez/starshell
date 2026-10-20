@@ -48,10 +48,14 @@ sudo dnf install --setopt=install_weak_deps=False \
 git clone https://github.com/Akergez/starshell.git
 cd starshell
 cargo build --release
-sudo install -Dm755 target/release/starshell target/release/starshell-lock -t /usr/local/bin
+sudo install -Dm755 target/release/starshell target/release/starshell-lock target/release/starshell-launcher -t /usr/local/bin
 ```
 
-Starshell is two programs: `starshell` (bar, applets, launcher, notifications, polkit agent) and `starshell-lock` (locks on idle, before sleep and on request). They run as separate processes, so a problem in the bar never blocks unlocking.
+Starshell is three programs, each in its own process:
+
+- `starshell`: bar, applets, control center, notifications and polkit agent.
+- `starshell-lock`: locks on idle, before sleep and on request. A problem in the bar never blocks unlocking.
+- `starshell-launcher`: the application launcher.
 
 `/usr/local/bin` is in the `PATH` niri starts with, so `spawn-at-startup "starshell"` finds it. A binary left in `target/release` or `~/.cargo/bin` is not found.
 
@@ -97,16 +101,18 @@ environment {
 
 spawn-at-startup "starshell"
 spawn-at-startup "starshell-lock"
+spawn-at-startup "starshell-launcher"
 spawn-at-startup "systemctl" "--user" "import-environment" "WAYLAND_DISPLAY" "DISPLAY" "QT_QPA_PLATFORMTHEME"
 spawn-at-startup "systemctl" "--user" "restart" "xdg-desktop-portal.service"
 ```
 
 Applications launched from Starshell inherit this environment. Programs started before the change (for example, from an already open terminal) pick it up after you log in again.
 
-Bind a key to lock the screen:
+Bind keys for the launcher and the lock screen:
 
 ```kdl
 binds {
+    Mod+Space { spawn "starshell-launcher" "toggle"; }
     Super+Alt+L { spawn "starshell-lock" "lock"; }
 }
 ```

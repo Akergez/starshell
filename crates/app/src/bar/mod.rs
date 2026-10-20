@@ -6,7 +6,7 @@ use gpui::{
     Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, img,
     prelude::FluentBuilder, svg,
 };
-use services::{AppState, BarConfig, BarEdge, BarLayout, BarModule, RecordStatus};
+use services::{AppState, BarConfig, BarEdge, BarLayout, BarModule, IpcCommand, RecordStatus};
 use ui::theme::{Theme, mix};
 use ui::tokens::{IconSize, Radius, Spacing, TextSize, motion, size, units};
 
@@ -297,9 +297,12 @@ impl Bar {
         Some(match module {
             BarModule::Launcher => Chip::new("bar-launcher")
                 .icon("layout-grid.svg")
-                .selected(current == Some(Surface::Launcher))
                 .render(theme)
-                .on_mouse_down(MouseButton::Left, self.toggle(Surface::Launcher))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                    cx.stop_propagation();
+                    Shell::close(cx);
+                    crate::shell::ipc::forward_to_launcher(IpcCommand::ToggleLauncher);
+                })
                 .into_any_element(),
             BarModule::Workspaces => self.workspaces(snapshot, theme),
             BarModule::Media => {

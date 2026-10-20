@@ -5868,6 +5868,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "starshell-launcher"
+version = "3.0.0"
+dependencies = [
+ "assets",
+ "gpui-ce",
+ "gpui_ce_platform",
+ "services",
+ "tokio",
+ "ui",
+]
+
+[[package]]
 name = "starshell-lock"
 version = "3.0.0"
 dependencies = [

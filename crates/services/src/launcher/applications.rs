@@ -172,7 +172,7 @@ impl LauncherService {
             .collect()
     }
 
-    pub fn launch_desktop_entry(&self, path: &Path) -> Result<()> {
+    pub fn launch_desktop_entry(path: &Path) -> Result<()> {
         std::process::Command::new("gio")
             .arg("launch")
             .arg(path)
@@ -439,7 +439,7 @@ mod tests {
                 script.display()
             ),
         )?;
-        LauncherService::default().launch_desktop_entry(&desktop)?;
+        LauncherService::launch_desktop_entry(&desktop)?;
         for _ in 0..100 {
             if marker.exists() {
                 break;

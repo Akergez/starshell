@@ -1,0 +1,17 @@
+[package]
+name = "starshell-launcher"
+version = "3.0.0"
+edition = "2024"
+license.workspace = true
+
+[[bin]]
+name = "starshell-launcher"
+path = "src/main.rs"
+
+[dependencies]
+gpui.workspace = true
+gpui_platform.workspace = true
+tokio.workspace = true
+assets.workspace = true
+ui = { path = "../ui" }
+services = { path = "../services" }
