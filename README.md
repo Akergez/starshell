@@ -175,13 +175,85 @@ Conditionals are also supported:
 ```
 
 ## Installation
-Starshell has no release builds yet. Build it from source and install all three programs:
+Starshell has no release builds yet, so it is built from source. It is three programs: `starshell` (the bar), `starshell-lock` (the lock screen) and `starshell-launcher` (the launcher).
+
+### 1. Build dependencies
+Fedora:
 ```bash
+sudo dnf install --setopt=install_weak_deps=False \
+  git cargo rust gcc clang pkgconf-pkg-config \
+  pam-devel openssl-devel dbus-devel alsa-lib-devel \
+  wayland-devel libxkbcommon-devel libxcb-devel fontconfig-devel freetype-devel \
+  vulkan-loader mesa-libGL
+```
+
+Arch Linux:
+```bash
+sudo pacman -S --needed base-devel git rust clang pkgconf \
+  pam openssl dbus alsa-lib wayland libxkbcommon libxcb fontconfig freetype2 vulkan-icd-loader
+```
+
+Debian and Ubuntu:
+```bash
+sudo apt install build-essential git clang pkg-config curl \
+  libpam0g-dev libssl-dev libdbus-1-dev libasound2-dev \
+  libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype6-dev libvulkan-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env"
+```
+
+Starshell needs Rust 1.88 or newer. Debian and Ubuntu ship an older one, which is why the commands above install Rust with rustup instead. Check the version:
+```bash
+cargo --version
+```
+
+### 2. Build and install
+```bash
+git clone https://github.com/Akergez/starshell.git
+cd starshell
+cargo build --release
+sudo install -Dm755 target/release/starshell target/release/starshell-lock target/release/starshell-launcher -t /usr/local/bin
+which starshell starshell-lock starshell-launcher
+```
+
+The first build takes several minutes. The last command must print three paths in `/usr/local/bin`. Install there and not to `~/.cargo/bin` or `~/.local/bin`: the compositor starts programs with its own `PATH`, which usually does not include your home directory.
+
+### 3. Start with the compositor
+Start all three programs when the session starts, and bind keys for the launcher and the lock screen. For niri, in `~/.config/niri/config.kdl`:
+```kdl
+spawn-at-startup "starshell"
+spawn-at-startup "starshell-lock"
+spawn-at-startup "starshell-launcher"
+
+binds {
+    Mod+Space { spawn "starshell-launcher" "toggle"; }
+    Super+Alt+L { spawn "starshell-lock" "lock"; }
+}
+```
+
+With another compositor, start the same three programs at login and bind the same two commands. Log out and back in, then check that all three are running:
+```bash
+pgrep -a starshell
+```
+
+It must print three lines. For a complete niri desktop with KDE applications, login and portals, see [Minimal Setup](docs/MINIMAL_SETUP.md).
+
+### Updating
+In the `starshell` directory:
+```bash
+git pull
 cargo build --release
 sudo install -Dm755 target/release/starshell target/release/starshell-lock target/release/starshell-launcher -t /usr/local/bin
 ```
 
-Start all three from your compositor and bind the launcher and the lock screen. For niri, see [Minimal Setup](docs/MINIMAL_SETUP.md#4-niri). To update an existing install, see [Updating](docs/MINIMAL_SETUP.md#8-updating).
+Then log out and back in. If the previous version was a single `starshell` program, add the `starshell-lock` and `starshell-launcher` lines from step 3 to the compositor config first.
+
+### Uninstalling
+```bash
+sudo rm /usr/local/bin/starshell /usr/local/bin/starshell-lock /usr/local/bin/starshell-launcher
+```
+
+Remove the lines from the compositor config. Settings and themes stay in `~/.config/starshell`.
 
 ## Requirements
 Starshell is a Wayland desktop shell and expects a real Wayland runtime with layer-shell support, not a bare X11 setup.
