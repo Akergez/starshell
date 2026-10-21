@@ -84,18 +84,10 @@ jobs:
       - name: Package Release Assets
         run: |
           mkdir -p dist
-          if [ -f target/x86_64-unknown-linux-gnu/release/starshell ]; then
-            cp target/x86_64-unknown-linux-gnu/release/starshell dist/starshell
-          else
-            cp target/x86_64-unknown-linux-gnu/release/Starshell dist/starshell
-          fi
-          chmod +x dist/starshell
-          tar -czvf starshell-x86_64-unknown-linux-gnu.tar.gz -C dist starshell
-
-          mkdir -p dist_installer
-          cp target/x86_64-unknown-linux-gnu/release/starshell-installer dist_installer/starshell-installer
-          chmod +x dist_installer/starshell-installer
-          tar -czvf starshell-installer-x86_64-unknown-linux-gnu.tar.gz -C dist_installer starshell-installer
+          for bin in starshell starshell-lock starshell-launcher; do
+            install -m755 "target/x86_64-unknown-linux-gnu/release/$bin" dist/
+          done
+          tar -czvf starshell-x86_64-unknown-linux-gnu.tar.gz -C dist starshell starshell-lock starshell-launcher
 
       - name: Prepare Release Body
         id: release_body
@@ -116,7 +108,6 @@ jobs:
           body_path: ${{ steps.release_body.outputs.BODY_PATH }}
           files: |
             starshell-x86_64-unknown-linux-gnu.tar.gz
-            starshell-installer-x86_64-unknown-linux-gnu.tar.gz
           draft: false
           prerelease: true
         env:

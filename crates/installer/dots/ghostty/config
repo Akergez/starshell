@@ -1,6 +1,0 @@
-custom-shader-animation=always
-config-file=theme
-custom-shader=shaders/blaze.glsl
-window-padding-y=25
-window-padding-x=25
-background-opacity=0.7
