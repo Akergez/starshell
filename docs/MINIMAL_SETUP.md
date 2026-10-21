@@ -189,3 +189,26 @@ application/pdf=okularApplication_pdf.desktop
 ## 7. Notifications
 
 Starshell is the notification daemon. Uninstall or disable other daemons such as `mako` or `dunst`: whichever starts first owns `org.freedesktop.Notifications`, and Starshell popups will not appear while another daemon holds it.
+
+## 8. Updating
+
+In the `starshell` checkout:
+
+```bash
+git pull
+cargo build --release
+sudo install -Dm755 target/release/starshell target/release/starshell-lock target/release/starshell-launcher -t /usr/local/bin
+ls /usr/local/bin/starshell*
+```
+
+The last command must list `starshell`, `starshell-lock` and `starshell-launcher`.
+
+Older versions were a single `starshell` program. When updating from one of them, open `~/.config/niri/config.kdl` and make sure it has all three `spawn-at-startup` lines and both binds from [section 4](#4-niri). The old `spawn "starshell" "toggle-launcher"` and `spawn "starshell" "lock"` binds still work, because the bar forwards them, but only while the bar is running.
+
+Log out and back in, then check that all three are running:
+
+```bash
+pgrep -a starshell
+```
+
+It must print three lines: `starshell`, `starshell-lock` and `starshell-launcher`.

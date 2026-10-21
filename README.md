@@ -22,7 +22,7 @@ Starshell is a fork of [Capsule](https://github.com/moiCR/Capsule) with a more t
 ## Scope
 Starshell is an all-in-one desktop shell designed to be lightweight, responsive and GPU-accelerated.
 
-In a typical tiling Wayland setup you end up gluing together a bar, a launcher, a notification daemon, a power menu, a clipboard manager and shell scripts. Starshell replaces them with one process: a bar on every display whose modules open applets right next to where you click, a control center with quick toggles that expand in place, and a launcher driven by pop-launcher.
+In a typical tiling Wayland setup you end up gluing together a bar, a launcher, a notification daemon, a power menu, a clipboard manager and shell scripts. Starshell replaces them with three programs: a bar on every display whose modules open applets right next to where you click, a control center with quick toggles that expand in place, a launcher driven by pop-launcher, and a lock screen that runs apart from the bar.
 
 The interface follows the [Starshell design specification](starshell-design/README.md): every size is a token that scales with the theme font, the palette is derived from a single accent color, and every interaction is animated unless reduce motion is on.
 
@@ -175,11 +175,13 @@ Conditionals are also supported:
 ```
 
 ## Installation
-Starshell has no release builds yet. Build it from source and install both programs:
+Starshell has no release builds yet. Build it from source and install all three programs:
 ```bash
 cargo build --release
 sudo install -Dm755 target/release/starshell target/release/starshell-lock target/release/starshell-launcher -t /usr/local/bin
 ```
+
+Start all three from your compositor and bind the launcher and the lock screen. For niri, see [Minimal Setup](docs/MINIMAL_SETUP.md#4-niri). To update an existing install, see [Updating](docs/MINIMAL_SETUP.md#8-updating).
 
 ## Requirements
 Starshell is a Wayland desktop shell and expects a real Wayland runtime with layer-shell support, not a bare X11 setup.
