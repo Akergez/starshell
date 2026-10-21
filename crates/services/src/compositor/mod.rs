@@ -1,6 +1,5 @@
 pub mod hyprland;
 pub mod keyboard;
-pub mod kwin;
 pub mod mangowm;
 pub mod niri;
 
@@ -49,33 +48,29 @@ pub trait Compositor: Send + Sync {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CompositorBackend {
-    KWin,
     Hyprland,
     Niri,
     Mango,
 }
 
 impl CompositorBackend {
-    fn detect(desktop: &str, kwin: bool, hyprland: bool, niri: bool, mango: bool) -> Self {
+    fn detect(desktop: &str, hyprland: bool, niri: bool, mango: bool) -> Self {
         for component in desktop.split(':') {
             match component.trim().to_ascii_lowercase().as_str() {
-                "kde" | "kinetic" => return Self::KWin,
                 "hyprland" => return Self::Hyprland,
                 "niri" => return Self::Niri,
                 "mango" | "mangowm" => return Self::Mango,
                 _ => {}
             }
         }
-        if kwin {
-            Self::KWin
-        } else if niri {
+        if niri {
             Self::Niri
         } else if hyprland {
             Self::Hyprland
         } else if mango {
             Self::Mango
         } else {
-            Self::KWin
+            Self::Niri
         }
     }
 }
@@ -90,7 +85,6 @@ pub struct CompositorService {
     keyboard_changed: Arc<Notify>,
     compositor: Arc<dyn Compositor>,
     backend: CompositorBackend,
-    kwin: Option<kwin::KWin>,
     mango: Option<mangowm::Mango>,
 }
 
@@ -104,16 +98,12 @@ impl CompositorService {
         let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
         let backend = CompositorBackend::detect(
             &desktop,
-            std::env::var_os("KWIN_WAYLAND").is_some(),
             std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some(),
             std::env::var_os(niri_ipc::socket::SOCKET_PATH_ENV).is_some(),
             std::env::var_os(mango_ipc::SOCKET_PATH_ENV).is_some(),
         );
-        let kwin = (backend == CompositorBackend::KWin).then(kwin::KWin::new);
         let mango = (backend == CompositorBackend::Mango).then(mangowm::Mango::new);
-        let compositor: Arc<dyn Compositor> = if let Some(backend) = &kwin {
-            Arc::new(backend.clone())
-        } else if let Some(backend) = &mango {
+        let compositor: Arc<dyn Compositor> = if let Some(backend) = &mango {
             Arc::new(backend.clone())
         } else if backend == CompositorBackend::Hyprland {
             Arc::new(hyprland::Hyprland::new())
@@ -134,7 +124,6 @@ impl CompositorService {
             keyboard_changed: Arc::new(Notify::new()),
             compositor,
             backend,
-            kwin,
             mango,
         };
 
@@ -286,15 +275,6 @@ impl CompositorService {
             .await;
             return;
         }
-        if let Some(backend) = &self.kwin {
-            kwin::run_events_listener(
-                backend.clone(),
-                self.current_workspace.clone(),
-                self.workspace_tx.clone(),
-            )
-            .await;
-            return;
-        }
         let compositor = self.compositor.clone();
         let initial = crate::spawn_blocking(move || compositor.get_workspace())
             .await
@@ -403,10 +383,9 @@ mod tests {
             ("Wayland:niri", CompositorBackend::Niri),
             ("Hyprland", CompositorBackend::Hyprland),
             ("mango", CompositorBackend::Mango),
-            ("KDE", CompositorBackend::KWin),
         ] {
             assert_eq!(
-                CompositorBackend::detect(desktop, true, true, true, true),
+                CompositorBackend::detect(desktop, true, true, true),
                 expected,
                 "{desktop}",
             );
@@ -416,20 +395,20 @@ mod tests {
     #[test]
     fn backend_selection_falls_back_to_session_sockets() {
         assert_eq!(
-            CompositorBackend::detect("", false, false, true, true),
+            CompositorBackend::detect("", false, true, true),
             CompositorBackend::Niri,
         );
         assert_eq!(
-            CompositorBackend::detect("", false, true, false, false),
+            CompositorBackend::detect("", true, false, false),
             CompositorBackend::Hyprland,
         );
         assert_eq!(
-            CompositorBackend::detect("", false, false, false, true),
+            CompositorBackend::detect("", false, false, true),
             CompositorBackend::Mango,
         );
         assert_eq!(
-            CompositorBackend::detect("", false, false, false, false),
-            CompositorBackend::KWin,
+            CompositorBackend::detect("", false, false, false),
+            CompositorBackend::Niri,
         );
     }
 
