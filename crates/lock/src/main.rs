@@ -4,7 +4,7 @@ mod surfaces;
 mod view;
 
 use assets::Assets;
-use gpui::App;
+use gpui::{App, QuitMode};
 use gpui_platform::application;
 use services::IpcCommand;
 
@@ -47,15 +47,18 @@ fn run() {
         return;
     };
 
-    application().with_assets(Assets {}).run(|cx| {
-        if let Err(error) = cx.text_system().add_fonts(assets::load_fonts()) {
-            services::log_error!("Lock", "Failed to load fonts: {error}");
-        }
-        cx.set_global(state::LockState::new());
-        surfaces::init(cx);
-        handle_commands(cx);
-        ipc_subscriber.start();
-    });
+    application()
+        .with_assets(Assets {})
+        .with_quit_mode(QuitMode::Explicit)
+        .run(|cx| {
+            if let Err(error) = cx.text_system().add_fonts(assets::load_fonts()) {
+                services::log_error!("Lock", "Failed to load fonts: {error}");
+            }
+            cx.set_global(state::LockState::new());
+            surfaces::init(cx);
+            handle_commands(cx);
+            ipc_subscriber.start();
+        });
 }
 
 fn handle_commands(cx: &mut App) {
