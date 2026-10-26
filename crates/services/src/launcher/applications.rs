@@ -27,6 +27,90 @@ impl Drop for InotifyFd {
     }
 }
 
+pub struct ApplicationWatcher {
+    inotify: AsyncFd<InotifyFd>,
+    buffer: [u8; 4096],
+    directories: Vec<PathBuf>,
+}
+
+impl ApplicationWatcher {
+    pub fn new() -> Result<Self> {
+        Self::for_directories(LauncherService::get_application_dirs())
+    }
+
+    fn for_directories(directories: Vec<PathBuf>) -> Result<Self> {
+        let fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error()).context("Failed to create inotify");
+        }
+        let watcher = Self {
+            inotify: AsyncFd::new(InotifyFd(fd)).context("Failed to register inotify")?,
+            buffer: [0; 4096],
+            directories,
+        };
+        watcher.watch_directories();
+        Ok(watcher)
+    }
+
+    fn watch_directories(&self) {
+        let fd = self.inotify.get_ref().as_raw_fd();
+        for directory in &self.directories {
+            let Some(dir) = directory.ancestors().find(|path| path.is_dir()) else {
+                continue;
+            };
+            if dir.exists()
+                && let Ok(cpath) = std::ffi::CString::new(dir.as_os_str().as_bytes())
+            {
+                unsafe {
+                    libc::inotify_add_watch(
+                        fd,
+                        cpath.as_ptr(),
+                        libc::IN_CREATE
+                            | libc::IN_DELETE
+                            | libc::IN_MOVED_TO
+                            | libc::IN_MOVED_FROM
+                            | libc::IN_CLOSE_WRITE
+                            | libc::IN_DELETE_SELF
+                            | libc::IN_MOVE_SELF,
+                    );
+                }
+            }
+        }
+    }
+
+    fn read_events(&mut self) -> isize {
+        let fd = self.inotify.get_ref().as_raw_fd();
+        unsafe {
+            libc::read(
+                fd,
+                self.buffer.as_mut_ptr() as *mut libc::c_void,
+                self.buffer.len(),
+            )
+        }
+    }
+
+    pub async fn changed(&mut self) -> Result<()> {
+        loop {
+            self.inotify.readable().await?.clear_ready();
+            let read = self.read_events();
+            if read > 0 {
+                break;
+            }
+            if read == 0 {
+                anyhow::bail!("inotify closed");
+            }
+            let err = std::io::Error::last_os_error();
+            if err.kind() != std::io::ErrorKind::WouldBlock {
+                return Err(err.into());
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        while self.read_events() > 0 {}
+        self.watch_directories();
+        Ok(())
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct LauncherService {
     apps: Arc<ArcSwap<Vec<Application>>>,
@@ -41,6 +125,9 @@ impl LauncherService {
             PathBuf::from("/var/lib/snapd/desktop/applications"),
         ];
 
+        if let Some(data) = dirs::data_dir() {
+            app_dirs.push(data.join("applications"));
+        }
         if let Some(home) = dirs::home_dir() {
             app_dirs.push(home.join(".local/share/applications"));
             app_dirs.push(home.join(".local/share/flatpak/exports/share/applications"));
@@ -66,75 +153,38 @@ impl LauncherService {
 
         let service_clone = service.clone();
         crate::spawn_tokio(async move {
-            let _ = service_clone.refresh().await;
-
-            let inotify_fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
-            if inotify_fd >= 0 {
-                let watcher = InotifyFd(inotify_fd);
-                let dirs_to_watch = Self::get_application_dirs();
-                for dir in &dirs_to_watch {
-                    if dir.exists()
-                        && let Ok(cpath) = std::ffi::CString::new(dir.as_os_str().as_bytes())
-                    {
-                        unsafe {
-                            libc::inotify_add_watch(
-                                inotify_fd,
-                                cpath.as_ptr(),
-                                libc::IN_CREATE
-                                    | libc::IN_DELETE
-                                    | libc::IN_MOVED_TO
-                                    | libc::IN_MOVED_FROM
-                                    | libc::IN_CLOSE_WRITE,
-                            );
-                        }
-                    }
-                }
-
-                if let Ok(mut async_fd) = AsyncFd::new(watcher) {
-                    let mut buf = [0u8; 4096];
-                    let fd = async_fd.get_ref().as_raw_fd();
-                    loop {
-                        let mut guard = match async_fd.readable_mut().await {
-                            Ok(g) => g,
-                            Err(_) => break,
-                        };
-                        let n = unsafe {
-                            libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len())
-                        };
-                        guard.clear_ready();
-                        if n <= 0 {
-                            if n == 0 {
-                                break;
-                            }
-                            let err = std::io::Error::last_os_error();
-                            if err.kind() != std::io::ErrorKind::WouldBlock {
-                                break;
-                            }
-                            continue;
-                        }
-                        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                        while unsafe {
-                            libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len())
-                        } > 0
-                        {}
-                        if let Err(err) = service_clone.refresh().await {
-                            crate::log_warn!(
-                                "LAUNCHER",
-                                "LauncherService inotify refresh warning: {err}"
-                            );
-                        }
-                    }
-                }
-            }
-
             loop {
-                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
-                if let Err(err) = service_clone.refresh().await {
-                    crate::log_warn!(
-                        "LAUNCHER",
-                        "LauncherService periodic refresh warning: {err}"
-                    );
+                let mut watcher = ApplicationWatcher::new().ok();
+                if let Err(error) = service_clone.refresh().await {
+                    crate::log_warn!("LAUNCHER", "Application refresh failed: {error}");
                 }
+                if let Some(watcher) = watcher.as_mut() {
+                    loop {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(300),
+                            watcher.changed(),
+                        )
+                        .await
+                        {
+                            Ok(Err(error)) => {
+                                crate::log_warn!(
+                                    "LAUNCHER",
+                                    "Application watcher stopped: {error}"
+                                );
+                                break;
+                            }
+                            _ => {
+                                if let Err(error) = service_clone.refresh().await {
+                                    crate::log_warn!(
+                                        "LAUNCHER",
+                                        "Application refresh failed: {error}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             }
         });
 
@@ -414,6 +464,36 @@ impl LauncherService {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[tokio::test]
+    async fn application_watcher_detects_install_remove_and_recreated_directories() -> Result<()> {
+        let root = std::env::temp_dir().join(format!(
+            "starshell-app-watch-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root)?;
+        let directory = root.join("applications");
+        let mut watcher = ApplicationWatcher::for_directories(vec![directory.clone()])?;
+        let timeout = std::time::Duration::from_secs(3);
+        std::fs::create_dir(&directory)?;
+        tokio::time::timeout(timeout, watcher.changed()).await??;
+        let desktop = directory.join("example.desktop");
+        std::fs::write(&desktop, "[Desktop Entry]\nName=Example\nExec=true\n")?;
+        tokio::time::timeout(timeout, watcher.changed()).await??;
+        std::fs::remove_file(&desktop)?;
+        tokio::time::timeout(timeout, watcher.changed()).await??;
+        std::fs::remove_dir(&directory)?;
+        tokio::time::timeout(timeout, watcher.changed()).await??;
+        std::fs::create_dir(&directory)?;
+        tokio::time::timeout(timeout, watcher.changed()).await??;
+        std::fs::write(&desktop, "[Desktop Entry]\nName=Example\nExec=true\n")?;
+        tokio::time::timeout(timeout, watcher.changed()).await??;
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
 
     #[test]
     fn launches_desktop_entry_outside_xdg_application_directories() -> Result<()> {

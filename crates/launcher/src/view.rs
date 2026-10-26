@@ -106,6 +106,12 @@ impl Launcher {
     fn handle_event(&mut self, event: PopEvent, cx: &mut Context<Self>) {
         match event {
             PopEvent::Unavailable(error) => self.error = Some(error),
+            PopEvent::Reloaded => {
+                self.results.clear();
+                self.icons.clear();
+                self.selected = 0;
+                self.search();
+            }
             PopEvent::Response(PopResponse::Update(results)) => {
                 self.icons = results
                     .iter()

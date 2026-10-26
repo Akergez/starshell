@@ -3,9 +3,11 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::Command;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::mpsc;
+
+use super::applications::ApplicationWatcher;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum PopRequest {
@@ -69,6 +71,7 @@ pub enum PopResponse {
 pub enum PopEvent {
     Response(PopResponse),
     Unavailable(String),
+    Reloaded,
 }
 
 struct Connection {
@@ -119,32 +122,80 @@ pub fn description_line(description: &str) -> String {
         .join(" · ")
 }
 
+struct Backend {
+    child: Child,
+    stdin: ChildStdin,
+    lines: Lines<BufReader<ChildStdout>>,
+}
+
+impl Backend {
+    fn spawn() -> Result<Self, String> {
+        let mut child = Command::new("pop-launcher")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .map_err(|error| format!("pop-launcher is not available: {error}"))?;
+        let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
+            return Err("pop-launcher did not open its pipes".to_string());
+        };
+        Ok(Self {
+            child,
+            stdin,
+            lines: BufReader::new(stdout).lines(),
+        })
+    }
+
+    async fn stop(mut self) {
+        let _ = self.stdin.write_all(b"\"Exit\"\n").await;
+        let _ = self.child.kill().await;
+    }
+}
+
+fn watch_applications() -> (mpsc::UnboundedReceiver<()>, tokio::task::JoinHandle<()>) {
+    let (changes, receiver) = mpsc::unbounded_channel();
+    let task = crate::spawn_tokio(async move {
+        loop {
+            match ApplicationWatcher::new() {
+                Ok(mut watcher) => loop {
+                    match watcher.changed().await {
+                        Ok(()) => {
+                            if changes.send(()).is_err() {
+                                return;
+                            }
+                        }
+                        Err(error) => {
+                            crate::log_warn!("LAUNCHER", "Application watcher stopped: {error}");
+                            break;
+                        }
+                    }
+                },
+                Err(error) => {
+                    crate::log_warn!("LAUNCHER", "Cannot watch applications: {error}");
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            if changes.is_closed() {
+                return;
+            }
+        }
+    });
+    (receiver, task)
+}
+
 async fn run(
     mut requests: mpsc::UnboundedReceiver<PopRequest>,
     events: mpsc::UnboundedSender<PopEvent>,
 ) {
-    let spawned = Command::new("pop-launcher")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .spawn();
-    let mut child = match spawned {
-        Ok(child) => child,
+    let mut backend = match Backend::spawn() {
+        Ok(backend) => backend,
         Err(error) => {
-            let _ = events.send(PopEvent::Unavailable(format!(
-                "pop-launcher is not available: {error}"
-            )));
+            let _ = events.send(PopEvent::Unavailable(error));
             return;
         }
     };
-    let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
-        let _ = events.send(PopEvent::Unavailable(
-            "pop-launcher did not open its pipes".to_string(),
-        ));
-        return;
-    };
-    let mut lines = BufReader::new(stdout).lines();
+    let (mut application_changes, watcher) = watch_applications();
     loop {
         tokio::select! {
             request = requests.recv() => {
@@ -155,12 +206,12 @@ async fn run(
                     continue;
                 };
                 payload.push('\n');
-                if stdin.write_all(payload.as_bytes()).await.is_err() || stdin.flush().await.is_err() {
+                if backend.stdin.write_all(payload.as_bytes()).await.is_err() || backend.stdin.flush().await.is_err() {
                     let _ = events.send(PopEvent::Unavailable("pop-launcher stopped responding".to_string()));
                     break;
                 }
             }
-            line = lines.next_line() => {
+            line = backend.lines.next_line() => {
                 match line {
                     Ok(Some(line)) => {
                         if let Ok(response) = serde_json::from_str::<PopResponse>(&line)
@@ -175,10 +226,24 @@ async fn run(
                     }
                 }
             }
+            Some(()) = application_changes.recv() => {
+                match Backend::spawn() {
+                    Ok(fresh) => {
+                        std::mem::replace(&mut backend, fresh).stop().await;
+                        if events.send(PopEvent::Reloaded).is_err() {
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        let _ = events.send(PopEvent::Unavailable(error));
+                        break;
+                    }
+                }
+            }
         }
     }
-    let _ = stdin.write_all(b"\"Exit\"\n").await;
-    let _ = child.kill().await;
+    watcher.abort();
+    backend.stop().await;
 }
 
 #[cfg(test)]
