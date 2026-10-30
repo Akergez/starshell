@@ -246,7 +246,9 @@ impl ThemeManager {
 
         let content = toml::to_string_pretty(theme)?;
 
-        fs::write(path, content)?;
+        let temporary = path.with_extension("toml.tmp");
+        fs::write(&temporary, content)?;
+        fs::rename(&temporary, path)?;
 
         Ok(())
     }

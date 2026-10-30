@@ -7,8 +7,8 @@ pub struct GtkApps;
 
 impl GtkApps {
     fn refresh_gtk_theme(gtk_theme_name: &str, is_dark: bool) {
-        let opposite_theme = if is_dark { "adw-gtk3" } else { "adw-gtk3-dark" };
-        for name in [opposite_theme, gtk_theme_name] {
+        let intermediate_theme = if is_dark { "Adwaita-dark" } else { "Adwaita" };
+        for name in [intermediate_theme, gtk_theme_name] {
             let _ = Command::new("gsettings")
                 .args(["set", "org.gnome.desktop.interface", "gtk-theme", name])
                 .status();
