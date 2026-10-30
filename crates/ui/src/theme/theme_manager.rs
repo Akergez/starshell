@@ -1,5 +1,6 @@
 use crate::theme::{AppTheme, Theme};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,13 @@ pub struct ThemeManager {
     pub selected_theme: Theme,
     pub last_modified: Option<std::time::SystemTime>,
     apps: Vec<Arc<dyn AppTheme>>,
+    applied: Arc<AppliedTheme>,
+}
+
+#[derive(Default)]
+struct AppliedTheme {
+    latest: AtomicU64,
+    applying: Mutex<()>,
 }
 
 impl gpui::Global for ThemeManager {}
@@ -57,11 +65,11 @@ impl ThemeManager {
             current_theme: theme,
             last_modified: mtime,
             apps,
+            applied: Arc::default(),
         };
         if let Err(error) = Self::save_selected_theme(&manager.selected_theme) {
             eprintln!("Failed to preserve selected theme: {error}");
         }
-        manager.apply_theme_to_apps();
         manager
     }
 
@@ -151,21 +159,27 @@ impl ThemeManager {
     pub fn apply_theme_to_apps(&self) {
         let theme = self.current_theme.clone();
         let apps = self.apps.clone();
+        let applied = self.applied.clone();
+        let generation = applied.latest.fetch_add(1, Ordering::SeqCst) + 1;
+        let apply = move || {
+            let _applying = applied
+                .applying
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            if applied.latest.load(Ordering::SeqCst) != generation {
+                return;
+            }
+            for app in &apps {
+                app.apply_current_theme(&theme);
+            }
+        };
 
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn_blocking(move || {
-                for app in &apps {
-                    app.apply_current_theme(&theme);
-                }
-            });
+            handle.spawn_blocking(apply);
         } else {
             std::thread::Builder::new()
                 .name("starshell-theme-apply".to_string())
-                .spawn(move || {
-                    for app in &apps {
-                        app.apply_current_theme(&theme);
-                    }
-                })
+                .spawn(apply)
                 .ok();
         }
     }

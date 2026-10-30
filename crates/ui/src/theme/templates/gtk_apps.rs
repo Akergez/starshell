@@ -5,6 +5,17 @@ use std::process::Command;
 
 pub struct GtkApps;
 
+impl GtkApps {
+    fn refresh_gtk_theme(gtk_theme_name: &str, is_dark: bool) {
+        let opposite_theme = if is_dark { "adw-gtk3" } else { "adw-gtk3-dark" };
+        for name in [opposite_theme, gtk_theme_name] {
+            let _ = Command::new("gsettings")
+                .args(["set", "org.gnome.desktop.interface", "gtk-theme", name])
+                .status();
+        }
+    }
+}
+
 impl AppTheme for GtkApps {
     fn apply_current_theme(&self, theme: &Theme) {
         let is_dark = matches!(theme.mode, ThemeMode::Dark);
@@ -126,6 +137,7 @@ impl AppTheme for GtkApps {
             }
         }
         self.reload_apps();
+        Self::refresh_gtk_theme(gtk_theme_name, is_dark);
     }
 
     fn reload_apps(&self) {
@@ -142,42 +154,6 @@ impl AppTheme for GtkApps {
                 .args(["--user", "restart", "xdg-desktop-portal-hyprland"])
                 .status();
         }
-
-        let _ = Command::new("gsettings")
-            .args(["get", "org.gnome.desktop.interface", "color-scheme"])
-            .status();
-
-        let current_theme = Command::new("gsettings")
-            .args(["get", "org.gnome.desktop.interface", "gtk-theme"])
-            .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-            .unwrap_or_else(|_| "'adw-gtk3-dark'".to_string());
-
-        let fallback_theme = if current_theme.contains("dark") {
-            "adw-gtk3"
-        } else {
-            "adw-gtk3-dark"
-        };
-
-        let target_theme = current_theme.trim_matches('\'');
-
-        let _ = Command::new("gsettings")
-            .args([
-                "set",
-                "org.gnome.desktop.interface",
-                "gtk-theme",
-                fallback_theme,
-            ])
-            .status();
-
-        let _ = Command::new("gsettings")
-            .args([
-                "set",
-                "org.gnome.desktop.interface",
-                "gtk-theme",
-                target_theme,
-            ])
-            .status();
 
         let _ = Command::new("nwg-look").arg("-a").status();
     }
