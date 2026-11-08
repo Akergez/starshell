@@ -240,7 +240,7 @@ fn read_keyboard_backlights() -> Vec<KeyboardBacklight> {
         .flatten()
         .filter_map(|entry| {
             let device = entry.file_name().to_string_lossy().into_owned();
-            if !device.ends_with("::kbd_backlight") {
+            if !is_keyboard_backlight(&device) {
                 return None;
             }
             let path = entry.path();
@@ -258,6 +258,10 @@ fn read_keyboard_backlights() -> Vec<KeyboardBacklight> {
         .collect();
     keyboards.sort_by(|left, right| left.id.cmp(&right.id));
     keyboards
+}
+
+fn is_keyboard_backlight(device: &str) -> bool {
+    device == "kbd_backlight" || device.ends_with("::kbd_backlight")
 }
 
 async fn detect_ddc() -> Vec<(String, Display)> {
@@ -360,6 +364,14 @@ mod tests {
         assert_eq!(keyboard.level_for(30), 1);
         assert_eq!(keyboard.level_for(80), 2);
         assert_eq!(keyboard.percent_of(1), 50);
+    }
+
+    #[test]
+    fn keyboard_backlights_match_with_or_without_driver_prefix() {
+        assert!(is_keyboard_backlight("kbd_backlight"));
+        assert!(is_keyboard_backlight("tpacpi::kbd_backlight"));
+        assert!(!is_keyboard_backlight("input1::capslock"));
+        assert!(!is_keyboard_backlight("kbd_backlight_extra"));
     }
 
     #[test]
