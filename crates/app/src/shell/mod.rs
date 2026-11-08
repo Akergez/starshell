@@ -40,7 +40,8 @@ impl Placement {
 
 #[derive(Default)]
 pub struct Shell {
-    bars: Vec<WindowHandle<Bar>>,
+    bars: Vec<(DisplayId, WindowHandle<Bar>)>,
+    dead_displays: Vec<DisplayId>,
     overlay: Option<WindowHandle<Overlay>>,
     overlay_display: Option<DisplayId>,
     overlay_sizes: Vec<(Option<DisplayId>, gpui::Size<Pixels>)>,
@@ -53,20 +54,11 @@ impl Shell {
     pub fn init(cx: &mut App) {
         cx.set_global(Shell::default());
         cx.spawn(async move |cx| {
-            let mut delay = std::time::Duration::from_millis(20);
             loop {
-                let ready = cx.update(|cx| {
-                    if cx.displays().is_empty() {
-                        return false;
-                    }
-                    Self::open_bars(cx);
-                    true
-                });
-                if ready {
-                    break;
-                }
-                cx.background_executor().timer(delay).await;
-                delay = (delay * 2).min(std::time::Duration::from_secs(1));
+                cx.update(Self::sync_bars);
+                cx.background_executor()
+                    .timer(std::time::Duration::from_secs(1))
+                    .await;
             }
         })
         .detach();
@@ -205,39 +197,53 @@ impl Shell {
 
     fn sync_bar_visibility(cx: &mut App) {
         let bars = cx.global::<Shell>().bars.clone();
-        for bar in bars {
+        for (_, bar) in bars {
             let _ = bar.update(cx, |bar, window, cx| bar.sync_visibility(window, cx));
         }
     }
 
-    fn open_bars(cx: &mut App) {
-        let displays: Vec<Option<DisplayId>> = cx
+    fn sync_bars(cx: &mut App) {
+        let bars = std::mem::take(&mut cx.global_mut::<Shell>().bars);
+        let (mut alive, closed): (Vec<_>, Vec<_>) = bars
+            .into_iter()
+            .partition(|(_, handle)| handle.read(cx).is_ok());
+        cx.global_mut::<Shell>()
+            .dead_displays
+            .extend(closed.into_iter().map(|(display, _)| display));
+        let dead = &cx.global::<Shell>().dead_displays;
+        let missing: Vec<DisplayId> = cx
             .displays()
             .iter()
-            .map(|display| Some(display.id()))
+            .map(|display| display.id())
+            .filter(|id| !dead.contains(id))
+            .filter(|id| alive.iter().all(|(display, _)| display != id))
             .collect();
-        let mut bars = Vec::new();
-        for id in displays {
-            let options = bar_options(id, cx);
-            match cx.open_window(options, |window, cx| {
-                window.set_rem_size(cx.global::<Theme>().font_size());
-                cx.new(|cx| Bar::new(id, window, cx))
-            }) {
-                Ok(handle) => bars.push(handle),
-                Err(error) => services::log_error!("Shell", "Failed to open bar: {error}"),
+        for display in missing {
+            if let Some(handle) = Self::open_bar(display, cx) {
+                alive.push((display, handle));
             }
         }
-        cx.global_mut::<Shell>().bars = bars;
+        cx.global_mut::<Shell>().bars = alive;
+    }
+
+    fn open_bar(display: DisplayId, cx: &mut App) -> Option<WindowHandle<Bar>> {
+        let options = bar_options(Some(display), cx);
+        cx.open_window(options, |window, cx| {
+            window.set_rem_size(cx.global::<Theme>().font_size());
+            cx.new(|cx| Bar::new(Some(display), window, cx))
+        })
+        .inspect_err(|error| services::log_error!("Shell", "Failed to open bar: {error}"))
+        .ok()
     }
 
     pub fn rebuild_bars(cx: &mut App) {
         cx.defer(|cx| {
             let bars = std::mem::take(&mut cx.global_mut::<Shell>().bars);
-            for bar in bars {
+            for (_, bar) in bars {
                 let _ = bar.update(cx, |_, window, _| window.remove_window());
             }
             Self::close_now(cx);
-            Self::open_bars(cx);
+            Self::sync_bars(cx);
         });
     }
 
