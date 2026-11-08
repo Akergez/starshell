@@ -147,15 +147,25 @@ impl IdleService {
                 crate::log_warn!("IDLE", "No logind session found; lock requests are ignored");
                 return;
             };
-            if let Ok(proxy) = zbus::Proxy::new(
+            let Ok(proxy) = zbus::Proxy::new(
                 &conn,
                 LOGIND,
                 session.as_str(),
                 "org.freedesktop.login1.Session",
             )
             .await
-                && let Ok(mut stream) = proxy.receive_signal("Lock").await
+            else {
+                return;
+            };
+            if proxy
+                .get_property::<bool>("LockedHint")
+                .await
+                .unwrap_or(false)
             {
+                crate::log_warn!("IDLE", "The session is still locked, locking it again");
+                push_ipc_command(IpcCommand::Lock);
+            }
+            if let Ok(mut stream) = proxy.receive_signal("Lock").await {
                 use futures::StreamExt;
                 while stream.next().await.is_some() {
                     push_ipc_command(IpcCommand::Lock);

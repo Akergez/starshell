@@ -11,6 +11,8 @@ use crate::view::LockScreen;
 // Outputs come back with new ids after sleep or hotplug, and every output needs a lock surface.
 const DISPLAY_CHECK_INTERVAL: Duration = Duration::from_secs(1);
 const FIRST_FRAME_DELAY: Duration = Duration::from_millis(200);
+const DISPLAY_WAIT_INTERVAL: Duration = Duration::from_millis(100);
+const DISPLAY_WAIT_ATTEMPTS: u32 = 50;
 
 #[derive(Default)]
 struct Surfaces {
@@ -27,6 +29,10 @@ pub fn init(cx: &mut App) {
 pub fn lock(cx: &mut App) {
     if cx.global::<Surfaces>().locked {
         services::report_session_locked();
+        return;
+    }
+    if cx.displays().is_empty() {
+        lock_once_displays_appear(cx);
         return;
     }
 
@@ -48,6 +54,21 @@ pub fn lock(cx: &mut App) {
     })
     .detach();
     watch_displays(cx);
+}
+
+// A lock requested right at startup can arrive before the compositor has announced its outputs.
+fn lock_once_displays_appear(cx: &mut App) {
+    cx.spawn(async move |cx| {
+        for _ in 0..DISPLAY_WAIT_ATTEMPTS {
+            cx.background_executor().timer(DISPLAY_WAIT_INTERVAL).await;
+            if cx.update(|cx| !cx.displays().is_empty()) {
+                cx.update(lock);
+                return;
+            }
+        }
+        services::log_error!("Lock", "No display appeared to lock");
+    })
+    .detach();
 }
 
 pub fn close_all(cx: &mut App) {

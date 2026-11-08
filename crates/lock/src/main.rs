@@ -3,20 +3,69 @@ mod state;
 mod surfaces;
 mod view;
 
+use std::path::Path;
+use std::process::Command;
+use std::time::{Duration, Instant};
+
 use assets::Assets;
 use gpui::{App, QuitMode};
 use gpui_platform::application;
 use services::IpcCommand;
 
 const SOCKET_NAME: &str = "starshell-lock";
+const SUPERVISED_ENV: &str = "STARSHELL_LOCK_SUPERVISED";
+const RESTART_DELAY: Duration = Duration::from_secs(1);
+const QUICK_CRASH_WINDOW: Duration = Duration::from_secs(10);
+const MAX_QUICK_CRASHES: u32 = 5;
 
 fn main() -> std::io::Result<()> {
+    if std::env::args().len() == 1 && std::env::var_os(SUPERVISED_ENV).is_none() {
+        return supervise();
+    }
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let _runtime_context = runtime.enter();
     run();
     Ok(())
+}
+
+// A lock client that dies leaves the compositor locked with nothing to type the password into,
+// so the daemon is restarted and locks again on its own.
+fn supervise() -> std::io::Result<()> {
+    services::init_logger();
+    let program = std::env::args_os()
+        .next()
+        .map_or_else(std::env::current_exe, |program| Ok(program.into()))?;
+    let mut quick_crashes = 0;
+    loop {
+        let started = Instant::now();
+        let status = Command::new(&program).env(SUPERVISED_ENV, "1").status()?;
+        if status.success() || !compositor_running() {
+            return Ok(());
+        }
+        quick_crashes = if started.elapsed() < QUICK_CRASH_WINDOW {
+            quick_crashes + 1
+        } else {
+            0
+        };
+        if quick_crashes >= MAX_QUICK_CRASHES {
+            services::log_error!("Lock", "The daemon keeps crashing ({status}), giving up");
+            return Err(std::io::Error::other("starshell-lock keeps crashing"));
+        }
+        services::log_error!("Lock", "The daemon exited ({status}), restarting");
+        std::thread::sleep(RESTART_DELAY);
+    }
+}
+
+fn compositor_running() -> bool {
+    let (Some(runtime_dir), Some(display)) = (
+        std::env::var_os("XDG_RUNTIME_DIR"),
+        std::env::var_os("WAYLAND_DISPLAY"),
+    ) else {
+        return false;
+    };
+    Path::new(&runtime_dir).join(display).exists()
 }
 
 fn run() {
