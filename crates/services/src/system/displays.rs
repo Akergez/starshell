@@ -31,10 +31,29 @@ pub struct Display {
     pub brightness: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyboardBacklight {
+    pub id: String,
+    pub device: String,
+    pub brightness: u32,
+    max: u64,
+}
+
+impl KeyboardBacklight {
+    fn level_for(&self, percent: u32) -> u64 {
+        (percent.min(100) as f64 / 100.0 * self.max as f64).round() as u64
+    }
+
+    fn percent_of(&self, level: u64) -> u32 {
+        ((level as f64 / self.max as f64) * 100.0).round() as u32
+    }
+}
+
 #[derive(Clone)]
 pub struct DisplayService {
     displays: Arc<ArcSwap<Vec<Display>>>,
-    requests: mpsc::UnboundedSender<(String, u32)>,
+    keyboard_backlights: Arc<ArcSwap<Vec<KeyboardBacklight>>>,
+    requests: mpsc::UnboundedSender<(String, String)>,
 }
 
 impl Default for DisplayService {
@@ -49,6 +68,7 @@ impl DisplayService {
         let (requests, receiver) = mpsc::unbounded_channel();
         let service = Self {
             displays: Arc::new(ArcSwap::from_pointee(read_backlights())),
+            keyboard_backlights: Arc::new(ArcSwap::from_pointee(read_keyboard_backlights())),
             requests,
         };
         crate::spawn_tokio(service.clone().apply_requests(receiver));
@@ -67,7 +87,22 @@ impl DisplayService {
             display.brightness = percent;
         }
         self.displays.store(Arc::new(displays));
-        let _ = self.requests.send((id.to_string(), percent));
+        let _ = self.requests.send((id.to_string(), format!("{percent}%")));
+    }
+
+    pub fn get_keyboard_backlights(&self) -> Arc<Vec<KeyboardBacklight>> {
+        self.keyboard_backlights.load_full()
+    }
+
+    pub fn set_keyboard_brightness(&self, id: &str, percent: u32) {
+        let mut keyboards = (**self.keyboard_backlights.load()).clone();
+        let Some(keyboard) = keyboards.iter_mut().find(|keyboard| keyboard.id == id) else {
+            return;
+        };
+        let level = keyboard.level_for(percent);
+        keyboard.brightness = keyboard.percent_of(level);
+        self.keyboard_backlights.store(Arc::new(keyboards));
+        let _ = self.requests.send((id.to_string(), level.to_string()));
     }
 
     pub fn set_all(&self, percent: u32) {
@@ -102,25 +137,29 @@ impl DisplayService {
             if *current != displays {
                 self.displays.store(Arc::new(displays));
             }
+            let keyboards = read_keyboard_backlights();
+            if *self.keyboard_backlights.load_full() != keyboards {
+                self.keyboard_backlights.store(Arc::new(keyboards));
+            }
             ticks = ticks.wrapping_add(1);
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
 
-    async fn apply_requests(self, mut receiver: mpsc::UnboundedReceiver<(String, u32)>) {
+    async fn apply_requests(self, mut receiver: mpsc::UnboundedReceiver<(String, String)>) {
         while let Some(first) = receiver.recv().await {
             let mut pending = HashMap::from([first]);
-            while let Ok((id, percent)) = receiver.try_recv() {
-                pending.insert(id, percent);
+            while let Ok((id, value)) = receiver.try_recv() {
+                pending.insert(id, value);
             }
-            for (id, percent) in pending {
-                let result = if let Some(device) = id.strip_prefix("backlight:") {
-                    run(
-                        "brightnessctl",
-                        &["--device", device, "set", &format!("{percent}%")],
-                    )
-                    .await
-                    .map(drop)
+            for (id, value) in pending {
+                let result = if let Some(device) = id
+                    .strip_prefix("backlight:")
+                    .or_else(|| id.strip_prefix("keyboard:"))
+                {
+                    run("brightnessctl", &["--device", device, "set", &value])
+                        .await
+                        .map(drop)
                 } else if let Some(display_number) = id.strip_prefix("ddc:") {
                     run(
                         "ddcutil",
@@ -129,7 +168,7 @@ impl DisplayService {
                             display_number,
                             "setvcp",
                             "10",
-                            &percent.to_string(),
+                            value.trim_end_matches('%'),
                         ],
                     )
                     .await
@@ -191,6 +230,34 @@ fn read_backlights() -> Vec<Display> {
         .collect();
     displays.sort_by(|left, right| left.id.cmp(&right.id));
     displays
+}
+
+fn read_keyboard_backlights() -> Vec<KeyboardBacklight> {
+    let Ok(entries) = std::fs::read_dir("/sys/class/leds") else {
+        return Vec::new();
+    };
+    let mut keyboards: Vec<KeyboardBacklight> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let device = entry.file_name().to_string_lossy().into_owned();
+            if !device.ends_with("::kbd_backlight") {
+                return None;
+            }
+            let path = entry.path();
+            let max = read_number(&path.join("max_brightness")).filter(|max| *max > 0)?;
+            let current = read_number(&path.join("brightness"))?;
+            let mut keyboard = KeyboardBacklight {
+                id: format!("keyboard:{device}"),
+                device,
+                brightness: 0,
+                max,
+            };
+            keyboard.brightness = keyboard.percent_of(current.min(max));
+            Some(keyboard)
+        })
+        .collect();
+    keyboards.sort_by(|left, right| left.id.cmp(&right.id));
+    keyboards
 }
 
 async fn detect_ddc() -> Vec<(String, Display)> {
@@ -279,6 +346,20 @@ mod tests {
         assert_eq!(display.connector, "DP-2");
         assert_eq!(display.name, "DELL U2720Q");
         assert_eq!(display.backend.label(), "DDC/CI");
+    }
+
+    #[test]
+    fn keyboard_brightness_snaps_to_device_levels() {
+        let keyboard = KeyboardBacklight {
+            id: "keyboard:tpacpi::kbd_backlight".to_string(),
+            device: "tpacpi::kbd_backlight".to_string(),
+            brightness: 0,
+            max: 2,
+        };
+        assert_eq!(keyboard.level_for(0), 0);
+        assert_eq!(keyboard.level_for(30), 1);
+        assert_eq!(keyboard.level_for(80), 2);
+        assert_eq!(keyboard.percent_of(1), 50);
     }
 
     #[test]

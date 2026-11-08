@@ -418,7 +418,7 @@ impl Bar {
                 )
             }
             BarModule::Displays => {
-                if snapshot.displays.is_empty() {
+                if snapshot.displays.is_empty() && snapshot.keyboard_backlights.is_empty() {
                     return None;
                 }
                 self.applet_chip(

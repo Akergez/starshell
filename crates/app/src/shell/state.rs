@@ -4,8 +4,8 @@ use std::time::Duration;
 use chrono::Local;
 use gpui::{App, AppContext, Context, Entity, Global, Task};
 use services::{
-    AppState, BatteryStatus, CaptureStatus, Display, MediaTrack, NetworkStatus, NotificationStore,
-    PowerProfile, RecordStatus, SniItem, SystemStatus, VpnStatus, WorkspaceInfo,
+    AppState, BatteryStatus, CaptureStatus, Display, KeyboardBacklight, MediaTrack, NetworkStatus,
+    NotificationStore, PowerProfile, RecordStatus, SniItem, SystemStatus, VpnStatus, WorkspaceInfo,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +21,7 @@ pub struct Snapshot {
     pub audio: SystemStatus,
     pub capture: CaptureStatus,
     pub displays: Arc<Vec<Display>>,
+    pub keyboard_backlights: Arc<Vec<KeyboardBacklight>>,
     pub players: Arc<Vec<MediaTrack>>,
     pub notification_count: usize,
     pub do_not_disturb: bool,
@@ -53,6 +54,7 @@ impl Snapshot {
             audio: state.system.get_status(),
             capture: state.system.get_capture_status(),
             displays: state.displays.get_displays(),
+            keyboard_backlights: state.displays.get_keyboard_backlights(),
             players: state.mpris.get_all_players(),
             notification_count: notifications.get_all_notifications().len(),
             do_not_disturb: notifications.is_dnd_enabled(),

@@ -229,6 +229,7 @@ mod tests {
             audio: Default::default(),
             capture: Default::default(),
             displays: Default::default(),
+            keyboard_backlights: Default::default(),
             players: Default::default(),
             notification_count: 0,
             do_not_disturb: false,

@@ -164,5 +164,11 @@ impl Render for ControlCenter {
                     .iter()
                     .map(|display| common::display_row(&theme, display)),
             )
+            .children(
+                snapshot
+                    .keyboard_backlights
+                    .iter()
+                    .map(|keyboard| common::keyboard_backlight_row(&theme, keyboard)),
+            )
     }
 }

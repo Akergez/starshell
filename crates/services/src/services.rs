@@ -63,7 +63,7 @@ pub use record::{
 };
 pub use system::{
     AppStream, AudioSink, AudioSource, CaptureStatus, Display, DisplayBackend, DisplayService,
-    SystemService, SystemStatus,
+    KeyboardBacklight, SystemService, SystemStatus,
 };
 pub use tray::{SniHostService, SniItem, TrayAction, TrayService};
 

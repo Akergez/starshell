@@ -1,5 +1,5 @@
 use gpui::{AnyElement, IntoElement, prelude::FluentBuilder};
-use services::{AppState, Display, SystemStatus};
+use services::{AppState, Display, KeyboardBacklight, SystemStatus};
 use ui::components::{Slider, SliderRow};
 use ui::theme::Theme;
 
@@ -108,6 +108,25 @@ pub fn display_row(theme: &Theme, display: &Display) -> AnyElement {
             ShellState::refresh_now(cx);
         }),
         display.brightness.min(100) as f32 / 100.0,
+    )
+    .into_any_element()
+}
+
+pub fn keyboard_backlight_row(theme: &Theme, keyboard: &KeyboardBacklight) -> AnyElement {
+    let id = keyboard.id.clone();
+    SliderRow::new(
+        SliderRow::icon(theme, "keyboard.svg"),
+        "Keyboard backlight",
+        Slider::new(gpui::ElementId::Name(keyboard.id.clone().into())).on_change(
+            move |fraction, _, cx| {
+                let percent = (fraction * 100.0).round() as u32;
+                cx.global::<AppState>()
+                    .displays
+                    .set_keyboard_brightness(&id, percent);
+                ShellState::refresh_now(cx);
+            },
+        ),
+        keyboard.brightness.min(100) as f32 / 100.0,
     )
     .into_any_element()
 }

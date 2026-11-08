@@ -11,7 +11,7 @@ mod usage;
 
 pub use audio::{AppStream, AudioSink, AudioSource};
 pub use capture::CaptureStatus;
-pub use displays::{Display, DisplayBackend, DisplayService};
+pub use displays::{Display, DisplayBackend, DisplayService, KeyboardBacklight};
 pub use usage::UsageStatus;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

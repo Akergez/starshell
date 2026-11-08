@@ -7,6 +7,7 @@ use ui::components::{Slider, SliderRow, Switch, caption, card, panel};
 use ui::theme::Theme;
 use ui::tokens::{IconSize, Spacing, TextSize};
 
+use super::common;
 use crate::shell::state::ShellState;
 
 #[derive(Default)]
@@ -36,7 +37,9 @@ impl DisplaysApplet {
 impl Render for DisplaysApplet {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>().clone();
-        let displays = self.state.read(cx).snapshot.displays.clone();
+        let snapshot = &self.state.read(cx).snapshot;
+        let displays = snapshot.displays.clone();
+        let keyboard_backlights = snapshot.keyboard_backlights.clone();
         let linked = cx.global::<LinkedBrightness>().0;
         let small = TextSize::Small.pixels(theme.font_size);
 
@@ -119,5 +122,10 @@ impl Render for DisplaysApplet {
                         )),
                 )
             })
+            .children(keyboard_backlights.iter().map(|keyboard| {
+                card(&theme)
+                    .w_full()
+                    .child(common::keyboard_backlight_row(&theme, keyboard))
+            }))
     }
 }
