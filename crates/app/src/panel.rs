@@ -1,28 +1,23 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use gpui::{
     AppContext, LinuxWindowBackground, WindowBounds, WindowHandle, WindowKind, WindowOptions,
     layer_shell::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions},
     px,
 };
+use ui::theme::Theme;
 
 use crate::settings::Settings;
-
-static IS_SETTINGS_OPEN: AtomicBool = AtomicBool::new(false);
 
 pub struct SettingsPanel;
 
 impl SettingsPanel {
-    pub fn is_open() -> bool {
-        IS_SETTINGS_OPEN.load(Ordering::SeqCst)
-    }
-
-    pub fn mark_closed() {
-        IS_SETTINGS_OPEN.store(false, Ordering::SeqCst);
+    fn window(cx: &gpui::App) -> Option<WindowHandle<Settings>> {
+        cx.windows()
+            .into_iter()
+            .find_map(|window| window.downcast::<Settings>())
     }
 
     pub fn window_options(cx: &gpui::App) -> WindowOptions {
-        let display_id = cx.displays().first().map(|display| display.id());
+        let display_id = cx.primary_display().map(|display| display.id());
         Self::surface_options(
             display_id,
             crate::shell::initial_overlay_size(display_id, cx),
@@ -56,19 +51,22 @@ impl SettingsPanel {
     }
 
     pub fn open(cx: &mut gpui::App) -> Option<WindowHandle<Settings>> {
-        if IS_SETTINGS_OPEN
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_err()
+        if let Some(handle) = Self::window(cx)
+            && handle
+                .update(cx, |settings, window, cx| settings.reopen(window, cx))
+                .is_ok()
         {
-            return None;
+            return Some(handle);
         }
 
         let options = Self::window_options(cx);
 
-        match cx.open_window(options, |window, cx| cx.new(|cx| Settings::new(window, cx))) {
+        match cx.open_window(options, |window, cx| {
+            window.set_rem_size(cx.global::<Theme>().font_size());
+            cx.new(|cx| Settings::new(window, cx))
+        }) {
             Ok(w) => Some(w),
             Err(err) => {
-                IS_SETTINGS_OPEN.store(false, Ordering::SeqCst);
                 services::log_error!("Shell", "Failed to open settings window: {err}");
                 None
             }
@@ -86,7 +84,7 @@ impl SettingsPanel {
     }
 
     pub fn toggle(cx: &mut gpui::App) {
-        if Self::is_open() {
+        if Self::window(cx).is_some() {
             Self::close(cx);
         } else {
             Self::open(cx);

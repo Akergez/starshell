@@ -12,7 +12,6 @@ use std::time::{Duration, Instant};
 use gpui::{Context, FocusHandle, IntoElement, Render, ScrollHandle, Window};
 use ui::components::InputState;
 
-use crate::panel::SettingsPanel;
 use animator::SettingsAnimator;
 use sidebar::{SettingsTab, Sidebar};
 use views::{
@@ -87,19 +86,31 @@ impl Settings {
         None
     }
 
+    pub fn reopen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.animator.cancel_close();
+        window.focus(&self.focus_handle, cx);
+        self.ensure_frame(cx);
+        cx.notify();
+    }
+
+    fn ensure_frame(&mut self, cx: &mut Context<Self>) {
+        if self.frame_pending {
+            return;
+        }
+        self.frame_pending = true;
+        let entity = cx.entity().downgrade();
+        let handle = self.handle;
+        cx.defer(move |cx| {
+            let _ = handle.update(cx, |_, window, _| Self::queue_frame(window, entity));
+        });
+    }
+
     pub fn request_close(&mut self, cx: &mut Context<Self>) {
         if self.animator.is_closing() {
             return;
         }
         self.animator.request_close();
-        if !self.frame_pending {
-            self.frame_pending = true;
-            let entity = cx.entity().downgrade();
-            let handle = self.handle;
-            cx.defer(move |cx| {
-                let _ = handle.update(cx, |_, window, _| Self::queue_frame(window, entity));
-            });
-        }
+        self.ensure_frame(cx);
         cx.notify();
     }
 
@@ -116,14 +127,7 @@ impl Settings {
                 ui::tokens::motion::FAST
             };
             self.animator.start_section_transition(duration);
-            if !self.frame_pending {
-                self.frame_pending = true;
-                let entity = cx.entity().downgrade();
-                let handle = self.handle;
-                cx.defer(move |cx| {
-                    let _ = handle.update(cx, |_, window, _| Self::queue_frame(window, entity));
-                });
-            }
+            self.ensure_frame(cx);
             cx.notify();
         }
     }
@@ -143,12 +147,6 @@ impl Settings {
                 }
             });
         });
-    }
-}
-
-impl Drop for Settings {
-    fn drop(&mut self) {
-        SettingsPanel::mark_closed();
     }
 }
 

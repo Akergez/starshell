@@ -45,6 +45,13 @@ impl SettingsAnimator {
         self.close_start.is_some()
     }
 
+    pub fn cancel_close(&mut self) {
+        if self.close_start.take().is_some() {
+            self.offset_y = 0.0;
+            self.card_opacity = 1.0;
+        }
+    }
+
     pub fn start_section_transition(&mut self, duration: Duration) {
         self.section_duration = duration;
         self.section_start = Instant::now();
@@ -105,5 +112,23 @@ impl SettingsAnimator {
         }
 
         (running, closed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_closing_card_can_be_shown_again() {
+        let mut animator = SettingsAnimator::new(0);
+        animator.request_close();
+        assert!(animator.is_closing());
+
+        animator.cancel_close();
+
+        assert!(!animator.is_closing());
+        assert_eq!(animator.offset_y, 0.0);
+        assert_eq!(animator.card_opacity, 1.0);
     }
 }
